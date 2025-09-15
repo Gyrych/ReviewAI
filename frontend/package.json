@@ -11,6 +11,11 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
+  "optionalDependencies": {
+    "react-markdown": "^8.0.7",
+    "react-syntax-highlighter": "^15.6.6",
+    "remark-gfm": "^3.0.1"
+  },
   "devDependencies": {
     "@types/react": "^18.2.21",
     "@types/react-dom": "^18.2.7",
@@ -22,5 +27,3 @@
     "vite": "^5.2.0"
   }
 }
-
-
