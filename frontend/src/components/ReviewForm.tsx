@@ -2,7 +2,9 @@ import React, { useState } from 'react'
 import FileUpload from './FileUpload'
 
 export default function ReviewForm({ onResult }: { onResult: (markdown: string) => void }) {
+  // apiUrl: backend endpoint to POST to (fixed); modelApiUrl: external model's API URL
   const [apiUrl, setApiUrl] = useState('/api/review')
+  const [modelApiUrl, setModelApiUrl] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [requirements, setRequirements] = useState('')
@@ -20,6 +22,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
       const fd = new FormData()
       files.forEach((f) => fd.append('files', f))
       fd.append('model', model)
+      fd.append('apiUrl', modelApiUrl)
       fd.append('requirements', requirements)
       fd.append('specs', specs)
       fd.append('reviewGuidelines', reviewGuidelines)
@@ -27,6 +30,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
       const headers: Record<string, string> = {}
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
+      // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       const res = await fetch(apiUrl || '/api/review', { method: 'POST', body: fd, headers })
       if (!res.ok) {
         const txt = await res.text()
@@ -51,8 +55,12 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700">API 地址</label>
+        <label className="block text-sm font-medium text-gray-700">后端 API 地址</label>
         <input value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2" />
+        <div className="mt-2">
+          <label className="block text-sm font-medium text-gray-700">模型 API 地址（外部）</label>
+          <input value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} placeholder="https://api.model.example/v1" className="mt-1 block w-full rounded-md border px-3 py-2" />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">

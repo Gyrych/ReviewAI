@@ -1,0 +1,125 @@
+{"ts":"2025-09-16T05:28:40.182Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"deepseek-chat"}}
+{"ts":"2025-09-16T05:28:41.189Z","level":"error","message":"api/review error","meta":{"error":"llm upstream error: 404 "}}
+{"ts":"2025-09-16T05:40:58.815Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"deepseek-chat "}}
+{"ts":"2025-09-16T05:40:58.819Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T05:40:59.504Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T05:40:59.505Z","level":"error","message":"api/review error","meta":{"error":"llm upstream error: status 404 "}}
+{"ts":"2025-09-16T05:45:01.008Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"deepseek-chat"}}
+{"ts":"2025-09-16T05:45:01.011Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T05:45:01.657Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T05:45:01.657Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/responses"}}
+{"ts":"2025-09-16T05:45:01.826Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/responses","status":404}}
+{"ts":"2025-09-16T05:45:01.827Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/v1/chat"}}
+{"ts":"2025-09-16T05:45:01.972Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1/chat","status":404}}
+{"ts":"2025-09-16T05:45:01.974Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/v1/responses"}}
+{"ts":"2025-09-16T05:45:02.140Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1/responses","status":404}}
+{"ts":"2025-09-16T05:45:02.140Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://api.deepseek.com/v1/completions"}}
+{"ts":"2025-09-16T05:45:02.294Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1/completions","status":400}}
+{"ts":"2025-09-16T05:45:02.294Z","level":"error","message":"api/review error","meta":{"error":"llm upstream error: status 400 {\"error\":{\"message\":\"completions api is only available when using beta api (set base_url=\\\"https://api.deepseek.com/beta\\\")\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\"}"}}
+{"ts":"2025-09-16T05:52:22.572Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T05:52:22.575Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T05:52:22.576Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T05:52:23.619Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T05:52:23.620Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T05:59:46.776Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T05:59:46.780Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T05:59:46.781Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T05:59:47.497Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T05:59:47.498Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T05:59:47.652Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T05:59:47.653Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T05:59:47.816Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T05:59:47.817Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T05:59:47.974Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T05:59:47.975Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T06:09:27.349Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T06:09:27.352Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T06:09:27.353Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:09:28.049Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:09:28.049Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:09:28.202Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:09:28.203Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:09:28.367Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:09:28.367Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:09:28.524Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:09:28.525Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:09:28.695Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:09:28.696Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:09:28.845Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:09:28.845Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:09:29.007Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:09:29.008Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:09:29.168Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:09:29.169Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:09:29.385Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:09:29.386Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T06:09:29.560Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T06:09:29.561Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T06:09:29.726Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T06:09:29.726Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/v1"}}
+{"ts":"2025-09-16T06:09:29.880Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/v1","status":404}}
+{"ts":"2025-09-16T06:09:29.880Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T06:14:09.782Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T06:14:09.785Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T06:14:09.786Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:14:10.376Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:14:19.127Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:14:19.128Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:14:19.217Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:14:30.291Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:14:30.292Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:14:30.377Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:14:37.648Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:14:37.649Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T06:14:37.843Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T06:14:37.844Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T06:14:38.001Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T06:14:38.002Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T06:14:38.160Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T06:14:38.161Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T06:14:38.328Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T06:14:38.329Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T06:14:38.482Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T06:14:38.482Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T06:14:38.640Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T06:14:38.641Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T06:14:38.724Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T06:14:45.529Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":400}}
+{"ts":"2025-09-16T06:14:45.529Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T06:14:45.630Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T06:14:58.137Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":400}}
+{"ts":"2025-09-16T06:14:58.138Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T06:14:58.218Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T06:15:05.474Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":400}}
+{"ts":"2025-09-16T06:15:05.475Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:15:05.690Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:15:05.690Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:15:05.843Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:15:05.843Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/responses"}}
+{"ts":"2025-09-16T06:15:06.032Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/responses","status":404}}
+{"ts":"2025-09-16T06:15:06.033Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:15:06.201Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:15:06.202Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:15:06.404Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:15:06.404Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T06:15:06.604Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T06:15:06.604Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:15:06.771Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:15:06.772Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:15:06.921Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:15:06.922Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta"}}
+{"ts":"2025-09-16T06:15:07.083Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta","status":404}}
+{"ts":"2025-09-16T06:15:07.084Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:15:07.171Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:15:15.373Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:15:15.374Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:15:15.458Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:15:23.929Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:15:23.930Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:15:24.008Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T06:15:32.408Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":400}}
+{"ts":"2025-09-16T06:15:32.409Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 400 {\"error\":{\"message\":\"Failed to deserialize the JSON body into the target type: missing field `messages` at line 1 column 195\",\"type\":\"invalid_request_error\",\"param\":null,\"code\":\"invalid_request_error\""}}
+{"ts":"2025-09-16T06:21:16.430Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T06:21:16.434Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T06:21:16.435Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T06:21:16.987Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
