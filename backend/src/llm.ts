@@ -4,13 +4,22 @@ import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, reviewGuidelines: string, apiUrl: string, model: string, authHeader?: string): Promise<string> {
+export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, reviewGuidelines: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for LLM call')
   }
   // 构建 prompt
-  const system = `You are an expert circuit design reviewer. Given a JSON describing components and their connections, produce a Markdown review containing: Summary, Issues found, Suggestions, and a final verdict.`
-  const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nReview guidelines:\n${reviewGuidelines}\n\nPlease output only Markdown.`
+  const systemBase = `You are an expert circuit design reviewer. Given a JSON describing components and their connections, produce a Markdown review containing: Summary, Issues found, Suggestions, and a final verdict.`
+  const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}` : systemBase
+  // include history as additional context
+  let historyText = ''
+  if (history && Array.isArray(history) && history.length > 0) {
+    historyText = '\n\nConversation history:\n'
+    for (const h of history) {
+      historyText += `${h.role}: ${h.content}\n`
+    }
+  }
+  const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nReview guidelines:\n${reviewGuidelines}${historyText}\n\nPlease output only Markdown.`
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
   const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }] }

@@ -20,6 +20,19 @@ app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from backend' })
 })
 
+// 返回系统提示词文件内容（用于前端每次提交前加载最新提示）
+app.get('/api/system-prompt', (req, res) => {
+  try {
+    const p = path.resolve(__dirname, '..', '..', '系统提示词.md')
+    if (!fs.existsSync(p)) return res.status(404).json({ error: 'system prompt file not found' })
+    const txt = fs.readFileSync(p, { encoding: 'utf8' })
+    res.type('text/plain').send(txt)
+  } catch (e: any) {
+    logError('read system prompt failed', { error: String(e) })
+    res.status(500).json({ error: 'failed to read system prompt' })
+  }
+})
+
 // POST /api/review
 // 接收前端上传的图片（任意数量）和表单参数，使用 multer 处理文件
 // 流程：1) 验证 model 字段 2) 若有图片，调用 vision.extractCircuitJsonFromImages 3) 调用 llm.generateMarkdownReview 4) 返回 { markdown }
@@ -27,9 +40,24 @@ app.post('/api/review', upload.any(), async (req, res) => {
   try {
     const body = req.body || {}
     const model = body.model || null
-    const requirements = body.requirements || ''
-    const specs = body.specs || ''
-    const reviewGuidelines = body.reviewGuidelines || ''
+    // Accept either individual fields or a combined systemPrompts JSON
+    let requirements = body.requirements || ''
+    let specs = body.specs || ''
+    let reviewGuidelines = body.reviewGuidelines || ''
+    let systemPrompt = ''
+    if (body.systemPrompts) {
+      try {
+        const sp = typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts
+        if (sp) {
+          systemPrompt = sp.systemPrompt || ''
+          requirements = (systemPrompt ? systemPrompt + '\n\n' : '') + (sp.requirements || requirements)
+          specs = (sp.specs || specs)
+          reviewGuidelines = (sp.reviewGuidelines || reviewGuidelines)
+        }
+      } catch (e) {
+        // ignore parse errors
+      }
+    }
 
     if (!model) {
       return res.status(400).json({ error: 'model missing: please specify model (gpt-5)' })
@@ -37,6 +65,15 @@ app.post('/api/review', upload.any(), async (req, res) => {
 
     // 透传 Authorization 头（但不记录）
     const authHeader = req.header('authorization') || undefined
+    // accept history if provided
+    let history: any[] = []
+    if (body.history) {
+      try {
+        history = typeof body.history === 'string' ? JSON.parse(body.history) : body.history
+      } catch (e) {
+        history = []
+      }
+    }
     // 先收集 multer 保存的文件信息（只保留 image/*），以便 provider 分支使用
     const maybeFiles = (req as any).files
     const files = Array.isArray(maybeFiles) ? maybeFiles.filter((f: any) => f.mimetype && f.mimetype.startsWith('image/')) : []
@@ -62,7 +99,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
       // 如果用户提供的是 base URL（例如 https://api.deepseek.com/v1），deepseekTextDialog 会尝试直接调用该 URL；
       // 我们希望记录尝试的 origin 以便排查，但不要记录敏感头部。
       logInfo('api/review forwarding to deepseek', { apiHost: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })() })
-      const reply = await deepseekTextDialog(apiUrl, message, model, authHeader)
+      const reply = await deepseekTextDialog(apiUrl, message, model, authHeader, systemPrompt, history)
       return res.json({ markdown: reply })
     }
 
@@ -79,7 +116,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
     }
 
     // 调用 llm 生成 Markdown 评审
-    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, reviewGuidelines, apiUrl, model, authHeader)
+    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, reviewGuidelines, apiUrl, model, authHeader, systemPrompt, history)
 
     // 返回结果
     res.json({ markdown })

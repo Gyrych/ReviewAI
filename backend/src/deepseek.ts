@@ -4,10 +4,17 @@ import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat', '/chat/completions', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function deepseekTextDialog(apiUrl: string, message: string, model?: string, authHeader?: string): Promise<string> {
+export async function deepseekTextDialog(apiUrl: string, message: string, model?: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
   if (!apiUrl) throw new Error('apiUrl missing for deepseek')
   const useModel = model && String(model).trim().length > 0 ? model : 'deepseek-chat'
-  const payloadMsg = { model: useModel, messages: [{ role: 'user', content: message }], stream: false }
+  // build messages: optional system prompt, optional history, then user message
+  const msgs: any[] = []
+  if (systemPrompt && String(systemPrompt).trim().length > 0) msgs.push({ role: 'system', content: systemPrompt })
+  if (Array.isArray(history) && history.length > 0) {
+    for (const h of history) msgs.push({ role: h.role, content: h.content })
+  }
+  msgs.push({ role: 'user', content: message })
+  const payloadMsg = { model: useModel, messages: msgs, stream: false }
   const headers: any = { 'Content-Type': 'application/json' }
   if (authHeader) headers['Authorization'] = authHeader
 
@@ -18,12 +25,10 @@ export async function deepseekTextDialog(apiUrl: string, message: string, model?
     const host = (u.hostname || '').toLowerCase()
     const isDeepseek = host.includes('deepseek.com')
     if (isDeepseek) {
+      // Prefer chat/completions then beta/chat/completions
       urlsToTry.push(u.origin + '/chat/completions')
-      urlsToTry.push(u.origin + '/chat')
-      urlsToTry.push(u.origin + '/completions')
       const betaBase = u.origin + '/beta'
       urlsToTry.push(betaBase + '/chat/completions')
-      urlsToTry.push(betaBase + '/chat')
     } else {
       if (u.pathname && u.pathname !== '/') {
         urlsToTry.push(apiUrl)
@@ -52,7 +57,7 @@ export async function deepseekTextDialog(apiUrl: string, message: string, model?
     for (const tryHeaders of altHeaderSets) {
       try {
         logInfo('deepseek.try', { tryUrl })
-        const resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payloadMsg), headers: tryHeaders, timeout: 15000 })
+        const resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payloadMsg), headers: tryHeaders, timeout: 60000 })
         if (resp.ok) {
           logInfo('deepseek.try.success', { tryUrl, status: resp.status })
           const txt = await resp.text()

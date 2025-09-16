@@ -123,3 +123,232 @@
 {"ts":"2025-09-16T06:21:16.434Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
 {"ts":"2025-09-16T06:21:16.435Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
 {"ts":"2025-09-16T06:21:16.987Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T10:16:14.497Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T10:19:32.980Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T10:19:32.981Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T10:19:32.983Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T10:19:33.452Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T10:19:48.469Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T10:19:48.469Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T10:19:48.718Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T10:20:03.721Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T10:20:03.721Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T10:20:03.970Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T10:20:18.540Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T10:20:18.541Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T10:20:18.541Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T10:20:18.824Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T10:20:18.975Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T10:20:18.976Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T10:20:19.254Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T10:20:19.255Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T10:20:19.327Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T10:20:19.328Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T10:20:19.406Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T10:20:19.407Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T10:20:19.488Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T10:20:19.489Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T10:20:19.563Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T10:20:19.563Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T10:20:19.650Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T10:20:19.651Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T10:20:19.732Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:05:49.809Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:05:49.809Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:05:49.810Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:05:50.517Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:06:05.528Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:06:05.529Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:06:05.956Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:06:20.960Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:06:20.961Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:06:21.436Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:06:36.453Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:06:36.453Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:06:36.797Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:06:36.797Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:06:36.922Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:06:36.923Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:06:37.039Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:06:37.039Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:06:37.159Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:06:37.159Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:06:37.286Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:06:37.287Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:06:37.400Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:06:37.400Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:06:37.552Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:06:52.560Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:06:52.561Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:06:53.193Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:07:08.200Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:07:08.201Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:07:08.589Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:07:23.602Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:07:23.603Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:07:23.960Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:07:23.961Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:07:24.074Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:07:24.074Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:07:24.153Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:07:24.154Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T11:08:52.327Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:08:52.328Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:08:52.329Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:08:52.944Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:09:07.954Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:09:07.955Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:09:08.348Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:09:23.354Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:09:23.355Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:09:23.783Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:09:38.789Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:09:38.790Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:09:39.150Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:09:39.151Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:09:39.239Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:09:39.240Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:09:39.354Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:09:39.355Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:09:39.474Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:09:39.475Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:09:39.594Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:09:39.595Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:09:39.709Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:09:39.709Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:09:39.828Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:09:54.835Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:09:54.836Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:09:55.456Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:10:10.469Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:10:10.471Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:10:10.863Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:10:25.873Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:10:25.874Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:10:26.267Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:10:26.268Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:10:26.358Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:10:26.358Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:10:26.473Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:10:26.475Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T11:11:06.819Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:11:06.820Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:11:06.821Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:11:07.476Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:11:22.479Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:11:22.481Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:11:22.872Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:11:37.887Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:11:37.888Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:11:38.296Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:11:53.298Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:11:53.299Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:11:53.875Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:11:53.875Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:11:54.829Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:11:54.830Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:11:54.957Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:11:54.958Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:11:55.080Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:11:55.081Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:11:55.199Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:11:55.200Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:11:55.324Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:11:55.325Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:11:55.527Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:01.516Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:12:01.516Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:12:01.517Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:12:01.706Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:10.537Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:10.538Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:12:10.904Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:16.721Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:16.722Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:12:17.107Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:25.908Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:25.909Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:12:26.511Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:32.112Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:32.113Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:12:32.263Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:12:41.519Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:41.520Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:12:41.634Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:12:41.635Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:12:41.752Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:12:41.753Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:12:41.836Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:12:41.837Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T11:12:47.269Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:12:47.270Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:12:47.835Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:12:47.836Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:12:47.948Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:12:47.949Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:12:48.029Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:12:48.029Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:12:48.111Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:12:48.112Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:12:48.191Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:12:48.192Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:12:48.271Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:12:48.272Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:12:48.433Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:13:03.434Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:13:03.435Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:13:03.820Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:13:18.825Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:13:18.826Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:13:19.419Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:13:34.431Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:13:34.433Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:13:34.799Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:13:34.799Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:13:34.906Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:13:34.907Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:13:34.988Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:13:34.988Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T11:17:37.129Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:17:37.130Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:17:37.130Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:17:37.751Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:17:52.755Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:17:52.756Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:17:53.139Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:18:08.151Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:18:08.152Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:18:08.534Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T11:18:23.547Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:18:23.549Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:18:23.870Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:18:23.870Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:18:23.955Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:18:23.956Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat"}}
+{"ts":"2025-09-16T11:18:24.069Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat","status":404}}
+{"ts":"2025-09-16T11:18:24.070Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:18:24.155Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:18:24.155Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:18:24.267Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:18:24.268Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/completions"}}
+{"ts":"2025-09-16T11:18:24.345Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/completions","status":400}}
+{"ts":"2025-09-16T11:18:24.346Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:18:24.458Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:18:39.475Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:18:39.476Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:18:40.099Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:18:55.102Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:18:55.103Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-16T11:18:55.453Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":200}}
+{"ts":"2025-09-16T11:19:10.461Z","level":"error","message":"deepseek.try.exception","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","error":"FetchError: Response timeout while trying to fetch https://api.deepseek.com/beta/chat/completions (over 15000ms)"}}
+{"ts":"2025-09-16T11:19:10.463Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:19:10.790Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:19:10.791Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:19:10.917Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:19:10.918Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat"}}
+{"ts":"2025-09-16T11:19:11.030Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat","status":404}}
+{"ts":"2025-09-16T11:19:11.031Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 404 "}}
+{"ts":"2025-09-16T11:25:25.086Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T11:25:25.087Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T11:25:25.088Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T11:25:25.801Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
