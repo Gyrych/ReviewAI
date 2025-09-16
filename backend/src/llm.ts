@@ -10,7 +10,9 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   }
   // 构建 prompt
   const systemBase = `You are an expert circuit design reviewer. Given a JSON describing components and their connections, produce a Markdown review containing: Summary, Issues found, Suggestions, and a final verdict.`
-  const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}` : systemBase
+  // Extend system prompt to mention enrichment field if present
+  const enrichmentNote = `If the supplied JSON includes an \`enrichment\` field on components, these contain web search candidate sources for ambiguous parameter values. For each such parameter, evaluate the candidate sources, state which candidate appears most credible (with brief justification), and explicitly list any parameters that still require manual verification along with their candidate source URLs.`
+  const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}\n\n${enrichmentNote}` : `${systemBase}\n\n${enrichmentNote}`
   // include history as additional context
   let historyText = ''
   if (history && Array.isArray(history) && history.length > 0) {

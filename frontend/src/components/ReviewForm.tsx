@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
 
 export default function ReviewForm({ onResult }: { onResult: (markdown: string) => void }) {
@@ -18,6 +18,26 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+
+  const questionRef = useRef<HTMLTextAreaElement | null>(null)
+  const dialogRef = useRef<HTMLTextAreaElement | null>(null)
+
+  function adjustHeight(el?: HTMLTextAreaElement | null) {
+    if (!el) return
+    try {
+      el.style.height = 'auto'
+      const h = el.scrollHeight
+      el.style.height = h + 'px'
+    } catch (e) {}
+  }
+
+  useEffect(() => {
+    adjustHeight(questionRef.current)
+  }, [questionConfirm])
+
+  useEffect(() => {
+    adjustHeight(dialogRef.current)
+  }, [dialog])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -128,7 +148,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="block text-sm font-medium text-gray-700">模型 API 地址</label>
           <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2">
@@ -173,14 +193,14 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">对话（与模型交互）</label>
-          <textarea value={dialog} onChange={(e) => setDialog(e.target.value)} rows={4} className="mt-1 block w-full rounded-md border px-3 py-2" placeholder="输入与大模型的对话/问题" />
-        </div>
+      <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="block text-sm font-medium text-gray-700">问题确认（模型反馈）</label>
-          <textarea value={questionConfirm} readOnly rows={4} className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50" placeholder="模型返回的问题或疑问将显示在此" />
+          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50" placeholder="模型返回的问题或疑问将显示在此" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">对话（与模型交互）</label>
+          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2" placeholder="输入与大模型的对话/问题" />
         </div>
       </div>
 

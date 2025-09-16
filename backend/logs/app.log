@@ -352,3 +352,15 @@
 {"ts":"2025-09-16T11:25:25.087Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
 {"ts":"2025-09-16T11:25:25.088Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
 {"ts":"2025-09-16T11:25:25.801Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T14:55:05.660Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T14:55:05.661Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T14:55:05.662Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T14:55:07.365Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T15:14:32.819Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T15:14:32.820Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T15:14:32.821Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T15:14:34.528Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}
+{"ts":"2025-09-16T15:26:15.154Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-16T15:26:15.154Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-16T15:26:15.155Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-16T15:26:16.955Z","level":"info","message":"deepseek.try.success","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":200}}

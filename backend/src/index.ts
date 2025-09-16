@@ -112,14 +112,17 @@ app.post('/api/review', upload.any(), async (req, res) => {
     if (files.length > 0) {
       // 将 multer 文件对象转为更简单的结构并调用 vision 模块
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
-      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader)
+      const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch))
+      const topN = body.searchTopN ? Number(body.searchTopN) : undefined
+      const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched))
+      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched })
     }
 
     // 调用 llm 生成 Markdown 评审
     const markdown = await generateMarkdownReview(circuitJson, requirements, specs, reviewGuidelines, apiUrl, model, authHeader, systemPrompt, history)
 
     // 返回结果
-    res.json({ markdown })
+    res.json({ markdown, enrichedJson: circuitJson })
   } catch (err: any) {
     logError('api/review error', { error: String(err?.message || err) })
     const msg = err?.message ? `Upstream error: ${err.message}` : 'Internal server error'
