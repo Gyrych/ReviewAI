@@ -24,20 +24,43 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nReview guidelines:\n${reviewGuidelines}${historyText}\n\nPlease output only Markdown.`
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
-  const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }] }
+  const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false }
   const payload2 = { model, prompt: `${system}\n\n${userPrompt}` }
 
   const headers: any = { 'Content-Type': 'application/json' }
   if (authHeader) headers['Authorization'] = authHeader
+  // 可选：注入 OpenRouter 推荐头（通过环境变量配置），仅在 openrouter 主机时有意义
+  try {
+    const uHdr = new URL(apiUrl)
+    if ((uHdr.hostname || '').toLowerCase().includes('openrouter.ai')) {
+      if (process && process.env && process.env.OPENROUTER_HTTP_REFERER) headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER
+      if (process && process.env && process.env.OPENROUTER_X_TITLE) headers['X-Title'] = process.env.OPENROUTER_X_TITLE
+    }
+  } catch {}
 
   // 先尝试直接请求 apiUrl；如果为 base URL (没有 path) 则尝试常见路径
   let urlsToTry: string[] = []
   try {
     const u = new URL(apiUrl)
-    if (u.pathname && u.pathname !== '/' ) {
-      urlsToTry.push(apiUrl)
-    } else {
+    const host = (u.hostname || '').toLowerCase()
+    const pathname = u.pathname || ''
+    // 专门处理 OpenRouter：若用户选择 openrouter.ai（可能传入 base path /api/v1），
+    // 则优先尝试官方的 /api/v1/chat/completions 路径以及 /api/v1/chat，以提高兼容性
+    if (host.includes('openrouter.ai')) {
+      if (pathname && pathname !== '/') {
+        // 如果传入的 apiUrl 已经是完整路径，先尝试该 URL
+        urlsToTry.push(apiUrl)
+      }
+      urlsToTry.push(u.origin + '/api/v1/chat/completions')
+      urlsToTry.push(u.origin + '/api/v1/chat')
+      // 作为回退，仍尝试常见路径
       for (const p of COMMON_PATHS) urlsToTry.push(u.origin + p)
+    } else {
+      if (pathname && pathname !== '/') {
+        urlsToTry.push(apiUrl)
+      } else {
+        for (const p of COMMON_PATHS) urlsToTry.push(u.origin + p)
+      }
     }
   } catch (e) {
     urlsToTry = [apiUrl]
@@ -48,13 +71,14 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   for (const tryUrl of urlsToTry) {
     try {
       logInfo('llm.try', { tryUrl: tryUrl })
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: 30000 })
+      // 提升超时至 180s 以容纳大模型生成长文本的时间
+      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: 180000 })
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break
       }
       // 尝试 prompt 形式
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: 30000 })
+      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: 180000 })
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break
@@ -73,8 +97,13 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   }
 
   const txt = await resp.text()
-  // 尝试从常见响应中抽取 Markdown
+  // 如果上游返回 HTML 页面（例如 OpenRouter 返回 Model Not Found 页面），提供更友好的错误信息
   try {
+    const ct = (resp.headers && resp.headers.get ? resp.headers.get('content-type') : '') || ''
+    if (ct.toLowerCase().includes('text/html') || /^\s*<!doctype/i.test(txt) || txt.trim().startsWith('<html')) {
+      throw new Error(`llm upstream returned HTML (likely model not available or wrong endpoint). Upstream response snippet: ${String(txt).slice(0,200)}`)
+    }
+    // 尝试从常见响应中抽取 Markdown
     const j = JSON.parse(txt)
     // OpenAI-like
     if (j.choices && Array.isArray(j.choices) && j.choices[0]) {

@@ -7,6 +7,8 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   // model API dropdown default and model name dropdown default
   const [modelApiUrl, setModelApiUrl] = useState('https://api.deepseek.com/beta/chat/completions')
   const [model, setModel] = useState('deepseek-chat')
+  // 可选的模型名称列表，会根据 modelApiUrl 动态变化
+  const [modelOptions, setModelOptions] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner'])
   const [apiKey, setApiKey] = useState('')
   // default system prompt fields set to '无'
   const [requirements, setRequirements] = useState('无')
@@ -18,6 +20,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  const [enrichedJson, setEnrichedJson] = useState<any | null>(null)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -38,6 +41,24 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   useEffect(() => {
     adjustHeight(dialogRef.current)
   }, [dialog])
+
+  // 当用户在模型 API 地址下拉中选择不同上游时，动态更新模型名称下拉的候选项与默认值
+  useEffect(() => {
+    try {
+      // 如果选择 OpenRouter 的根路径，则提供 openai/gpt-5-mini 作为唯一选项并设为默认
+      if ((modelApiUrl || '').startsWith('https://openrouter.ai')) {
+        setModelOptions(['openai/gpt-5-mini'])
+        setModel('openai/gpt-5-mini')
+      } else {
+        // 恢复为 deepseek 的默认选项；如果当前选中的模型不在列表中则回退到第一个
+        const defaults = ['deepseek-chat', 'deepseek-reasoner']
+        setModelOptions(defaults)
+        if (!defaults.includes(model)) setModel(defaults[0])
+      }
+    } catch (e) {
+      // 忽略错误，保持当前状态
+    }
+  }, [modelApiUrl])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -76,7 +97,13 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
       } catch (e) {
         // ignore system prompt fetch failure and proceed
       }
-      files.forEach((f) => fd.append('files', f))
+      // 如果已有后端返回的 enrichedJson（图片已解析为描述），则不需要重复上传图片
+      if (!enrichedJson) {
+        files.forEach((f) => fd.append('files', f))
+      } else {
+        // 将已生成的图片描述（结构化 JSON）随表单一并发送，便于后端复用而非二次识别
+        try { fd.append('enrichedJson', JSON.stringify(enrichedJson)) } catch (e) {}
+      }
       const modelClean = (model || '').trim()
       const apiUrlClean = (modelApiUrl || '').trim()
       fd.append('model', modelClean)
@@ -117,6 +144,10 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
       let qFromJson: any = ''
       if (contentType.includes('application/json')) {
         const j = await res.json()
+        // 存储后端返回的 enrichedJson 以便后续提交复用（避免二次上传图片）
+        if (j.enrichedJson) {
+          try { setEnrichedJson(typeof j.enrichedJson === 'string' ? JSON.parse(j.enrichedJson) : j.enrichedJson) } catch (e) { setEnrichedJson(j.enrichedJson) }
+        }
         md = j.markdown || j.result || ''
         qFromJson = j.questions || j.issues || j.model_feedback || j.model_questions || j.questions_text || ''
         if (!md) md = JSON.stringify(j)
@@ -124,16 +155,44 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
         md = await res.text()
       }
 
-      // Split response: only send report starting with marker to ResultView; others to 问题确认
+      // 显示逻辑容错：
+      // 1) 若包含“【评审报告】”标记，按原逻辑分割展示
+      // 2) 若不包含且文本以“【问题确认】”为主，则仅展示到“问题确认”区
+      // 3) 若不包含且非“问题确认”文本，则将全文作为评审结果展示
       const marker = '【评审报告】'
       const idx = md.indexOf(marker)
-      const reportPart = idx >= 0 ? md.slice(idx) : ''
-      const otherPart = idx >= 0 ? md.slice(0, idx) : md
-      const parts: string[] = []
-      if (qFromJson) parts.push(typeof qFromJson === 'string' ? qFromJson : JSON.stringify(qFromJson, null, 2))
-      if (otherPart && otherPart.trim()) parts.push(otherPart.trim())
-      if (parts.length > 0) setQuestionConfirm(parts.join('\n\n'))
-      if (reportPart.trim()) onResult(reportPart.trim())
+      const hasReport = idx >= 0
+      const questionParts: string[] = []
+      if (qFromJson) questionParts.push(typeof qFromJson === 'string' ? qFromJson : JSON.stringify(qFromJson, null, 2))
+
+      if (hasReport) {
+        const reportPart = md.slice(idx)
+        const otherPart = md.slice(0, idx)
+        if (otherPart && otherPart.trim()) questionParts.push(otherPart.trim())
+        if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
+        if (reportPart.trim()) {
+          onResult(reportPart.trim())
+          // 将 assistant 的回复追加到 history，保证后续提交包含该回复
+          setHistory((h) => h.concat([{ role: 'assistant', content: reportPart.trim() }]))
+        }
+      } else {
+        const looksLikeQuestion = /^\s*【问题确认】/.test(md) || md.includes('【问题确认】')
+        if (looksLikeQuestion) {
+          const qText = md && md.trim() ? md.trim() : ''
+          const combined = questionParts.concat(qText ? [qText] : [])
+          if (combined.length > 0) setQuestionConfirm(combined.join('\n\n'))
+          // 不展示结果视图，等待用户补充信息后再提交
+          // 同样记录 assistant 输出到 history
+          if (qText) setHistory((h) => h.concat([{ role: 'assistant', content: qText }]))
+        } else {
+          // 将全文作为评审结果展示
+          if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
+          if (md && md.trim()) {
+            onResult(md.trim())
+            setHistory((h) => h.concat([{ role: 'assistant', content: md.trim() }]))
+          }
+        }
+      }
     } catch (err: any) {
       const msg = err?.message || ''
       if (err?.name === 'AbortError' || /aborted/i.test(msg)) {
@@ -155,14 +214,16 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
             <option value="https://api.deepseek.com/beta/chat/completions">https://api.deepseek.com/beta/chat/completions</option>
             <option value="https://api.deepseek.com/chat/completions">https://api.deepseek.com/chat/completions</option>
             <option value="https://api.deepseek.com">https://api.deepseek.com (auto paths)</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">https://openrouter.ai/api/v1/chat/completions</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">提示：若上游返回 404/400，请尝试选择带 <code>/beta</code> 的路径或在下拉中切换。</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">模型名称</label>
           <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2">
-            <option value="deepseek-chat">deepseek-chat</option>
-            <option value="deepseek-reasoner">deepseek-reasoner</option>
+            {modelOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
           </select>
         </div>
       </div>

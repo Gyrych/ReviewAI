@@ -109,7 +109,14 @@ app.post('/api/review', upload.any(), async (req, res) => {
     if (!apiUrl) return res.status(400).json({ error: 'apiUrl missing: please specify API URL for gpt5' })
 
     let circuitJson: any = { components: [], connections: [] }
-    if (files.length > 0) {
+    // 支持前端在后续提交时直接传回 enrichedJson（避免二次上传图片并复用已生成的描述）
+    if (body.enrichedJson) {
+      try {
+        circuitJson = typeof body.enrichedJson === 'string' ? JSON.parse(body.enrichedJson) : body.enrichedJson
+      } catch (e) {
+        circuitJson = body.enrichedJson
+      }
+    } else if (files.length > 0) {
       // 将 multer 文件对象转为更简单的结构并调用 vision 模块
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
       const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch))
