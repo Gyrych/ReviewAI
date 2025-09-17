@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Circuit Extraction Schema",
+  "description": "结构化电路描述，用于图片->JSON 的输出格式规范",
+  "type": "object",
+  "required": ["components","nets","metadata"],
+  "properties": {
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id","type","pins"],
+        "properties": {
+          "id": {"type":"string","description":"唯一元件标识，如 U1,R3"},
+          "type": {"type":"string","description":"器件类别，如 IC/Res/Cap/Connector"},
+          "footprint": {"type":"string"},
+          "value": {"type":"string","description":"带单位的值，如 10k/1uF"},
+          "tags": {"type":"array","items":{"type":"string"}},
+          "pins": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["pin_id","x","y","coord_system","confidence"],
+              "properties": {
+                "pin_id": {"type":"string","description":"脚号或脚名，例如 1/A"},
+                "pin_name": {"type":"string"},
+                "x": {"type":"number","description":"坐标 X"},
+                "y": {"type":"number","description":"坐标 Y"},
+                "units": {"type":"string","enum":["px","mm"],"default":"px"},
+                "coord_system": {"type":"string","enum":["image","board","package"]},
+                "rotation": {"type":"number","description":"旋转角度（度）"},
+                "mirror": {"type":"boolean"},
+                "confidence": {"type":"number","minimum":0,"maximum":1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "nets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["net_id","connected_pins","confidence"],
+        "properties": {
+          "net_id": {"type":"string"},
+          "name": {"type":"string"},
+          "connected_pins": {"type":"array","items":{"type":"string","description":"格式 componentId.pinId，例如 U1.1"}},
+          "signal_type": {"type":"string","enum":["power","gnd","signal","analog","diff","unknown"],"default":"signal"},
+          "confidence": {"type":"number","minimum":0,"maximum":1}
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["image_id","image_resolution","model_version","inference_time"],
+      "properties": {
+        "image_id": {"type":"string"},
+        "image_resolution": {"type":"string","description":"例如 4000x3000 px"},
+        "model_version": {"type":"string"},
+        "inference_time_ms": {"type":"number"},
+        "random_seed": {"type":"number"},
+        "warnings": {"type":"array","items":{"type":"string"}}
+      }
+    },
+    "uncertainties": {
+      "type": "array",
+      "items": {
+        "type":"object",
+        "properties": {
+          "id": {"type":"string"},
+          "type": {"type":"string"},
+          "candidates": {"type":"array","items":{"type":"string"}},
+          "note": {"type":"string"}
+        }
+      }
+    }
+  }
+}
+
+

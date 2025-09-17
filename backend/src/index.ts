@@ -128,8 +128,25 @@ app.post('/api/review', upload.any(), async (req, res) => {
     // 调用 llm 生成 Markdown 评审
     const markdown = await generateMarkdownReview(circuitJson, requirements, specs, reviewGuidelines, apiUrl, model, authHeader, systemPrompt, history)
 
-    // 返回结果
-    res.json({ markdown, enrichedJson: circuitJson })
+    // 返回结果（包含 enrichedJson 与 overlay/metadata）
+    // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson
+    const responseBody: any = { markdown }
+    responseBody.enrichedJson = circuitJson
+    if ((circuitJson as any).overlay) responseBody.overlay = (circuitJson as any).overlay
+    if ((circuitJson as any).metadata) responseBody.metadata = (circuitJson as any).metadata
+
+    // 在发送响应前记录 response_sent，以便排查客户端与服务端时间线
+    try {
+      logInfo('api/review response_sent', { hasOverlay: !!responseBody.overlay, hasMetadata: !!responseBody.metadata, imageCount: files.length })
+    } catch (e) { /* ignore logging errors */ }
+
+    // 若存在需要人工确认的 low confidence 或冲突，返回 422 并在 body 中包含相关信息（但仍返回 JSON）
+    const lowConflicts = (circuitJson && circuitJson.nets && circuitJson.nets.some((n:any)=>n.confidence !== undefined && n.confidence < 0.9)) || false
+    if (lowConflicts) {
+      res.status(422).json(Object.assign(responseBody, { warnings: ['low_confidence_or_conflict'] }))
+    } else {
+      res.json(responseBody)
+    }
   } catch (err: any) {
     logError('api/review error', { error: String(err?.message || err) })
     const msg = err?.message ? `Upstream error: ${err.message}` : 'Internal server error'

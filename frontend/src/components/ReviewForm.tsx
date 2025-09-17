@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
 
-export default function ReviewForm({ onResult }: { onResult: (markdown: string) => void }) {
+export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { onResult: (markdown: string) => void, setEnrichedJson?: (j: any)=>void, setOverlay?: (o:any)=>void }) {
   // backend endpoint is fixed and not shown to the user
   const apiUrl = '/api/review'
   // model API dropdown default and model name dropdown default
@@ -20,7 +20,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
-  const [enrichedJson, setEnrichedJson] = useState<any | null>(null)
+  const [localEnrichedJson, setLocalEnrichedJson] = useState<any | null>(null)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -98,11 +98,11 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
         // ignore system prompt fetch failure and proceed
       }
       // 如果已有后端返回的 enrichedJson（图片已解析为描述），则不需要重复上传图片
-      if (!enrichedJson) {
+      if (!localEnrichedJson) {
         files.forEach((f) => fd.append('files', f))
       } else {
         // 将已生成的图片描述（结构化 JSON）随表单一并发送，便于后端复用而非二次识别
-        try { fd.append('enrichedJson', JSON.stringify(enrichedJson)) } catch (e) {}
+        try { fd.append('enrichedJson', JSON.stringify(localEnrichedJson)) } catch (e) {}
       }
       const modelClean = (model || '').trim()
       const apiUrlClean = (modelApiUrl || '').trim()
@@ -127,7 +127,7 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
 
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       const controller = new AbortController()
-      const timeoutMs = 180000 // 180s client-side timeout
+      const timeoutMs = 300000 // 300s client-side timeout
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {
@@ -146,8 +146,11 @@ export default function ReviewForm({ onResult }: { onResult: (markdown: string) 
         const j = await res.json()
         // 存储后端返回的 enrichedJson 以便后续提交复用（避免二次上传图片）
         if (j.enrichedJson) {
-          try { setEnrichedJson(typeof j.enrichedJson === 'string' ? JSON.parse(j.enrichedJson) : j.enrichedJson) } catch (e) { setEnrichedJson(j.enrichedJson) }
+          const parsed = (typeof j.enrichedJson === 'string') ? JSON.parse(j.enrichedJson) : j.enrichedJson
+          try { setLocalEnrichedJson(parsed) } catch (e) {}
+          if (typeof setEnrichedJson === 'function') setEnrichedJson(parsed)
         }
+        if (j.overlay && typeof setOverlay === 'function') setOverlay(j.overlay)
         md = j.markdown || j.result || ''
         qFromJson = j.questions || j.issues || j.model_feedback || j.model_questions || j.questions_text || ''
         if (!md) md = JSON.stringify(j)

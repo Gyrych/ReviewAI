@@ -419,3 +419,33 @@
 {"ts":"2025-09-17T07:33:42.495Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\05_selfplace\\schematic-ai-review\\backend\\uploads\\review_2025-09-17T07-33-42-493Z.enriched.json"}}
 {"ts":"2025-09-17T07:33:42.495Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
 {"ts":"2025-09-17T07:33:43.275Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:27:43.919Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-17T08:27:43.919Z","level":"info","message":"api/review received","meta":{"imageCount":1,"model":"openai/gpt-5-mini"}}
+{"ts":"2025-09-17T08:27:43.922Z","level":"info","message":"vision.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","mode":"json"}}
+{"ts":"2025-09-17T08:27:46.303Z","level":"info","message":"vision.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:30:07.735Z","level":"info","message":"vision.enrichment","meta":{"compId":"R13","param":"value","query":"resistor R13 value datasheet","provider":"duckduckgo"}}
+{"ts":"2025-09-17T08:30:07.737Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\05_selfplace\\schematic-ai-review\\backend\\uploads\\review_2025-09-17T08-30-07-736Z.enriched.json"}}
+{"ts":"2025-09-17T08:30:07.738Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-17T08:30:08.423Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:35:10.878Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-17T08:35:10.878Z","level":"info","message":"api/review received","meta":{"imageCount":1,"model":"openai/gpt-5-mini"}}
+{"ts":"2025-09-17T08:35:10.880Z","level":"info","message":"vision.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","mode":"json"}}
+{"ts":"2025-09-17T08:35:13.317Z","level":"info","message":"vision.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:37:24.690Z","level":"info","message":"vision.enrichment","meta":{"compId":"R13","param":"value","query":"resistor R13 value datasheet","provider":"duckduckgo"}}
+{"ts":"2025-09-17T08:37:24.692Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\05_selfplace\\schematic-ai-review\\backend\\uploads\\review_2025-09-17T08-37-24-691Z.enriched.json"}}
+{"ts":"2025-09-17T08:37:24.693Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-17T08:37:26.413Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:48:21.814Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-17T08:48:21.815Z","level":"info","message":"api/review received","meta":{"imageCount":1,"model":"openai/gpt-5-mini"}}
+{"ts":"2025-09-17T08:48:21.817Z","level":"info","message":"vision.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","mode":"json"}}
+{"ts":"2025-09-17T08:48:24.690Z","level":"info","message":"vision.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:50:03.566Z","level":"info","message":"vision.enrichment","meta":{"compId":"R13","param":"value","query":"resistor R13 value datasheet","provider":"duckduckgo"}}
+{"ts":"2025-09-17T08:50:03.569Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\05_selfplace\\schematic-ai-review\\backend\\uploads\\review_2025-09-17T08-50-03-567Z.enriched.json"}}
+{"ts":"2025-09-17T08:50:03.570Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-17T08:50:04.255Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T08:50:52.683Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":1}}
+{"ts":"2025-09-17T09:12:13.901Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-17T09:12:13.902Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"openai/gpt-5-mini"}}
+{"ts":"2025-09-17T09:12:13.902Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-17T09:12:18.010Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-17T09:14:03.700Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
