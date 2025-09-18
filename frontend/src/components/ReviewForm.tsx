@@ -138,7 +138,9 @@ export default function ReviewForm({
 
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       const controller = new AbortController()
-      const timeoutMs = 600000 // 600s (10 分钟) client-side timeout
+      // 客户端等待后端响应的超时（毫秒），可通过 Vite 环境变量 VITE_CLIENT_TIMEOUT_MS 配置，默认 1800000（30 分钟）
+      // 在浏览器中不可直接访问 process.env，使用 import.meta.env（由 Vite 在构建时注入）
+      const timeoutMs = Number((import.meta as any).env.VITE_CLIENT_TIMEOUT_MS || 1800000)
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {

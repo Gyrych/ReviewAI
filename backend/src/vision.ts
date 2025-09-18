@@ -1,6 +1,7 @@
 import fetch from 'node-fetch'
 import fs from 'fs'
 import path from 'path'
+import https from 'https'
 import { webSearch } from './search'
 import { logInfo, logError } from './logger'
 
@@ -61,6 +62,35 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
       tryUrls.push(apiUrl)
     }
 
+    // 超时时间（毫秒），可通过环境变量 VISION_TIMEOUT_MS 覆盖，默认 1800000（30 分钟）
+    const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '1800000')
+    const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
+    // keep-alive agent 提升连接稳定性（默认 keepAlive true）
+    const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
+
+    // 辅助函数：带重试与 keep-alive 的 fetch
+    async function fetchWithRetry(url: string, opts: any, retries: number) {
+      let lastErr: any = null
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          // 注入 agent 以启用 keep-alive
+          opts.agent = opts.agent || keepAliveAgent
+          const r = await fetch(url, opts)
+          return r
+        } catch (e) {
+          lastErr = e
+          logError('vision.try.exception', { tryUrl: url, error: String(e), attempt })
+          if (attempt < retries) {
+            // 指数退避
+            const delay = Math.min(30000, 1000 * Math.pow(2, attempt))
+            await new Promise((res) => setTimeout(res, delay))
+            continue
+          }
+        }
+      }
+      throw lastErr
+    }
+
     let resp: any = null
     let lastErr: any = null
     for (const tryUrl of tryUrls) {
@@ -104,7 +134,7 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
           logInfo('vision.try', { tryUrl, mode: 'json' })
           // 显式关闭流式，并提升超时到 180s 以容纳多模态推理
           ;(payload as any).stream = false
-          resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload), headers, timeout: 180000 })
+          resp = await fetchWithRetry(tryUrl, { method: 'POST', body: JSON.stringify(payload), headers, timeout: visionTimeout }, fetchRetries)
           if (resp.ok) {
             logInfo('vision.try.success', { tryUrl, status: resp.status })
             break
@@ -128,7 +158,8 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
           const headers: any = Object.assign({}, form.getHeaders())
           if (authHeader) headers['Authorization'] = authHeader
           logInfo('vision.try', { tryUrl, mode: 'multipart' })
-          resp = await fetch(tryUrl, { method: 'POST', body: form, headers, timeout: 30000 })
+          // 使用与 JSON 分支一致的超时配置
+          resp = await fetchWithRetry(tryUrl, { method: 'POST', body: form, headers, timeout: visionTimeout }, fetchRetries)
           if (resp.ok) {
             logInfo('vision.try.success', { tryUrl, status: resp.status })
             break

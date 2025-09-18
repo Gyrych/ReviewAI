@@ -83,7 +83,7 @@ export default function App() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
         <div className="col-span-5 bg-white dark:bg-gray-800 p-4 rounded shadow relative">
-          <h2 className="text-3xl font-bold mb-4 text-center">仪器研究部</h2>
+          <h2 className="text-3xl font-bold mb-4 text-center">仪器研究</h2>
 
           {/* 主题切换按钮（右上角） */}
           <div className="absolute top-3 right-3">

@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import { URL } from 'url'
+import https from 'https'
 import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
@@ -66,20 +67,44 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
     urlsToTry = [apiUrl]
   }
 
+  // keep-alive agent 与重试策略
+  const llmTimeout = Number(process.env.LLM_TIMEOUT_MS || '1800000')
+  const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
+  const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
+
+  async function fetchWithRetry(url: string, opts: any, retries: number) {
+    let lastErr: any = null
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        opts.agent = opts.agent || keepAliveAgent
+        const r = await fetch(url, opts)
+        return r
+      } catch (e) {
+        lastErr = e
+        logError('llm.try.exception', { tryUrl: url, error: String(e), attempt })
+        if (attempt < retries) {
+          const delay = Math.min(30000, 1000 * Math.pow(2, attempt))
+          await new Promise((res) => setTimeout(res, delay))
+          continue
+        }
+      }
+    }
+    throw lastErr
+  }
+
   let resp: any = null
   let lastErr: any = null
   for (const tryUrl of urlsToTry) {
     try {
       logInfo('llm.try', { tryUrl: tryUrl })
-      // 提升超时（可配置）以容纳大模型生成长文本的时间
-      const perTryTimeout = Number(process.env.LLM_TIMEOUT_MS || '600000')
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: perTryTimeout })
+      // LLM 请求超时（毫秒），可通过环境变量 LLM_TIMEOUT_MS 覆盖，默认 1800000（30 分钟）
+      resp = await fetchWithRetry(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: llmTimeout }, fetchRetries)
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break
       }
       // 尝试 prompt 形式
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: perTryTimeout })
+      resp = await fetchWithRetry(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: llmTimeout }, fetchRetries)
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break

@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import { URL } from 'url'
+import https from 'https'
 import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat', '/chat/completions', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
@@ -53,11 +54,36 @@ export async function deepseekTextDialog(apiUrl: string, message: string, model?
   }
 
   let lastErr: any = null
+  // Deepseek 请求超时（毫秒），可通过环境变量 DEEPSEEK_TIMEOUT_MS 覆盖，默认 1800000（30 分钟）
+  const deepseekTimeout = Number(process.env.DEEPSEEK_TIMEOUT_MS || '1800000')
+  const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
+  const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
+
+  async function fetchWithRetry(url: string, opts: any, retries: number) {
+    let lastErr: any = null
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        opts.agent = opts.agent || keepAliveAgent
+        const r = await fetch(url, opts)
+        return r
+      } catch (e) {
+        lastErr = e
+        logError('deepseek.try.exception', { tryUrl: url, error: String(e), attempt })
+        if (attempt < retries) {
+          const delay = Math.min(30000, 1000 * Math.pow(2, attempt))
+          await new Promise((res) => setTimeout(res, delay))
+          continue
+        }
+      }
+    }
+    throw lastErr
+  }
+
   for (const tryUrl of urlsToTry) {
     for (const tryHeaders of altHeaderSets) {
       try {
         logInfo('deepseek.try', { tryUrl })
-        const resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payloadMsg), headers: tryHeaders, timeout: 60000 })
+        const resp = await fetchWithRetry(tryUrl, { method: 'POST', body: JSON.stringify(payloadMsg), headers: tryHeaders, timeout: deepseekTimeout }, fetchRetries)
         if (resp.ok) {
           logInfo('deepseek.try.success', { tryUrl, status: resp.status })
           const txt = await resp.text()
