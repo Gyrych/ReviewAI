@@ -4,7 +4,7 @@ import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, reviewGuidelines: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
+export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for LLM call')
   }
@@ -21,7 +21,7 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
       historyText += `${h.role}: ${h.content}\n`
     }
   }
-  const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nReview guidelines:\n${reviewGuidelines}${historyText}\n\nPlease output only Markdown.`
+  const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${historyText}\n\nPlease output only Markdown.`
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
   const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false }
@@ -71,14 +71,15 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   for (const tryUrl of urlsToTry) {
     try {
       logInfo('llm.try', { tryUrl: tryUrl })
-      // 提升超时至 180s 以容纳大模型生成长文本的时间
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: 180000 })
+      // 提升超时（可配置）以容纳大模型生成长文本的时间
+      const perTryTimeout = Number(process.env.LLM_TIMEOUT_MS || '600000')
+      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload1), headers, timeout: perTryTimeout })
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break
       }
       // 尝试 prompt 形式
-      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: 180000 })
+      resp = await fetch(tryUrl, { method: 'POST', body: JSON.stringify(payload2), headers, timeout: perTryTimeout })
       if (resp.ok) {
         logInfo('llm.try.success', { tryUrl: tryUrl, status: resp.status })
         break

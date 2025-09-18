@@ -1,19 +1,37 @@
 import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
 
-export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { onResult: (markdown: string) => void, setEnrichedJson?: (j: any)=>void, setOverlay?: (o:any)=>void }) {
+export default function ReviewForm({
+  onResult,
+  setEnrichedJson,
+  setOverlay,
+  modelApiUrl,
+  customApiUrl,
+  model,
+  customModelName,
+  setCustomModelName,
+  apiKey,
+  allowedApiUrls,
+  onSavePair,
+}: {
+  onResult: (markdown: string) => void
+  setEnrichedJson?: (j: any) => void
+  setOverlay?: (o: any) => void
+  modelApiUrl: string
+  customApiUrl: string
+  model: string
+  customModelName: string
+  setCustomModelName: (v: string) => void
+  apiKey: string
+  allowedApiUrls: string[]
+  onSavePair?: (api: string, model: string) => void
+}) {
   // backend endpoint is fixed and not shown to the user
   const apiUrl = '/api/review'
-  // model API dropdown default and model name dropdown default
-  const [modelApiUrl, setModelApiUrl] = useState('https://api.deepseek.com/beta/chat/completions')
-  const [model, setModel] = useState('deepseek-chat')
-  // 可选的模型名称列表，会根据 modelApiUrl 动态变化
-  const [modelOptions, setModelOptions] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner'])
-  const [apiKey, setApiKey] = useState('')
+  const [apiUrlError, setApiUrlError] = useState<string | null>(null)
   // default system prompt fields set to '无'
   const [requirements, setRequirements] = useState('无')
   const [specs, setSpecs] = useState('无')
-  const [reviewGuidelines, setReviewGuidelines] = useState('无')
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -24,6 +42,8 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // derived when needed inside handleSubmit
 
   function adjustHeight(el?: HTMLTextAreaElement | null) {
     if (!el) return
@@ -42,23 +62,7 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
     adjustHeight(dialogRef.current)
   }, [dialog])
 
-  // 当用户在模型 API 地址下拉中选择不同上游时，动态更新模型名称下拉的候选项与默认值
-  useEffect(() => {
-    try {
-      // 如果选择 OpenRouter 的根路径，则提供 openai/gpt-5-mini 作为唯一选项并设为默认
-      if ((modelApiUrl || '').startsWith('https://openrouter.ai')) {
-        setModelOptions(['openai/gpt-5-mini'])
-        setModel('openai/gpt-5-mini')
-      } else {
-        // 恢复为 deepseek 的默认选项；如果当前选中的模型不在列表中则回退到第一个
-        const defaults = ['deepseek-chat', 'deepseek-reasoner']
-        setModelOptions(defaults)
-        if (!defaults.includes(model)) setModel(defaults[0])
-      }
-    } catch (e) {
-      // 忽略错误，保持当前状态
-    }
-  }, [modelApiUrl])
+  // NOTE: modelApiUrl, model, modelOptions and related persistence are managed by parent (App).
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -75,13 +79,12 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
           if (spTxt && spTxt.trim()) {
             // ensure system prompt content appears before user-provided fields
             // we store combined text in requirements field (backend will use them)
-            // format: systemPrompt + \n\n + original requirements/specs/reviewGuidelines
+            // format: systemPrompt + \n\n + original requirements/specs
             // combine into a single 'systemPrompts' field serialized as JSON
-            const systemPromptCombined: { systemPrompt: string; requirements: string; specs: string; reviewGuidelines: string } = {
+            const systemPromptCombined: { systemPrompt: string; requirements: string; specs: string } = {
               systemPrompt: spTxt,
               requirements,
               specs,
-              reviewGuidelines,
             }
             // attach as JSON string for backend to parse
             // backend currently expects string fields; send a JSON string as 'systemPrompts'
@@ -104,14 +107,22 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
         // 将已生成的图片描述（结构化 JSON）随表单一并发送，便于后端复用而非二次识别
         try { fd.append('enrichedJson', JSON.stringify(localEnrichedJson)) } catch (e) {}
       }
-      const modelClean = (model || '').trim()
-      const apiUrlClean = (modelApiUrl || '').trim()
+      // 若为自定义 API，则优先使用 customModelName（若有），否则使用下拉的 model 值
+      const apiUrlClean = (modelApiUrl === 'custom' ? (customApiUrl || '').trim() : (modelApiUrl || '').trim())
+      const isOpenRouterSelected = (apiUrlClean || '').startsWith('https://openrouter.ai')
+      const isCustomModelMode = modelApiUrl === 'custom' || isOpenRouterSelected
+      const modelClean = (isCustomModelMode ? ((customModelName && customModelName.trim()) ? customModelName.trim() : (model || '').trim()) : (model || '').trim())
+      // 如果是自定义地址（未列入 allowedApiUrls），给出非阻断性的友好提示并允许提交
+      if (!allowedApiUrls.includes(apiUrlClean)) {
+        setApiUrlError('提示：您使用的是自定义或未知的 API 地址，系统不会验证其可用性。若上游返回错误，请检查地址或切换到下拉中的受支持地址。')
+      } else {
+        setApiUrlError(null)
+      }
       fd.append('model', modelClean)
       // send the chosen model api url with the key expected by backend
       fd.append('apiUrl', apiUrlClean)
       fd.append('requirements', requirements)
       fd.append('specs', specs)
-      fd.append('reviewGuidelines', reviewGuidelines)
       // systemPrompts may already be appended above when fetched
       // include conversation history and latest dialog as history
       try {
@@ -127,7 +138,7 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
 
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       const controller = new AbortController()
-      const timeoutMs = 300000 // 300s client-side timeout
+      const timeoutMs = 600000 // 600s (10 分钟) client-side timeout
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {
@@ -139,6 +150,16 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
         const txt = await res.text()
         throw new Error(txt || `Status ${res.status}`)
       }
+      // 若请求成功且使用了自定义 api/model 配对，则通知父组件保存该配对以便加入下拉
+      try {
+        if (res.ok) {
+          const usedApi = apiUrlClean
+          const usedModel = modelClean
+          if (usedApi && !allowedApiUrls.includes(usedApi) && typeof onSavePair === 'function') {
+            try { onSavePair(usedApi, usedModel) } catch (e) {}
+          }
+        }
+      } catch (e) {}
       const contentType = res.headers.get('content-type') || ''
       let md = ''
       let qFromJson: any = ''
@@ -210,71 +231,48 @@ export default function ReviewForm({ onResult, setEnrichedJson, setOverlay }: { 
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 gap-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">模型 API 地址</label>
-          <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2">
-            <option value="https://api.deepseek.com/beta/chat/completions">https://api.deepseek.com/beta/chat/completions</option>
-            <option value="https://api.deepseek.com/chat/completions">https://api.deepseek.com/chat/completions</option>
-            <option value="https://api.deepseek.com">https://api.deepseek.com (auto paths)</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">https://openrouter.ai/api/v1/chat/completions</option>
-          </select>
-          <p className="text-xs text-gray-500 mt-1">提示：若上游返回 404/400，请尝试选择带 <code>/beta</code> 的路径或在下拉中切换。</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">模型名称</label>
-          <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2">
-            {modelOptions.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      {/* 在 App 中统一渲染模型 API / 模型名称 / API Key，ReviewForm 中仅保留文件上传与提示 */}
       <div>
-        <label className="block text-sm font-medium text-gray-700">API Key</label>
-        <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2" />
+        <div>
+          <label className="block text-sm font-medium text-gray-700">文件上传</label>
+          <div className="mt-2">
+            <FileUpload files={files} onChange={setFiles} />
+          </div>
+        </div>
       </div>
+      {/* API Key 在 App 层统一配置，ReviewForm 不再展示 */}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700">设计需求（系统提示）</label>
-          <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计需求（系统提示）</label>
+          <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">设计规范（系统提示）</label>
-          <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">评审规范（系统提示）</label>
-          <textarea value={reviewGuidelines} onChange={(e) => setReviewGuidelines(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计规范（系统提示）</label>
+          <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
         </div>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">文件上传</label>
-        <div className="mt-2">
-          <FileUpload files={files} onChange={setFiles} />
-        </div>
-      </div>
+      {/* 文件上传已在上方显示，避免重复显示 */}
 
       <div className="grid grid-cols-1 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700">问题确认（模型反馈）</label>
-          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50" placeholder="模型返回的问题或疑问将显示在此" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">问题确认（模型反馈）</label>
+          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" placeholder="模型返回的问题或疑问将显示在此" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">对话（与模型交互）</label>
-          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2" placeholder="输入与大模型的对话/问题" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">对话（与模型交互）</label>
+          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" placeholder="输入与大模型的对话/问题" />
         </div>
       </div>
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
       <div className="flex items-center space-x-2">
-        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-md" disabled={loading}>
+        <button type="submit" className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md disabled:opacity-60" disabled={loading}>
           {loading ? '提交中...' : '提交'}
         </button>
-        <button type="button" className="px-4 py-2 bg-gray-200 rounded-md" onClick={() => { setDialog(''); setQuestionConfirm('') }}>
+        <button type="button" className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-100 rounded-md" onClick={() => { setDialog(''); setQuestionConfirm('') }}>
           清除对话
         </button>
       </div>

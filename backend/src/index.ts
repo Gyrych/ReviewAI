@@ -43,7 +43,8 @@ app.post('/api/review', upload.any(), async (req, res) => {
     // Accept either individual fields or a combined systemPrompts JSON
     let requirements = body.requirements || ''
     let specs = body.specs || ''
-    let reviewGuidelines = body.reviewGuidelines || ''
+    // reviewGuidelines 已移除，保留兼容性：若前端仍发送则会被忽略
+    let reviewGuidelines = ''
     let systemPrompt = ''
     if (body.systemPrompts) {
       try {
@@ -52,7 +53,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
           systemPrompt = sp.systemPrompt || ''
           requirements = (systemPrompt ? systemPrompt + '\n\n' : '') + (sp.requirements || requirements)
           specs = (sp.specs || specs)
-          reviewGuidelines = (sp.reviewGuidelines || reviewGuidelines)
+          // 注意：已弃用 reviewGuidelines 字段，保持兼容性但不使用
         }
       } catch (e) {
         // ignore parse errors
@@ -95,7 +96,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
     if (provider === 'deepseek') {
       if (!apiUrl) return res.status(400).json({ error: 'apiUrl missing: please specify API URL for deepseek' })
       if (files.length > 0) return res.status(400).json({ error: 'deepseek provider does not support images; use gpt5 provider' })
-      const message = `Please review the following design requirements and return a Markdown review.\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nReview guidelines:\n${reviewGuidelines}`
+      const message = `Please review the following design requirements and return a Markdown review.\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}`
       // 如果用户提供的是 base URL（例如 https://api.deepseek.com/v1），deepseekTextDialog 会尝试直接调用该 URL；
       // 我们希望记录尝试的 origin 以便排查，但不要记录敏感头部。
       logInfo('api/review forwarding to deepseek', { apiHost: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })() })
@@ -125,8 +126,8 @@ app.post('/api/review', upload.any(), async (req, res) => {
       circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched })
     }
 
-    // 调用 llm 生成 Markdown 评审
-    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, reviewGuidelines, apiUrl, model, authHeader, systemPrompt, history)
+    // 调用 LLM，已移除 reviewGuidelines 参数
+    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history)
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
     // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson
