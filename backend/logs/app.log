@@ -561,3 +561,24 @@
 {"ts":"2025-09-19T10:40:21.397Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
 {"ts":"2025-09-19T10:40:25.344Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
 {"ts":"2025-09-19T10:40:47.383Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T13:24:03.280Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T13:24:03.281Z","level":"info","message":"api/review received","meta":{"imageCount":1,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T13:24:03.283Z","level":"info","message":"vision.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","mode":"json"}}
+{"ts":"2025-09-19T13:24:09.467Z","level":"info","message":"vision.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T13:26:00.508Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\NewWorkplace\\10_schematic-ai-review\\backend\\uploads\\review_2025-09-19T13-26-00-507Z.enriched.json"}}
+{"ts":"2025-09-19T13:26:00.509Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T13:26:05.602Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T13:26:05.659Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":1}}
+{"ts":"2025-09-19T13:46:06.366Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T13:46:06.366Z","level":"info","message":"api/review received","meta":{"imageCount":1,"model":"qwen/qwen2.5-vl-72b-instruct:free"}}
+{"ts":"2025-09-19T13:46:06.367Z","level":"info","message":"vision.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","mode":"json"}}
+{"ts":"2025-09-19T13:46:12.886Z","level":"info","message":"vision.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T13:47:56.057Z","level":"info","message":"vision.enriched.saved","meta":{"path":"E:\\NewWorkplace\\10_schematic-ai-review\\backend\\uploads\\review_2025-09-19T13-47-56-055Z.enriched.json"}}
+{"ts":"2025-09-19T13:47:56.058Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T13:48:02.106Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T13:48:18.250Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":1}}
+{"ts":"2025-09-19T14:11:32.217Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T14:11:32.218Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-72b-instruct:free"}}
+{"ts":"2025-09-19T14:11:32.218Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T14:11:40.940Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T14:11:57.353Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}

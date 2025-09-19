@@ -1,0 +1,1012 @@
+{
+  "components": [
+    {
+      "id": "P1",
+      "type": "connector",
+      "label": "P1",
+      "params": {
+        "pins": 3
+      },
+      "pins": {
+        "1": "GND",
+        "2": "GND",
+        "3": "5V"
+      }
+    },
+    {
+      "id": "R1",
+      "type": "resistor",
+      "label": "R1",
+      "params": {
+        "value": "1K"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "U1-8"
+      }
+    },
+    {
+      "id": "R2",
+      "type": "resistor",
+      "label": "R2",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U1-8",
+        "2": "U1-2"
+      }
+    },
+    {
+      "id": "R3",
+      "type": "resistor",
+      "label": "R3",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U1-8",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C1",
+      "type": "capacitor",
+      "label": "C1",
+      "params": {
+        "value": "10uF"
+      },
+      "pins": {
+        "1": "U1-8",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C2",
+      "type": "capacitor",
+      "label": "C2",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": {
+        "1": "U1-8",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C3",
+      "type": "capacitor",
+      "label": "C3",
+      "params": {
+        "value": "47pF"
+      },
+      "pins": {
+        "1": "U1-2",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "U1",
+      "type": "opamp",
+      "label": "U1",
+      "params": {
+        "model": "AD825"
+      },
+      "pins": {
+        "1": "GND",
+        "2": "IN-",
+        "3": "GND",
+        "4": "IN+",
+        "5": "GND",
+        "6": "OUT",
+        "7": "GND",
+        "8": "V+"
+      }
+    },
+    {
+      "id": "C5",
+      "type": "capacitor",
+      "label": "C5",
+      "params": {
+        "value": "1uF"
+      },
+      "pins": {
+        "1": "U1-6",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C7",
+      "type": "capacitor",
+      "label": "C7",
+      "params": {
+        "value": "10uF"
+      },
+      "pins": {
+        "1": "U1-6",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R4",
+      "type": "resistor",
+      "label": "R4",
+      "params": {
+        "value": "100K"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "U2A-2"
+      }
+    },
+    {
+      "id": "C4",
+      "type": "capacitor",
+      "label": "C4",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": {
+        "1": "U2A-2",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R5",
+      "type": "resistor",
+      "label": "R5",
+      "params": {
+        "value": "1K"
+      },
+      "pins": {
+        "1": "U1-6",
+        "2": "U2A-3"
+      }
+    },
+    {
+      "id": "U2A",
+      "type": "opamp",
+      "label": "U2A",
+      "params": {
+        "model": "LF353"
+      },
+      "pins": {
+        "1": "OUT",
+        "2": "IN-",
+        "3": "IN+",
+        "4": "GND",
+        "5": "V+",
+        "6": "V-"
+      }
+    },
+    {
+      "id": "R8",
+      "type": "resistor",
+      "label": "R8",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U2A-1",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R7",
+      "type": "resistor",
+      "label": "R7",
+      "params": {
+        "value": "5.1K"
+      },
+      "pins": {
+        "1": "U2A-1",
+        "2": "U2B-6"
+      }
+    },
+    {
+      "id": "C6",
+      "type": "capacitor",
+      "label": "C6",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": {
+        "1": "U2A-1",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "U2B",
+      "type": "opamp",
+      "label": "U2B",
+      "params": {
+        "model": "LF353"
+      },
+      "pins": {
+        "1": "OUT",
+        "2": "IN-",
+        "3": "IN+",
+        "4": "GND",
+        "5": "V+",
+        "6": "V-"
+      }
+    },
+    {
+      "id": "R9",
+      "type": "resistor",
+      "label": "R9",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "U2B-2"
+      }
+    },
+    {
+      "id": "R10",
+      "type": "resistor",
+      "label": "R10",
+      "params": {
+        "value": "100K"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "U2B-2"
+      }
+    },
+    {
+      "id": "R13",
+      "type": "resistor",
+      "label": "R13",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U2B-2",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R14",
+      "type": "resistor",
+      "label": "R14",
+      "params": {
+        "value": "5.1K"
+      },
+      "pins": {
+        "1": "U2B-2",
+        "2": "U2B-6"
+      }
+    },
+    {
+      "id": "R15",
+      "type": "resistor",
+      "label": "R15",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U2B-6",
+        "2": "U2B-5"
+      }
+    },
+    {
+      "id": "R16",
+      "type": "resistor",
+      "label": "R16",
+      "params": {
+        "value": "10K"
+      },
+      "pins": {
+        "1": "U2B-6",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R6",
+      "type": "resistor",
+      "label": "R6",
+      "params": {
+        "value": "10R"
+      },
+      "pins": {
+        "1": "U2B-1",
+        "2": "OUT"
+      }
+    },
+    {
+      "id": "P2",
+      "type": "connector",
+      "label": "P2",
+      "params": {
+        "pins": 2
+      },
+      "pins": {
+        "1": "OUT",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "P3",
+      "type": "connector",
+      "label": "P3",
+      "params": {
+        "pins": 3
+      },
+      "pins": {
+        "1": "GND",
+        "2": "5V",
+        "3": "5V"
+      }
+    },
+    {
+      "id": "C8",
+      "type": "capacitor",
+      "label": "C8",
+      "params": {
+        "value": "10uF"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C9",
+      "type": "capacitor",
+      "label": "C9",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C10",
+      "type": "capacitor",
+      "label": "C10",
+      "params": {
+        "value": "10uF"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "C11",
+      "type": "capacitor",
+      "label": "C11",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R11",
+      "type": "resistor",
+      "label": "R11",
+      "params": {
+        "value": "3K"
+      },
+      "pins": {
+        "1": "5V",
+        "2": "L1"
+      }
+    },
+    {
+      "id": "L1",
+      "type": "led",
+      "label": "L1",
+      "params": {
+        "value": "LED_1"
+      },
+      "pins": {
+        "1": "R11",
+        "2": "GND"
+      }
+    },
+    {
+      "id": "R12",
+      "type": "resistor",
+      "label": "R12",
+      "params": {
+        "value": "3K"
+      },
+      "pins": {
+        "1": "GND",
+        "2": "L2"
+      }
+    },
+    {
+      "id": "L2",
+      "type": "led",
+      "label": "L2",
+      "params": {
+        "value": "LED_2"
+      },
+      "pins": {
+        "1": "R12",
+        "2": "-5V"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "componentId": "P1",
+        "pin": "3"
+      },
+      "to": {
+        "componentId": "R1",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R1",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U1",
+        "pin": "8"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "8"
+      },
+      "to": {
+        "componentId": "R2",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R2",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U1",
+        "pin": "2"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "8"
+      },
+      "to": {
+        "componentId": "R3",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R3",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "8"
+      },
+      "to": {
+        "componentId": "C1",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C1",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "8"
+      },
+      "to": {
+        "componentId": "C2",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C2",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "C3",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C3",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "C5",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C5",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "C7",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C7",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U1",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "R5",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R5",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U2A",
+        "pin": "3"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2A",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "R4",
+        "pin": "2"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R4",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "5V",
+        "pin": "5V"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2A",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "C4",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C4",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2A",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "R8",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R8",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2A",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "R7",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R7",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U2B",
+        "pin": "6"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2A",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "C6",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C6",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "R9",
+        "pin": "2"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R9",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "5V",
+        "pin": "5V"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "R10",
+        "pin": "2"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R10",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "5V",
+        "pin": "5V"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "R13",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R13",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "R14",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R14",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U2B",
+        "pin": "6"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "R15",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R15",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "U2B",
+        "pin": "5"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "R16",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R16",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U2B",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "R6",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R6",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "P2",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "P2",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "P3",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "C8",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C8",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "P3",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "C9",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C9",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "P3",
+        "pin": "3"
+      },
+      "to": {
+        "componentId": "C10",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C10",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "P3",
+        "pin": "3"
+      },
+      "to": {
+        "componentId": "C11",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C11",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "5V",
+        "pin": "5V"
+      },
+      "to": {
+        "componentId": "R11",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R11",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "L1",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "L1",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "GND",
+        "pin": "GND"
+      }
+    },
+    {
+      "from": {
+        "componentId": "GND",
+        "pin": "GND"
+      },
+      "to": {
+        "componentId": "R12",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R12",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "L2",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "L2",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "-5V",
+        "pin": "-5V"
+      }
+    }
+  ]
+}

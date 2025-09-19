@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
+import type { SessionSeed } from '../types/session'
 
 export default function ReviewForm({
   onResult,
   setEnrichedJson,
   setOverlay,
+  overlay,
   modelApiUrl,
   customApiUrl,
   model,
@@ -13,10 +15,13 @@ export default function ReviewForm({
   apiKey,
   allowedApiUrls,
   onSavePair,
+  markdown,
+  sessionSeed,
 }: {
   onResult: (markdown: string) => void
   setEnrichedJson?: (j: any) => void
   setOverlay?: (o: any) => void
+  overlay?: any
   modelApiUrl: string
   customApiUrl: string
   model: string
@@ -25,6 +30,8 @@ export default function ReviewForm({
   apiKey: string
   allowedApiUrls: string[]
   onSavePair?: (api: string, model: string) => void
+  markdown?: string
+  sessionSeed?: SessionSeed
 }) {
   // backend endpoint is fixed and not shown to the user
   const apiUrl = '/api/review'
@@ -56,6 +63,9 @@ export default function ReviewForm({
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   const [localEnrichedJson, setLocalEnrichedJson] = useState<any | null>(null)
+  const [saving, setSaving] = useState<boolean>(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
+  const isHydratingRef = useRef<boolean>(false)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -80,6 +90,58 @@ export default function ReviewForm({
   }, [dialog])
 
   // NOTE: modelApiUrl, model, modelOptions and related persistence are managed by parent (App).
+
+  // 中文注释：当收到外部会话种子时，回填至本地状态（包括文件重建与 enrichedJson）
+  useEffect(() => {
+    async function hydrateFromSeed(seed?: SessionSeed) {
+      if (!seed) return
+      try {
+        isHydratingRef.current = true
+        setRequirements(seed.requirements || '无')
+        setSpecs(seed.specs || '无')
+        setQuestionConfirm(seed.questionConfirm || '')
+        setDialog(seed.dialog || '')
+        setHistory(Array.isArray(seed.history) ? seed.history : [])
+        // enrichedJson 回填
+        if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
+        // 文件重建：base64 -> Blob -> File
+        if (Array.isArray(seed.files) && seed.files.length > 0) {
+          const rebuilt: File[] = []
+          for (const f of seed.files) {
+            try {
+              const b64 = (f.dataBase64 || '').split(',').pop() || ''
+              const binStr = atob(b64)
+              const len = binStr.length
+              const bytes = new Uint8Array(len)
+              for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i)
+              const blob = new Blob([bytes], { type: f.type || 'application/octet-stream' })
+              const file = new File([blob], f.name || 'file', { type: f.type, lastModified: f.lastModified || Date.now() })
+              rebuilt.push(file)
+            } catch (e) {
+              // 单个文件失败不影响整体
+            }
+          }
+          setFiles(rebuilt)
+        } else {
+          setFiles([])
+        }
+        // 加载历史会话后，默认视为“无未保存更改”
+        setHasUnsavedChanges(false)
+      } catch (e) {
+        // 忽略种子异常
+      } finally {
+        isHydratingRef.current = false
+      }
+    }
+    hydrateFromSeed(sessionSeed)
+    // 仅在 sessionSeed 变化时回填
+  }, [sessionSeed])
+
+  // 中文注释：监听关键字段变化，标记为“有未保存更改”（在加载期不触发）
+  useEffect(() => {
+    if (isHydratingRef.current) return
+    setHasUnsavedChanges(true)
+  }, [requirements, specs, questionConfirm, dialog, history, files, localEnrichedJson, markdown, overlay])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -276,6 +338,97 @@ export default function ReviewForm({
     }
   }
 
+  // 中文注释：将 File 转为 base64（data URL）
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // 中文注释：保存当前会话到后端 sessions 目录
+  async function handleSaveSession() {
+    try {
+      setSaving(true)
+      // 复用提交时的 apiUrl/model 计算逻辑
+      const apiUrlClean = (modelApiUrl === 'custom' ? (customApiUrl || '').trim() : (modelApiUrl || '').trim())
+      const isOpenRouterSelected = (apiUrlClean || '').startsWith('https://openrouter.ai')
+      const isCustomModelMode = modelApiUrl === 'custom' || isOpenRouterSelected
+      const modelClean = (isCustomModelMode ? ((customModelName && customModelName.trim()) ? customModelName.trim() : (model || '').trim()) : (model || '').trim())
+
+      // 文件转 base64
+      const filesPayload: { name: string; type: string; size: number; lastModified?: number; dataBase64: string }[] = []
+      for (const f of files) {
+        try {
+          const dataBase64 = await fileToBase64(f)
+          filesPayload.push({ name: f.name, type: f.type, size: f.size, lastModified: f.lastModified, dataBase64 })
+        } catch (e) {
+          // 跳过失败的文件
+        }
+      }
+
+      const payload = {
+        version: 1,
+        apiUrl: apiUrlClean,
+        model: modelClean,
+        customModelName: isCustomModelMode ? (customModelName || undefined) : undefined,
+        requirements,
+        specs,
+        questionConfirm,
+        dialog,
+        history,
+        markdown: markdown || '',
+        enrichedJson: localEnrichedJson || undefined,
+        overlay: overlay || undefined,
+        files: filesPayload,
+      }
+
+      const res = await fetch('/api/sessions/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      // 轻量提示
+      alert('会话已保存')
+      setHasUnsavedChanges(false)
+    } catch (e: any) {
+      alert('保存会话失败：' + (e?.message || ''))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // 中文注释：重置整个选项卡与结果区；如有未保存内容，先询问是否保存
+  async function handleResetAll() {
+    try {
+      if (hasUnsavedChanges) {
+        const doSave = window.confirm('当前会话有未保存内容，是否先保存？')
+        if (doSave) {
+          try { await handleSaveSession() } catch {}
+        }
+      }
+      // 清空父级结果区
+      try { onResult('') } catch {}
+      try { if (typeof setEnrichedJson === 'function') setEnrichedJson(null) } catch {}
+      try { if (typeof setOverlay === 'function') setOverlay(null) } catch {}
+      // 清空本地会话数据
+      setRequirements('无')
+      setSpecs('无')
+      setDialog('')
+      setQuestionConfirm('')
+      setHistory([])
+      setFiles([])
+      setLocalEnrichedJson(null)
+      setError(null)
+      setProgressStep('idle')
+      setElapsedMs(0)
+      setHasUnsavedChanges(false)
+    } catch (e) {}
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* 在 App 中统一渲染模型 API / 模型名称 / API Key，ReviewForm 中仅保留文件上传与提示 */}
@@ -325,8 +478,11 @@ export default function ReviewForm({
         <button type="submit" className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md disabled:opacity-60" disabled={loading}>
           {loading ? '提交中...' : '提交'}
         </button>
-        <button type="button" className="px-4 py-2 bg-gray-200 dark:bg-cursorPanel dark:text-cursorText rounded-md" onClick={() => { setDialog(''); setQuestionConfirm('') }}>
-          清除对话
+        <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={handleResetAll}>
+          重置
+        </button>
+        <button type="button" className="px-4 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded-md disabled:opacity-60" onClick={handleSaveSession} disabled={saving}>
+          {saving ? '保存中...' : '保存会话'}
         </button>
       </div>
     </form>

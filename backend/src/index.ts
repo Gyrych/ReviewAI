@@ -7,11 +7,18 @@ import { extractCircuitJsonFromImages } from './vision'
 import { generateMarkdownReview } from './llm'
 import { deepseekTextDialog } from './deepseek'
 import { logInfo, logError, readRecentLines } from './logger'
+import { ensureSessionsDir, saveSession, listSessions, loadSession, deleteSession, SessionFileV1, sanitizeId } from './sessions'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
 
 const upload = multer({ dest: path.join(__dirname, '..', 'uploads') })
+
+// 中文注释：为会话保存提供较大的 JSON 解析上限（不保存敏感信息）
+app.use(express.json({ limit: '200mb' }))
+
+// 中文注释：服务启动时确保会话目录存在
+ensureSessionsDir()
 
 // 简单 healthcheck
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
@@ -177,6 +184,80 @@ app.post('/api/review', upload.any(), async (req, res) => {
     } catch (e) {
       // 忽略清理错误
     }
+  }
+})
+
+// 中文注释：保存会话（不保存敏感信息，如 Authorization 或 API Key）
+app.post('/api/sessions/save', (req, res) => {
+  try {
+    const body = req.body as SessionFileV1
+    if (!body || typeof body !== 'object') return res.status(400).json({ error: 'invalid body' })
+    // 基础校验
+    if (!body.apiUrl || !body.model) return res.status(400).json({ error: 'apiUrl and model are required' })
+    // 明确删除不应存在的敏感字段
+    // @ts-ignore
+    if ((body as any).apiKey) delete (body as any).apiKey
+    // @ts-ignore
+    if ((body as any).authorization) delete (body as any).authorization
+    const meta = saveSession({
+      version: 1,
+      apiUrl: String(body.apiUrl),
+      model: String(body.model),
+      customModelName: body.customModelName ? String(body.customModelName) : undefined,
+      requirements: String(body.requirements || ''),
+      specs: String(body.specs || ''),
+      questionConfirm: String(body.questionConfirm || ''),
+      dialog: String(body.dialog || ''),
+      history: Array.isArray(body.history) ? body.history : [],
+      markdown: String(body.markdown || ''),
+      enrichedJson: body.enrichedJson,
+      overlay: body.overlay,
+      files: Array.isArray(body.files) ? body.files : [],
+    })
+    res.json({ ok: true, id: meta.id, filename: meta.filename, createdAt: meta.createdAt })
+  } catch (e: any) {
+    logError('/api/sessions/save error', { error: String(e?.message || e) })
+    res.status(500).json({ error: 'failed to save session' })
+  }
+})
+
+// 中文注释：列出最近会话，默认 10 条
+app.get('/api/sessions/list', (req, res) => {
+  try {
+    const limitRaw = (req.query.limit as string) || '10'
+    const limit = Math.max(1, Math.min(100, Number(limitRaw) || 10))
+    const items = listSessions(limit)
+    res.json({ items })
+  } catch (e: any) {
+    logError('/api/sessions/list error', { error: String(e?.message || e) })
+    res.status(500).json({ error: 'failed to list sessions' })
+  }
+})
+
+// 中文注释：获取单个会话完整内容
+app.get('/api/sessions/:id', (req, res) => {
+  try {
+    const id = sanitizeId(String(req.params.id || ''))
+    if (!id) return res.status(400).json({ error: 'invalid id' })
+    const data = loadSession(id)
+    res.json(data)
+  } catch (e: any) {
+    if (/not found/i.test(String(e?.message))) return res.status(404).json({ error: 'not found' })
+    logError('/api/sessions/:id error', { error: String(e?.message || e) })
+    res.status(500).json({ error: 'failed to read session' })
+  }
+})
+
+// 中文注释：删除会话
+app.delete('/api/sessions/:id', (req, res) => {
+  try {
+    const id = sanitizeId(String(req.params.id || ''))
+    if (!id) return res.status(400).json({ error: 'invalid id' })
+    deleteSession(id)
+    res.json({ ok: true })
+  } catch (e: any) {
+    logError('DELETE /api/sessions/:id error', { error: String(e?.message || e) })
+    res.status(500).json({ error: 'failed to delete session' })
   }
 })
 
