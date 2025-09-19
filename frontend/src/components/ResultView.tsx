@@ -19,7 +19,7 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
   }
 
   return (
-    <div className="prose max-w-none bg-white dark:bg-cursorPanel p-4 rounded border dark:border-cursorBorder dark:text-cursorText">
+    <div className="prose dark:prose-invert max-w-none bg-white dark:bg-cursorPanel p-4 rounded border dark:border-cursorBorder dark:text-cursorText">
       {renderOverlay()}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}

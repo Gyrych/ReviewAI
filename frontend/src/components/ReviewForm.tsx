@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
 import type { SessionSeed } from '../types/session'
+import ReactMarkdown from 'react-markdown'
 
 export default function ReviewForm({
   onResult,
@@ -153,6 +154,11 @@ export default function ReviewForm({
     if (timerRef.current) window.clearInterval(timerRef.current)
     timerRef.current = window.setInterval(() => setElapsedMs((s) => s + 1000), 1000)
     try {
+      // 中文注释：在发送前仅创建“提交快照”，不立即改动界面；等待上游返回后再入历史与翻页
+      const dialogTrimmed = (dialog || '').trim()
+      const submittedDialog = dialogTrimmed
+      const historySnapshot = submittedDialog ? history.concat([{ role: 'user' as const, content: submittedDialog }]) : history
+
       const fd = new FormData()
       // fetch latest system prompt from backend and prepend to prompts
       try {
@@ -210,14 +216,12 @@ export default function ReviewForm({
       fd.append('requirements', requirements)
       fd.append('specs', specs)
       // systemPrompts may already be appended above when fetched
-      // include conversation history and latest dialog as history
+      // include conversation history（已包含本轮用户输入）
       try {
-        const historyToSend = [...history]
-        if (dialog && dialog.trim()) historyToSend.push({ role: 'user', content: dialog })
-        if (historyToSend.length > 0) fd.append('history', JSON.stringify(historyToSend))
+        if (historySnapshot.length > 0) fd.append('history', JSON.stringify(historySnapshot))
       } catch (e) {}
       // dialog content is used to interact with the large model (also sent as last history entry)
-      fd.append('dialog', dialog)
+      fd.append('dialog', submittedDialog)
 
       const headers: Record<string, string> = {}
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
@@ -297,27 +301,41 @@ export default function ReviewForm({
         const reportPart = md.slice(idx)
         const otherPart = md.slice(0, idx)
         if (otherPart && otherPart.trim()) questionParts.push(otherPart.trim())
-        if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
-        if (reportPart.trim()) {
-          onResult(reportPart.trim())
-          // 将 assistant 的回复追加到 history，保证后续提交包含该回复
-          setHistory((h) => h.concat([{ role: 'assistant', content: reportPart.trim() }]))
-        }
+        const qcText = questionParts.length > 0 ? questionParts.join('\n\n') : ''
+        if (qcText) setQuestionConfirm(qcText)
+        // 多轮记录：同时把问题确认与评审报告分别记入历史，便于分页查看
+        const newEntries: { role: 'user' | 'assistant'; content: string }[] = []
+        if (submittedDialog) newEntries.push({ role: 'user', content: submittedDialog })
+        if (qcText) newEntries.push({ role: 'assistant', content: qcText })
+        if (reportPart && reportPart.trim()) newEntries.push({ role: 'assistant', content: reportPart.trim() })
+        if (newEntries.length > 0) setHistory((h) => h.concat(newEntries))
+        // 若用户未改动输入，则清空输入框，准备下一轮
+        if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
+        if (reportPart && reportPart.trim()) onResult(reportPart.trim())
       } else {
         const looksLikeQuestion = /^\s*【问题确认】/.test(md) || md.includes('【问题确认】')
         if (looksLikeQuestion) {
           const qText = md && md.trim() ? md.trim() : ''
           const combined = questionParts.concat(qText ? [qText] : [])
-          if (combined.length > 0) setQuestionConfirm(combined.join('\n\n'))
+          const qcText = combined.length > 0 ? combined.join('\n\n') : ''
+          if (qcText) setQuestionConfirm(qcText)
           // 不展示结果视图，等待用户补充信息后再提交
-          // 同样记录 assistant 输出到 history
-          if (qText) setHistory((h) => h.concat([{ role: 'assistant', content: qText }]))
+          // 同样记录本轮 user 与 assistant（问题确认）到 history
+          const entries: { role: 'user' | 'assistant'; content: string }[] = []
+          if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
+          if (qcText) entries.push({ role: 'assistant', content: qcText })
+          if (entries.length > 0) setHistory((h) => h.concat(entries))
+          if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         } else {
           // 将全文作为评审结果展示
           if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
           if (md && md.trim()) {
             onResult(md.trim())
-            setHistory((h) => h.concat([{ role: 'assistant', content: md.trim() }]))
+            const entries: { role: 'user' | 'assistant'; content: string }[] = []
+            if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
+            entries.push({ role: 'assistant', content: md.trim() })
+            setHistory((h) => h.concat(entries))
+            if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
           }
         }
       }
@@ -401,6 +419,45 @@ export default function ReviewForm({
     }
   }
 
+  // 中文注释：按“页”同步展示问题确认与对话：
+  // 第 1 页：问题确认为空，对话为第 1 条用户消息或当前输入
+  // 第 n 页 (n>=2)：问题确认为第 n-1 条 assistant 问题确认，对话为第 n 条用户消息（或当前输入）
+  // 额外产品规则：
+  // - “【阶段性评审】”只展示在右侧评审结果，不应在左侧“问题确认”中显示
+  // - 因此在此处对 assistant 消息做过滤：排除包含“【评审报告】”与“【阶段性评审】”的内容
+  const assistantQCItems = history
+    .filter((h) => h.role === 'assistant' && !/【评审报告】/.test(h.content) && !/【阶段性评审】/.test(h.content))
+    .map((h) => h.content)
+  const userDialogItems = history.filter((h) => h.role === 'user').map((h) => h.content)
+  const liveUserCount = userDialogItems.length + ((dialog && dialog.trim()) ? 1 : 0)
+  const totalPages = Math.max(liveUserCount, assistantQCItems.length + 1, 1)
+  const [page, setPage] = useState<number>(totalPages)
+  const isLastPage = page >= totalPages
+  useEffect(() => {
+    // 当历史或当前输入变化时，自动跳到最后一页
+    const p = Math.max(1, Math.max(userDialogItems.length + ((dialog && dialog.trim()) ? 1 : 0), assistantQCItems.length + 1))
+    setPage(p)
+  }, [history, dialog])
+
+  // 中文注释：页或历史变更时，自动调整两个窗格的高度以适配内容
+  useEffect(() => { adjustHeight(questionRef.current) }, [page, history])
+  useEffect(() => { adjustHeight(dialogRef.current) }, [page, history, dialog])
+
+  function getQcTextForPage(p: number): string {
+    // 当最新一轮问题确认尚未到达，但用户已开始在本轮输入时，第二页仍应显示上一轮问题确认
+    if (p <= 1) return ''
+    const idx = Math.min(assistantQCItems.length - 1, p - 2)
+    if (idx < 0) return ''
+    return assistantQCItems[idx] || ''
+  }
+  function getUserTextForPage(p: number): string {
+    // 最后一页始终显示并编辑当前输入 dialog
+    if (p >= totalPages) return dialog || ''
+    const idx = p - 1
+    if (idx < userDialogItems.length) return userDialogItems[idx] || ''
+    return ''
+  }
+
   // 中文注释：重置整个选项卡与结果区；如有未保存内容，先询问是否保存
   async function handleResetAll() {
     try {
@@ -426,6 +483,12 @@ export default function ReviewForm({
       setProgressStep('idle')
       setElapsedMs(0)
       setHasUnsavedChanges(false)
+      // 重置分页
+      try {
+        // 置为第一页
+        // @ts-ignore - page 在上层作用域
+        if (typeof setPage === 'function') setPage(1)
+      } catch {}
     } catch (e) {}
   }
 
@@ -458,11 +521,30 @@ export default function ReviewForm({
       <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">问题确认（模型反馈）</label>
-          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" placeholder="模型返回的问题或疑问将显示在此" />
+          <textarea
+            ref={questionRef}
+            readOnly
+            value={getQcTextForPage(page)}
+            className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText min-h-[120px]"
+            placeholder="模型返回的问题或疑问将显示在此（按页显示）"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">对话（与模型交互）</label>
-          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" placeholder="输入与大模型的对话/问题" />
+          <textarea
+            ref={dialogRef}
+            value={getUserTextForPage(page)}
+            onFocus={() => { if (!isLastPage) setPage(totalPages) }}
+            onChange={(e) => setDialog(e.target.value)}
+            readOnly={!isLastPage}
+            className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText"
+            placeholder={isLastPage ? '输入与大模型的对话/问题（与当前页对应）' : '非最后一页只读：聚焦将自动跳到最后一页以编辑'}
+          />
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">第 {page} / {totalPages} 页</div>
+          <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>上一页</button>
+            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>下一页</button>
+          </div>
         </div>
       </div>
 
