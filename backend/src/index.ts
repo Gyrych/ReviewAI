@@ -117,21 +117,33 @@ app.post('/api/review', upload.any(), async (req, res) => {
       } catch (e) {
         circuitJson = body.enrichedJson
       }
-    } else if (files.length > 0) {
-      // 将 multer 文件对象转为更简单的结构并调用 vision 模块
+    }
+
+    // 调用 LLM，已移除 reviewGuidelines 参数
+    // 记录后端各阶段时间戳以便前端展示详细的会话进度与耗时
+    const timeline: { step: string; ts: number }[] = []
+    timeline.push({ step: 'request_received', ts: Date.now() })
+
+    // 如果需要识别图片，标记并记录阶段时间点；在此处创建必要的局部变量以避免作用域问题
+    if (!body.enrichedJson && files.length > 0) {
+      timeline.push({ step: 'images_processing_start', ts: Date.now() })
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
       const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch))
       const topN = body.searchTopN ? Number(body.searchTopN) : undefined
       const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched))
       circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched })
+      timeline.push({ step: 'images_processing_done', ts: Date.now() })
     }
 
-    // 调用 LLM，已移除 reviewGuidelines 参数
+    timeline.push({ step: 'llm_request_start', ts: Date.now() })
     const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history)
+    timeline.push({ step: 'llm_request_done', ts: Date.now() })
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
     // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson
     const responseBody: any = { markdown }
+    // 将 timeline 作为非敏感的元数据随响应返回，便于前端计算每一步耗时（仅包含时间戳和步骤标识）
+    try { responseBody.timeline = timeline } catch (e) {}
     responseBody.enrichedJson = circuitJson
     if ((circuitJson as any).overlay) responseBody.overlay = (circuitJson as any).overlay
     if ((circuitJson as any).metadata) responseBody.metadata = (circuitJson as any).metadata

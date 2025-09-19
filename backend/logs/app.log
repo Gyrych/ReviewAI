@@ -512,3 +512,52 @@
 {"ts":"2025-09-18T04:57:10.736Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
 {"ts":"2025-09-18T04:57:14.680Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
 {"ts":"2025-09-18T05:01:24.781Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:30:43.217Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:30:43.218Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:30:43.219Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:30:46.598Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":401}}
+{"ts":"2025-09-19T10:30:46.598Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:30:47.267Z","level":"error","message":"llm.try.failed","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":401}}
+{"ts":"2025-09-19T10:30:47.268Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat"}}
+{"ts":"2025-09-19T10:30:47.850Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat","status":200}}
+{"ts":"2025-09-19T10:30:48.035Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:34:09.208Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:34:09.209Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:34:09.210Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:34:18.551Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T10:34:26.651Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:35:15.521Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:35:15.521Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:35:15.522Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:35:19.315Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T10:35:34.375Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:36:06.774Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:36:06.774Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:36:06.775Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:36:10.995Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T10:36:34.637Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:39:14.067Z","level":"info","message":"api/review provider","meta":{"provider":"deepseek"}}
+{"ts":"2025-09-19T10:39:14.067Z","level":"info","message":"api/review forwarding to deepseek","meta":{"apiHost":"https://api.deepseek.com"}}
+{"ts":"2025-09-19T10:39:14.070Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-19T10:39:14.598Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:14.598Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-19T10:39:14.682Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:14.683Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/chat/completions"}}
+{"ts":"2025-09-19T10:39:14.801Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:14.802Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-19T10:39:14.885Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:14.886Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-19T10:39:14.960Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:14.961Z","level":"info","message":"deepseek.try","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions"}}
+{"ts":"2025-09-19T10:39:15.040Z","level":"error","message":"deepseek.try.failed","meta":{"tryUrl":"https://api.deepseek.com/beta/chat/completions","status":401}}
+{"ts":"2025-09-19T10:39:15.041Z","level":"error","message":"api/review error","meta":{"error":"deepseek upstream error: status 401 {\"error\":{\"message\":\"Authentication Fails, Your api key: ****7a05 is invalid\",\"type\":\"authentication_error\",\"param\":null,\"code\":\"invalid_request_error\"}}"}}
+{"ts":"2025-09-19T10:39:38.401Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:39:38.403Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:39:38.403Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:39:49.377Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T10:40:00.885Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}
+{"ts":"2025-09-19T10:40:21.396Z","level":"info","message":"api/review provider","meta":{"provider":"gpt5"}}
+{"ts":"2025-09-19T10:40:21.396Z","level":"info","message":"api/review received","meta":{"imageCount":0,"model":"qwen/qwen2.5-vl-32b-instruct:free"}}
+{"ts":"2025-09-19T10:40:21.397Z","level":"info","message":"llm.try","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions"}}
+{"ts":"2025-09-19T10:40:25.344Z","level":"info","message":"llm.try.success","meta":{"tryUrl":"https://openrouter.ai/api/v1/chat/completions","status":200}}
+{"ts":"2025-09-19T10:40:47.383Z","level":"info","message":"api/review response_sent","meta":{"hasOverlay":false,"hasMetadata":false,"imageCount":0}}

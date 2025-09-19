@@ -80,10 +80,10 @@ export default function App() {
   }, [theme])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-cursorBlack p-6">
       <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
-        <div className="col-span-5 bg-white dark:bg-gray-800 p-4 rounded shadow relative">
-          <h2 className="text-3xl font-bold mb-4 text-center">仪器研究</h2>
+        <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow relative">
+          <h2 className="text-3xl font-bold mb-4 text-center dark:text-cursorText">仪器研究</h2>
 
           {/* 主题切换按钮（右上角） */}
           <div className="absolute top-3 right-3">
@@ -100,7 +100,7 @@ export default function App() {
             <div className="grid grid-cols-1 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">模型 API 地址</label>
-                <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
                   {allowedApiUrls.map((u) => (
                     <option key={u} value={u}>{u}</option>
                   ))}
@@ -108,7 +108,7 @@ export default function App() {
                 </select>
                 {modelApiUrl === 'custom' && (
                   <div className="mt-2">
-                    <input value={customApiUrl} onChange={(e) => setCustomApiUrl(e.target.value)} placeholder="https://your-api.example.com/path" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
+                    <input value={customApiUrl} onChange={(e) => setCustomApiUrl(e.target.value)} placeholder="https://your-api.example.com/path" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                   </div>
                 )}
               </div>
@@ -116,24 +116,24 @@ export default function App() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">模型名称</label>
                 {modelApiUrl === 'custom' ? (
                   <>
-                    <select className="mt-1 block w-full rounded-md border px-3 py-2" value="custom" disabled>
+                    <select className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" value="custom" disabled>
                       <option value="custom">自定义（输入模型名称）</option>
                     </select>
                     <div className="mt-2">
-                      <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
+                      <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                       <p className="text-xs text-yellow-600 mt-1">已选择自定义 API：请在此处输入模型名称，输入后将作为提交时的模型名；下拉已冻结。</p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100">
+                    <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
                       {modelOptions.map((m) => (
                         <option key={m} value={m}>{m}</option>
                       ))}
                     </select>
                     {( (modelApiUrl === 'custom' && (customApiUrl || '').startsWith('https://openrouter.ai')) || modelApiUrl === DEFAULT_API_URLS[1]) && (
                       <div className="mt-2">
-                        <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2" />
+                        <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                         <p className="text-xs text-yellow-600 mt-1">已选择 OpenRouter：可填写自定义模型名称，填写后将作为提交时的模型名；若留空，将使用下拉默认模型。</p>
                       </div>
                     )}
@@ -142,7 +142,7 @@ export default function App() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">API Key</label>
-                <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
+                <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
               </div>
             </div>
           </div>
@@ -193,7 +193,7 @@ export default function App() {
           </div>
         </div>
         <div className="col-span-7">
-          <h2 className="text-lg font-semibold mb-4">评审结果</h2>
+          <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">评审结果</h2>
           <ResultView markdown={markdown || '等待提交结果...'} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} />
         </div>
       </div>

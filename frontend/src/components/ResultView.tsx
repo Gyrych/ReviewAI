@@ -19,7 +19,7 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
   }
 
   return (
-    <div className="prose max-w-none bg-white dark:bg-gray-800 p-4 rounded border dark:border-gray-700 dark:text-gray-100">
+    <div className="prose max-w-none bg-white dark:bg-cursorPanel p-4 rounded border dark:border-cursorBorder dark:text-cursorText">
       {renderOverlay()}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
@@ -41,7 +41,7 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
         {markdown}
       </ReactMarkdown>
       {enrichedJson && (
-        <details className="mt-4 p-2 border rounded bg-gray-50 dark:bg-gray-900 dark:border-gray-700">
+        <details className="mt-4 p-2 border rounded bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder">
           <summary className="cursor-pointer">结构化描述（enrichedJson）</summary>
           <pre className="mt-2 text-xs">{JSON.stringify(enrichedJson, null, 2)}</pre>
         </details>

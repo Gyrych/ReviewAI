@@ -34,6 +34,23 @@ export default function ReviewForm({
   const [specs, setSpecs] = useState('无')
   const [files, setFiles] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
+  // 会话进度与计时器
+  const [progressStep, setProgressStep] = useState<string>('idle')
+  const [elapsedMs, setElapsedMs] = useState<number>(0)
+  const timerRef = useRef<number | null>(null)
+  // 步骤名称映射为中文友好显示
+  const STEP_LABELS: Record<string, string> = {
+    idle: '空闲',
+    preparing: '准备中',
+    uploading_files: '上传文件',
+    using_cached_enriched_json: '使用已解析数据',
+    sending_request: '发送请求',
+    done: '完成',
+    images_processing_start: '图像处理 - 开始',
+    images_processing_done: '图像处理 - 完成',
+    llm_request_start: '调用模型 - 开始',
+    llm_request_done: '调用模型 - 完成',
+  }
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
@@ -68,6 +85,11 @@ export default function ReviewForm({
     e.preventDefault()
     setError(null)
     setLoading(true)
+    // 启动计时与初始步骤
+    setProgressStep('preparing')
+    setElapsedMs(0)
+    if (timerRef.current) window.clearInterval(timerRef.current)
+    timerRef.current = window.setInterval(() => setElapsedMs((s) => s + 1000), 1000)
     try {
       const fd = new FormData()
       // fetch latest system prompt from backend and prepend to prompts
@@ -102,9 +124,11 @@ export default function ReviewForm({
       }
       // 如果已有后端返回的 enrichedJson（图片已解析为描述），则不需要重复上传图片
       if (!localEnrichedJson) {
+        setProgressStep('uploading_files')
         files.forEach((f) => fd.append('files', f))
       } else {
         // 将已生成的图片描述（结构化 JSON）随表单一并发送，便于后端复用而非二次识别
+        setProgressStep('using_cached_enriched_json')
         try { fd.append('enrichedJson', JSON.stringify(localEnrichedJson)) } catch (e) {}
       }
       // 若为自定义 API，则优先使用 customModelName（若有），否则使用下拉的 model 值
@@ -137,6 +161,7 @@ export default function ReviewForm({
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
+      setProgressStep('sending_request')
       const controller = new AbortController()
       // 客户端等待后端响应的超时（毫秒），可通过 Vite 环境变量 VITE_CLIENT_TIMEOUT_MS 配置，默认 1800000（30 分钟）
       // 在浏览器中不可直接访问 process.env，使用 import.meta.env（由 Vite 在构建时注入）
@@ -165,6 +190,21 @@ export default function ReviewForm({
       const contentType = res.headers.get('content-type') || ''
       let md = ''
       let qFromJson: any = ''
+      // 如果后端返回包含 timeline，则使用该信息更新进度与计时显示
+      if (contentType.includes('application/json')) {
+        const peek = await res.clone().json().catch(() => null)
+        if (peek && peek.timeline && Array.isArray(peek.timeline)) {
+          // 计算后端最后一个时间戳并更新 elapsedMs
+          try {
+            const last = peek.timeline[peek.timeline.length - 1]
+            if (last && last.ts) {
+              const now = Date.now()
+              setElapsedMs(Math.max(0, now - peek.timeline[0].ts))
+            }
+          } catch (e) {}
+        }
+      }
+
       if (contentType.includes('application/json')) {
         const j = await res.json()
         // 存储后端返回的 enrichedJson 以便后续提交复用（避免二次上传图片）
@@ -228,6 +268,11 @@ export default function ReviewForm({
       }
     } finally {
       setLoading(false)
+      setProgressStep('done')
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current)
+        timerRef.current = null
+      }
     }
   }
 
@@ -247,11 +292,11 @@ export default function ReviewForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计需求（系统提示）</label>
-          <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
+          <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计规范（系统提示）</label>
-          <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" />
+          <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
         </div>
       </div>
 
@@ -260,21 +305,27 @@ export default function ReviewForm({
       <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">问题确认（模型反馈）</label>
-          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" placeholder="模型返回的问题或疑问将显示在此" />
+          <textarea ref={questionRef} value={questionConfirm} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" placeholder="模型返回的问题或疑问将显示在此" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">对话（与模型交互）</label>
-          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" placeholder="输入与大模型的对话/问题" />
+          <textarea ref={dialogRef} value={dialog} onChange={(e) => setDialog(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" placeholder="输入与大模型的对话/问题" />
         </div>
       </div>
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
+      {/* 会话进度与计时显示 */}
+      <div className="flex items-center space-x-4">
+        <div className="text-sm text-gray-600 dark:text-gray-300">当前步骤：{STEP_LABELS[progressStep] || progressStep}</div>
+        <div className="text-sm text-gray-600 dark:text-gray-300">已用时：{Math.floor(elapsedMs/1000)}s</div>
+      </div>
+
       <div className="flex items-center space-x-2">
         <button type="submit" className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md disabled:opacity-60" disabled={loading}>
           {loading ? '提交中...' : '提交'}
         </button>
-        <button type="button" className="px-4 py-2 bg-gray-200 dark:bg-gray-700 dark:text-gray-100 rounded-md" onClick={() => { setDialog(''); setQuestionConfirm('') }}>
+        <button type="button" className="px-4 py-2 bg-gray-200 dark:bg-cursorPanel dark:text-cursorText rounded-md" onClick={() => { setDialog(''); setQuestionConfirm('') }}>
           清除对话
         </button>
       </div>

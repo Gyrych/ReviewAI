@@ -1,0 +1,522 @@
+{
+  "components": [
+    {
+      "id": "NET_VIC_SIG_IN",
+      "type": "net",
+      "label": "VIC_SIG_IN",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_VIC_SIG_IN1",
+      "type": "net",
+      "label": "VIC_SIG_IN1",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_NODE_U13A_OUT",
+      "type": "net",
+      "label": "NODE_U13A_OUT",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_VIC_SIG_OUT",
+      "type": "net",
+      "label": "VIC_SIG_OUT",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_A_GND",
+      "type": "net",
+      "label": "A_GND",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_PN5V_A",
+      "type": "net",
+      "label": "PN5V_A",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "NET_PP5V_A",
+      "type": "net",
+      "label": "PP5V_A",
+      "params": {},
+      "pins": [
+        {
+          "name": "p"
+        }
+      ]
+    },
+    {
+      "id": "R13",
+      "type": "resistor",
+      "label": "R13",
+      "params": {
+        "value": null
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ],
+      "enrichment": {
+        "value": {
+          "candidates": [],
+          "queriedAt": "2025-09-17T08:30:07.735Z",
+          "provider": "duckduckgo"
+        }
+      }
+    },
+    {
+      "id": "U_OPTO1",
+      "type": "optocoupler",
+      "label": "S16392-01CT",
+      "params": {
+        "part": "S16392-01CT"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        },
+        {
+          "name": "3"
+        },
+        {
+          "name": "4"
+        }
+      ]
+    },
+    {
+      "id": "R11",
+      "type": "resistor",
+      "label": "R11",
+      "params": {
+        "value": "82R"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    },
+    {
+      "id": "C39",
+      "type": "capacitor",
+      "label": "C39",
+      "params": {
+        "value": "1.1pF"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    },
+    {
+      "id": "U13A",
+      "type": "opamp",
+      "label": "AD8034ARZ U13A",
+      "params": {
+        "part": "AD8034ARZ"
+      },
+      "pins": [
+        {
+          "name": "2",
+          "function": "in-"
+        },
+        {
+          "name": "3",
+          "function": "in+"
+        },
+        {
+          "name": "4",
+          "function": "out"
+        },
+        {
+          "name": "8",
+          "function": "V-"
+        }
+      ]
+    },
+    {
+      "id": "C40",
+      "type": "capacitor",
+      "label": "C40",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    },
+    {
+      "id": "C42",
+      "type": "capacitor",
+      "label": "C42",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    },
+    {
+      "id": "U13B",
+      "type": "opamp",
+      "label": "AD8034ARZ U13B",
+      "params": {
+        "part": "AD8034ARZ"
+      },
+      "pins": [
+        {
+          "name": "5",
+          "function": "in+"
+        },
+        {
+          "name": "6",
+          "function": "in-"
+        },
+        {
+          "name": "7",
+          "function": "out"
+        }
+      ]
+    },
+    {
+      "id": "R12",
+      "type": "resistor",
+      "label": "R12",
+      "params": {
+        "value": "16K"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    },
+    {
+      "id": "C41",
+      "type": "capacitor",
+      "label": "C41",
+      "params": {
+        "value": "0.1uF"
+      },
+      "pins": [
+        {
+          "name": "1"
+        },
+        {
+          "name": "2"
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": {
+        "componentId": "R13",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U_OPTO1",
+        "pin": "3"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R13",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U_OPTO1",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U_OPTO1",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "NET_A_GND",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U_OPTO1",
+        "pin": "4"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      },
+      "to": {
+        "componentId": "R11",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      },
+      "to": {
+        "componentId": "C39",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      },
+      "to": {
+        "componentId": "U13A",
+        "pin": "2"
+      }
+    },
+    {
+      "from": {
+        "componentId": "NET_PN5V_A",
+        "pin": "p"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_IN1",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R11",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_NODE_U13A_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C39",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_NODE_U13A_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13A",
+        "pin": "4"
+      },
+      "to": {
+        "componentId": "NET_NODE_U13A_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C40",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "NET_NODE_U13A_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C40",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_A_GND",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13A",
+        "pin": "3"
+      },
+      "to": {
+        "componentId": "NET_A_GND",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13A",
+        "pin": "8"
+      },
+      "to": {
+        "componentId": "NET_PP5V_A",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C42",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "NET_PP5V_A",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C42",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_A_GND",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13B",
+        "pin": "5"
+      },
+      "to": {
+        "componentId": "NET_NODE_U13A_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13B",
+        "pin": "6"
+      },
+      "to": {
+        "componentId": "U13B",
+        "pin": "7"
+      }
+    },
+    {
+      "from": {
+        "componentId": "U13B",
+        "pin": "7"
+      },
+      "to": {
+        "componentId": "R12",
+        "pin": "1"
+      }
+    },
+    {
+      "from": {
+        "componentId": "R12",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C41",
+        "pin": "1"
+      },
+      "to": {
+        "componentId": "NET_VIC_SIG_OUT",
+        "pin": "p"
+      }
+    },
+    {
+      "from": {
+        "componentId": "C41",
+        "pin": "2"
+      },
+      "to": {
+        "componentId": "NET_A_GND",
+        "pin": "p"
+      }
+    }
+  ]
+}
