@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import FileUpload from './FileUpload'
 import type { SessionSeed } from '../types/session'
 import ReactMarkdown from 'react-markdown'
+import { useI18n } from '../i18n'
 
 export default function ReviewForm({
   onResult,
@@ -34,6 +35,7 @@ export default function ReviewForm({
   markdown?: string
   sessionSeed?: SessionSeed
 }) {
+  const { t, lang } = useI18n() as any
   // backend endpoint is fixed and not shown to the user
   const apiUrl = '/api/review'
   const [apiUrlError, setApiUrlError] = useState<string | null>(null)
@@ -46,18 +48,9 @@ export default function ReviewForm({
   const [progressStep, setProgressStep] = useState<string>('idle')
   const [elapsedMs, setElapsedMs] = useState<number>(0)
   const timerRef = useRef<number | null>(null)
-  // 步骤名称映射为中文友好显示
-  const STEP_LABELS: Record<string, string> = {
-    idle: '空闲',
-    preparing: '准备中',
-    uploading_files: '上传文件',
-    using_cached_enriched_json: '使用已解析数据',
-    sending_request: '发送请求',
-    done: '完成',
-    images_processing_start: '图像处理 - 开始',
-    images_processing_done: '图像处理 - 完成',
-    llm_request_start: '调用模型 - 开始',
-    llm_request_done: '调用模型 - 完成',
+  // 中文注释：通过 t() 获取步骤名称，避免硬编码
+  function stepLabel(code: string): string {
+    return t(`step_${code}`)
   }
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState('')
@@ -67,6 +60,7 @@ export default function ReviewForm({
   const [saving, setSaving] = useState<boolean>(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
   const isHydratingRef = useRef<boolean>(false)
+  const [noSystemPromptWarning, setNoSystemPromptWarning] = useState<boolean>(false)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -102,7 +96,18 @@ export default function ReviewForm({
         setSpecs(seed.specs || '无')
         setQuestionConfirm(seed.questionConfirm || '')
         setDialog(seed.dialog || '')
-        setHistory(Array.isArray(seed.history) ? seed.history : [])
+        // 将保存的 questionConfirm 作为兜底补齐到 history（若历史中缺少“问题确认/Clarifying Question”项）
+        try {
+          const qcText = (seed.questionConfirm || '').trim()
+          const baseHistory = Array.isArray(seed.history) ? [...seed.history] : []
+          const hasQcInHistory = baseHistory.some((h) => h && h.role === 'assistant' && typeof h.content === 'string' && (h.content.includes('【问题确认】') || h.content.includes('【Clarifying Question】') || (qcText && h.content.trim() === qcText)))
+          if (!hasQcInHistory && qcText) {
+            baseHistory.push({ role: 'assistant', content: qcText })
+          }
+          setHistory(baseHistory)
+        } catch {
+          setHistory(Array.isArray(seed.history) ? seed.history : [])
+        }
         // enrichedJson 回填
         if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
         // 文件重建：base64 -> Blob -> File
@@ -162,7 +167,7 @@ export default function ReviewForm({
       const fd = new FormData()
       // fetch latest system prompt from backend and prepend to prompts
       try {
-        const spRes = await fetch('/api/system-prompt')
+        const spRes = await fetch(`/api/system-prompt?lang=${encodeURIComponent(lang)}`)
         if (spRes.ok) {
           const spTxt = await spRes.text()
           // prepend system prompt content to the three system prompt fields
@@ -186,6 +191,9 @@ export default function ReviewForm({
             // append combined JSON directly to form data
             fd.append('systemPrompts', JSON.stringify(systemPromptCombined))
           }
+        } else {
+          // 未找到对应语言的系统提示词：设置警告，但不阻断提交
+          setNoSystemPromptWarning(true)
         }
       } catch (e) {
         // ignore system prompt fetch failure and proceed
@@ -206,7 +214,7 @@ export default function ReviewForm({
       const modelClean = (isCustomModelMode ? ((customModelName && customModelName.trim()) ? customModelName.trim() : (model || '').trim()) : (model || '').trim())
       // 如果是自定义地址（未列入 allowedApiUrls），给出非阻断性的友好提示并允许提交
       if (!allowedApiUrls.includes(apiUrlClean)) {
-        setApiUrlError('提示：您使用的是自定义或未知的 API 地址，系统不会验证其可用性。若上游返回错误，请检查地址或切换到下拉中的受支持地址。')
+        setApiUrlError(t('form.customApi.warning'))
       } else {
         setApiUrlError(null)
       }
@@ -288,10 +296,11 @@ export default function ReviewForm({
       }
 
       // 显示逻辑容错：
-      // 1) 若包含“【评审报告】”标记，按原逻辑分割展示
-      // 2) 若不包含且文本以“【问题确认】”为主，则仅展示到“问题确认”区
+      // 1) 若包含中英文“评审报告/Review Report”标记，按原逻辑分割展示
+      // 2) 若不包含且文本以中英文“问题确认/Clarifying Question”为主，则仅展示到“问题确认”区
       // 3) 若不包含且非“问题确认”文本，则将全文作为评审结果展示
-      const marker = '【评审报告】'
+      const markersReport = ['【评审报告】', '【Review Report】']
+      const marker = markersReport.find(m => md.includes(m)) || '【评审报告】'
       const idx = md.indexOf(marker)
       const hasReport = idx >= 0
       const questionParts: string[] = []
@@ -313,7 +322,7 @@ export default function ReviewForm({
         if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         if (reportPart && reportPart.trim()) onResult(reportPart.trim())
       } else {
-        const looksLikeQuestion = /^\s*【问题确认】/.test(md) || md.includes('【问题确认】')
+        const looksLikeQuestion = /^(\s*【问题确认】|\s*【Clarifying Question】)/.test(md) || md.includes('【问题确认】') || md.includes('【Clarifying Question】')
         if (looksLikeQuestion) {
           const qText = md && md.trim() ? md.trim() : ''
           const combined = questionParts.concat(qText ? [qText] : [])
@@ -342,9 +351,9 @@ export default function ReviewForm({
     } catch (err: any) {
       const msg = err?.message || ''
       if (err?.name === 'AbortError' || /aborted/i.test(msg)) {
-        setError('请求超时：上游响应较慢或网络不稳定，请尝试切换为 /beta 路径或稍后重试。')
+        setError(t('form.error.timeout'))
       } else {
-        setError(msg || '提交失败')
+        setError(msg || t('form.error.submitFail'))
       }
     } finally {
       setLoading(false)
@@ -410,10 +419,10 @@ export default function ReviewForm({
       })
       if (!res.ok) throw new Error(await res.text())
       // 轻量提示
-      alert('会话已保存')
+      alert(t('form.save.ok'))
       setHasUnsavedChanges(false)
     } catch (e: any) {
-      alert('保存会话失败：' + (e?.message || ''))
+      alert(t('form.save.fail', { msg: e?.message || '' }))
     } finally {
       setSaving(false)
     }
@@ -426,7 +435,7 @@ export default function ReviewForm({
   // - “【阶段性评审】”只展示在右侧评审结果，不应在左侧“问题确认”中显示
   // - 因此在此处对 assistant 消息做过滤：排除包含“【评审报告】”与“【阶段性评审】”的内容
   const assistantQCItems = history
-    .filter((h) => h.role === 'assistant' && !/【评审报告】/.test(h.content) && !/【阶段性评审】/.test(h.content))
+    .filter((h) => h.role === 'assistant' && !/【评审报告】/.test(h.content) && !/【阶段性评审】/.test(h.content) && !/【Review Report】/.test(h.content) && !/【Interim Review】/.test(h.content))
     .map((h) => h.content)
   const userDialogItems = history.filter((h) => h.role === 'user').map((h) => h.content)
   const liveUserCount = userDialogItems.length + ((dialog && dialog.trim()) ? 1 : 0)
@@ -462,7 +471,7 @@ export default function ReviewForm({
   async function handleResetAll() {
     try {
       if (hasUnsavedChanges) {
-        const doSave = window.confirm('当前会话有未保存内容，是否先保存？')
+        const doSave = window.confirm(t('form.reset.confirm'))
         if (doSave) {
           try { await handleSaveSession() } catch {}
         }
@@ -494,10 +503,17 @@ export default function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* 无系统提示词环境告警（可关闭，不阻断） */}
+      {noSystemPromptWarning && (
+        <div className="p-2 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200 flex items-start justify-between gap-2">
+          <div>{t('warning.noSystemPrompt')}</div>
+          <button type="button" className="text-xs underline" onClick={() => setNoSystemPromptWarning(false)}>{t('common.close')}</button>
+        </div>
+      )}
       {/* 在 App 中统一渲染模型 API / 模型名称 / API Key，ReviewForm 中仅保留文件上传与提示 */}
       <div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">文件上传</label>
+          <label className="block text-sm font-medium text-gray-700">{t('form.upload.label')}</label>
           <div className="mt-2">
             <FileUpload files={files} onChange={setFiles} />
           </div>
@@ -507,11 +523,11 @@ export default function ReviewForm({
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计需求（系统提示）</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.req.label')}</label>
           <textarea value={requirements} onChange={(e) => setRequirements(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">设计规范（系统提示）</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.spec.label')}</label>
           <textarea value={specs} onChange={(e) => setSpecs(e.target.value)} rows={3} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
         </div>
       </div>
@@ -520,17 +536,17 @@ export default function ReviewForm({
 
       <div className="grid grid-cols-1 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">问题确认（模型反馈）</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.qc.label')}</label>
           <textarea
             ref={questionRef}
             readOnly
             value={getQcTextForPage(page)}
             className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText min-h-[120px]"
-            placeholder="模型返回的问题或疑问将显示在此（按页显示）"
+            placeholder={t('form.qc.placeholder')}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">对话（与模型交互）</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.dialog.label')}</label>
           <textarea
             ref={dialogRef}
             value={getUserTextForPage(page)}
@@ -538,12 +554,12 @@ export default function ReviewForm({
             onChange={(e) => setDialog(e.target.value)}
             readOnly={!isLastPage}
             className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText"
-            placeholder={isLastPage ? '输入与大模型的对话/问题（与当前页对应）' : '非最后一页只读：聚焦将自动跳到最后一页以编辑'}
+            placeholder={isLastPage ? t('form.dialog.placeholder.editable') : t('form.dialog.placeholder.readonly')}
           />
-          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">第 {page} / {totalPages} 页</div>
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">{t('form.paging.current', { page, total: totalPages })}</div>
           <div className="mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>上一页</button>
-            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>下一页</button>
+            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>{t('form.paging.prev')}</button>
+            <button type="button" className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder disabled:opacity-50" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>{t('form.paging.next')}</button>
           </div>
         </div>
       </div>
@@ -552,19 +568,19 @@ export default function ReviewForm({
 
       {/* 会话进度与计时显示 */}
       <div className="flex items-center space-x-4">
-        <div className="text-sm text-gray-600 dark:text-gray-300">当前步骤：{STEP_LABELS[progressStep] || progressStep}</div>
-        <div className="text-sm text-gray-600 dark:text-gray-300">已用时：{Math.floor(elapsedMs/1000)}s</div>
+        <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.current', { step: stepLabel(progressStep) || progressStep })}</div>
+        <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.elapsed', { seconds: Math.floor(elapsedMs/1000) })}</div>
       </div>
 
       <div className="flex items-center space-x-2">
         <button type="submit" className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md disabled:opacity-60" disabled={loading}>
-          {loading ? '提交中...' : '提交'}
+          {loading ? t('form.submit.loading') : t('form.submit')}
         </button>
         <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={handleResetAll}>
-          重置
+          {t('form.reset')}
         </button>
         <button type="button" className="px-4 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded-md disabled:opacity-60" onClick={handleSaveSession} disabled={saving}>
-          {saving ? '保存中...' : '保存会话'}
+          {saving ? t('form.save.loading') : t('form.save')}
         </button>
       </div>
     </form>

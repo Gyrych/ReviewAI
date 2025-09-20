@@ -1,26 +1,42 @@
 # schematic-ai-review
 
-本项目提供一个本地可运行的前后端分离示例骨架，用于演示与快速开发。前端使用 Vite + React + TypeScript，后端使用 Node.js + Express（TypeScript）。
+电路图片 → 结构化电路 JSON → LLM 生成 Markdown 评审报告，并在前端以 SVG overlay 进行人工复核的人机协同工作流。本项目为本地开发骨架，前后端分离，便于快速集成与二次开发。
 
-## 目录结构
+## 重要必读（强提醒）
 
-- `frontend/` — 前端应用（Vite，默认端口 `5173`）
-- `backend/` — 后端 API（默认端口 `3001`，可用 `PORT` 环境变量覆盖）
+- 请在“仓库根目录”提供双语系统提示词：中文 `系统提示词.md`、英文 `SystemPrompt.md`。
+- 后端通过 `GET /api/system-prompt?lang=zh|en` 读取对应语言文件；若目标语言文件缺失，返回 404（不做跨语言回退）。
+- 前端会在缺失情况下显示“无系统提示词环境”的非阻断警示，但仍允许与大模型正常对话（输出质量与一致性无法保证）。
+- 如需可直接使用的系统提示词内容，可联系作者付费索取：gyrych@gmail.com
 
-## 安装与运行
+## 特性
 
-启动后端：
+- 将电路图片解析为结构化 JSON，遵循 `backend/schemas/circuit-schema.json`
+- 提供 SVG overlay 与映射，前端可高亮组件/引脚/网络便于人工核对
+- 结合 LLM 生成 Markdown 评审报告，支持 timeline、requirements/specs、history 与 system prompt 注入
+- 对不确定参数进行 Web 搜索丰富化（默认 DuckDuckGo，可选 Bing）
+- 支持本地会话保存/加载（包含文件 base64、enrichedJson、overlay），不持久化敏感凭据
+- 文件日志便于诊断排错
+
+## 架构
+
+- `frontend/` — Vite + React + TypeScript + Tailwind（开发端口 3000），代理 `/api` 到后端
+- `backend/` — Node.js + Express + TypeScript（默认端口 3001），提供评审、系统提示词、会话与日志等接口
+
+## 快速开始
+
+前置条件：Node.js ≥ 18
+
+1）启动后端
 
 ```bash
 cd backend
 npm install
-# 默认运行端口 3001；如需更改请设置环境变量：
-# Windows（PowerShell）: $env:PORT=3000; npm run dev
-# Linux/macOS: PORT=3000 npm run dev
+# 默认端口：3001（可用 PORT 覆盖）
 npm run dev
 ```
 
-在另一个终端启动前端：
+2）启动前端（新终端）
 
 ```bash
 cd frontend
@@ -28,25 +44,39 @@ npm install
 npm run dev
 ```
 
-打开 `http://localhost:5173`，前端会尝试请求后端的示例接口（如 `/api/hello` 或 `/api/review`），请确保后端已启动并按需设置端口。
+访问 `http://localhost:3000`。开发服务器将把 `/api` 代理到 `http://localhost:3001`。
 
-## 快速演示
+Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.js`）。
 
-1. 启动后端：`cd backend && npm install && npm run dev`
-2. 启动前端：`cd frontend && npm install && npm run dev`
-3. 访问 `http://localhost:5173`，页面会显示后端返回的示例消息。
+## 配置
 
-（在 Windows 下可运行仓库根目录的 `start-all.bat` 进行一键启动）
+- 系统提示词：根目录 `系统提示词.md`（必需）。如需现成内容，发邮件至：gyrych@gmail.com（付费）
+- 上游模型：支持 DeepSeek、OpenRouter 或自定义 API。在前端选择或手动填写 API/模型名，后端会根据 `provider` 路由到文本/多模态解析。
+- 可选环境变量（后端）：
+  - `LLM_TIMEOUT_MS`、`VISION_TIMEOUT_MS`、`DEEPSEEK_TIMEOUT_MS`
+  - `FETCH_RETRIES`、`KEEP_ALIVE_MSECS`
+  - `SEARCH_PROVIDER`（`duckduckgo` | `bing`）、`BING_API_KEY`（启用 Bing 时）
+  - `OPENROUTER_HTTP_REFERER`、`OPENROUTER_X_TITLE`（用于 OpenRouter）
 
-## 新增项（简要）
+## API 概要
 
-- **贡献**：欢迎通过 Issues 或 PR 贡献代码与文档。请在提交前确保代码通过基本本地测试。
-- **联系方式**：如需联系维护者，请在仓库 Issue 中留言。
-- **许可**：请参见仓库根目录的 `LICENSE`（如无请添加合适的许可证）。
+- `GET /api/system-prompt?lang=zh|en`：返回根目录对应语言的系统提示词文件内容；若该语言文件缺失则 404。
+- `POST /api/review`：支持图片（multipart）或 `enrichedJson`；字段包括 `model`、`apiUrl`、可选 `systemPrompts`（JSON：`{ systemPrompt, requirements, specs }`）与 `history`。响应包含 `{ markdown, enrichedJson, overlay, metadata, timeline }`。若检测到低置信冲突，会返回 422 且仍附带结果以便人工复核。
+- 会话：`POST /api/sessions/save`、`GET /api/sessions/list`、`GET /api/sessions/:id`、`DELETE /api/sessions/:id`
+- 日志（本地调试）：`GET /api/logs`
+- DeepSeek 测试：`POST /api/deepseek`
 
-## 其他说明
+## 故障排查
 
-- 后端示例端点：`GET /api/hello`、`POST /api/review`（接收表单和文件上传）。
-- 后端默认端口以代码为准（`backend/src/index.ts` 使用 `process.env.PORT || 3001`）。
+- 缺少系统提示词：请在根目录创建 `系统提示词.md`（或邮件 `gyrych@gmail.com` 付费获取）。否则 `/api/system-prompt` 为 404。
+- 上游返回 HTML/404：检查 API 路径与模型名（如 OpenRouter `.../api/v1/chat/completions`）；后端会给出更友好的错误信息。
+- 端口冲突：前端 3000，后端 3001。若修改端口，请同步调整 `frontend/vite.config.ts` 中的代理目标。
+- 评审返回 422：表示低置信或冲突，需要人工复核；请结合 overlay 与 JSON 进行确认后再次提交。
 
+## 安全与隐私
 
+会话保存会显式剔除敏感授权字段，日志不记录机密信息。本项目主要用于本地开发与验证。
+
+## 许可
+
+如需对外分发或开源，请补充合适的许可证（LICENSE）。

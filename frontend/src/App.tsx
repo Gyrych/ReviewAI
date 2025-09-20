@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react'
 import ReviewForm from './components/ReviewForm'
 import ResultView from './components/ResultView'
 import type { SessionFileV1, SessionListItem, SessionSeed } from './types/session'
+import { useI18n } from './i18n'
 
 export default function App() {
+  const { lang, setLang, t } = useI18n()
   // 中文注释：模型预设常量，便于判断是否应该使用下拉而非自定义
   const OPENROUTER_MODEL_PRESETS = [
     'openai/gpt-5',
@@ -192,47 +194,56 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-cursorBlack p-6">
-      <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
-        <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow relative">
-          <h2 className="text-3xl font-bold mb-4 text-center dark:text-cursorText">仪器研究</h2>
-
-          {/* 主题切换按钮（右上角） */}
-          <div className="absolute top-3 right-3">
+      {/* 顶部全宽页眉：右侧放置语言与主题按钮，避免与标题遮挡 */}
+      <div className="w-full mb-4 border-b dark:border-cursorBorder bg-white dark:bg-cursorPanel">
+        <div className="max-w-6xl mx-auto p-2">
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+              className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {t('app.lang.toggle')}
+            </button>
             <button
               onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
               className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {theme === 'light' ? '切换暗色' : '切换亮色'}
+              {theme === 'light' ? t('app.theme.toDark') : t('app.theme.toLight')}
             </button>
           </div>
+        </div>
+      </div>
+      <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
+        <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow">
+          <h2 className="text-3xl font-bold mb-4 text-center dark:text-cursorText">{t('app.title')}</h2>
 
           {/* 全局配置区域：模型 API 地址、模型名称、API Key 等 */}
           <div className="mb-4">
             <div className="grid grid-cols-1 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">模型 API 地址</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelApi.label')}</label>
                 <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
                   {allowedApiUrls.map((u) => (
                     <option key={u} value={u}>{u}</option>
                   ))}
-                  <option value="custom">自定义（输入其它 API 地址）</option>
+                  <option value="custom">{t('app.modelApi.option.custom')}</option>
                 </select>
                 {modelApiUrl === 'custom' && (
                   <div className="mt-2">
-                    <input value={customApiUrl} onChange={(e) => setCustomApiUrl(e.target.value)} placeholder="https://your-api.example.com/path" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
+                    <input value={customApiUrl} onChange={(e) => setCustomApiUrl(e.target.value)} placeholder={t('app.modelApi.placeholder.customUrl')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                   </div>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">模型名称</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelName.label')}</label>
                 {modelApiUrl === 'custom' ? (
                   <>
                     <select className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" value="custom" disabled>
-                      <option value="custom">自定义（输入模型名称）</option>
+                      <option value="custom">{t('app.modelName.option.custom')}</option>
                     </select>
                     <div className="mt-2">
-                      <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-                      <p className="text-xs text-yellow-600 mt-1">已选择自定义 API：请在此处输入模型名称，输入后将作为提交时的模型名；下拉已冻结。</p>
+                      <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
+                      <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.customApi')}</p>
                     </div>
                   </>
                 ) : (
@@ -244,15 +255,15 @@ export default function App() {
                     </select>
                     {( (modelApiUrl === 'custom' && (customApiUrl || '').startsWith('https://openrouter.ai')) || modelApiUrl === DEFAULT_API_URLS[1]) && (
                       <div className="mt-2">
-                        <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder="自定义模型名称（例如 my-custom-model）" className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-                        <p className="text-xs text-yellow-600 mt-1">已选择 OpenRouter：可填写自定义模型名称，填写后将作为提交时的模型名；若留空，将使用下拉默认模型。</p>
+                        <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
+                        <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.openrouter')}</p>
                       </div>
                     )}
                   </>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">API Key</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.apiKey.label')}</label>
                 <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
               </div>
             </div>
@@ -262,18 +273,18 @@ export default function App() {
           <div className="mb-4">
             <div className="flex items-center justify-between">
               <button onClick={() => setSessionsVisible(!sessionsVisible)} className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {sessionsVisible ? '隐藏会话' : '加载会话'}
+                {sessionsVisible ? t('app.sessions.toggle.hide') : t('app.sessions.toggle.show')}
               </button>
               {sessionsVisible && (
                 <button onClick={() => fetchSessionList()} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-xs transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  刷新
+                  {t('app.sessions.refresh')}
                 </button>
               )}
             </div>
             {sessionsVisible && (
               <div className="mt-2 border rounded p-2 max-h-64 overflow-y-auto bg-white dark:bg-cursorPanel dark:border-cursorBorder">
                 {sessionList.length === 0 && (
-                  <div className="text-sm text-gray-500 dark:text-gray-300">暂无会话，点击右侧刷新重试。</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-300">{t('app.sessions.empty')}</div>
                 )}
                 <ul className="space-y-2">
                   {sessionList.map((it) => (
@@ -283,8 +294,8 @@ export default function App() {
                         <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{it.apiHost} · {it.model || ''}</div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => handleLoadSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">加载</button>
-                        <button onClick={() => handleDeleteSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:border-cursorBorder text-red-600 dark:text-red-400 transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">删除</button>
+                        <button onClick={() => handleLoadSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">{t('app.sessions.load')}</button>
+                        <button onClick={() => handleDeleteSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:border-cursorBorder text-red-600 dark:text-red-400 transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">{t('app.sessions.delete')}</button>
                       </div>
                     </li>
                   ))}
@@ -297,16 +308,16 @@ export default function App() {
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-4" aria-label="Tabs">
                 <button onClick={() => setActiveTab('circuit')} className={`px-3 py-2 ${activeTab === 'circuit' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  电路评审
+                  {t('app.tabs.circuit')}
                 </button>
                 <button onClick={() => setActiveTab('code')} className={`px-3 py-2 ${activeTab === 'code' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  代码评审
+                  {t('app.tabs.code')}
                 </button>
                 <button onClick={() => setActiveTab('doc')} className={`px-3 py-2 ${activeTab === 'doc' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  文档评审
+                  {t('app.tabs.doc')}
                 </button>
                 <button onClick={() => setActiveTab('req')} className={`px-3 py-2 ${activeTab === 'req' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  需求评审
+                  {t('app.tabs.req')}
                 </button>
               </nav>
             </div>
@@ -330,20 +341,20 @@ export default function App() {
                 />
               )}
               {activeTab === 'code' && (
-                <div className="text-gray-500">代码评审（待开发）</div>
+                <div className="text-gray-500">{t('app.tabs.code')}{t('app.tab.todo')}</div>
               )}
               {activeTab === 'doc' && (
-                <div className="text-gray-500">文档评审（待开发）</div>
+                <div className="text-gray-500">{t('app.tabs.doc')}{t('app.tab.todo')}</div>
               )}
               {activeTab === 'req' && (
-                <div className="text-gray-500">需求评审（待开发）</div>
+                <div className="text-gray-500">{t('app.tabs.req')}{t('app.tab.todo')}</div>
               )}
             </div>
           </div>
         </div>
         <div className="col-span-7">
-          <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">评审结果</h2>
-          <ResultView markdown={markdown || '等待提交结果...'} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} />
+          <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
+          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} />
         </div>
       </div>
     </div>

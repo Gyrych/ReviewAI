@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useI18n } from '../i18n'
 
 type FileUploadProps = {
   files: File[]
@@ -10,6 +11,7 @@ type FileUploadProps = {
 export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB = 10 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [previews, setPreviews] = useState<{ id: string; url?: string; name: string; type: string }[]>([])
+  const { t } = useI18n()
 
   useEffect(() => {
     const p = files.map((f) => {
@@ -64,9 +66,9 @@ export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB =
           className="px-3 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded shadow-sm hover:bg-gray-50 dark:hover:bg-[#121215]"
           onClick={() => inputRef.current?.click()}
         >
-          选择文件
+          {t('upload.select')}
         </button>
-        <div className="text-sm text-gray-500 dark:text-gray-300">已选 {files.length} / {maxFiles}</div>
+        <div className="text-sm text-gray-500 dark:text-gray-300">{t('upload.selected', { count: files.length, max: maxFiles })}</div>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -79,7 +81,7 @@ export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB =
             )}
             <div className="mt-2 w-full flex justify-between items-center">
               <div className="text-xs text-gray-700 dark:text-cursorText truncate">{p.name}</div>
-              <button className="text-red-500 text-xs dark:text-red-400" onClick={() => removeAt(i)}>移除</button>
+              <button className="text-red-500 text-xs dark:text-red-400" onClick={() => removeAt(i)}>{t('upload.remove')}</button>
             </div>
           </div>
         ))}

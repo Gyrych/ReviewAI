@@ -30,8 +30,11 @@ app.get('/api/hello', (req, res) => {
 // 返回系统提示词文件内容（用于前端每次提交前加载最新提示）
 app.get('/api/system-prompt', (req, res) => {
   try {
-    const p = path.resolve(__dirname, '..', '..', '系统提示词.md')
-    if (!fs.existsSync(p)) return res.status(404).json({ error: 'system prompt file not found' })
+    const qLangRaw = (req.query.lang as string) || ''
+    const qLang = (qLangRaw === 'en' || qLangRaw === 'zh') ? qLangRaw : 'zh'
+    const filename = qLang === 'en' ? 'SystemPrompt.md' : '系统提示词.md'
+    const p = path.resolve(__dirname, '..', '..', filename)
+    if (!fs.existsSync(p)) return res.status(404).json({ error: 'system prompt file not found', lang: qLang })
     const txt = fs.readFileSync(p, { encoding: 'utf8' })
     res.type('text/plain').send(txt)
   } catch (e: any) {
