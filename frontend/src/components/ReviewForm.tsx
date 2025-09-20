@@ -48,6 +48,8 @@ export default function ReviewForm({
   const [progressStep, setProgressStep] = useState<string>('idle')
   const [elapsedMs, setElapsedMs] = useState<number>(0)
   const timerRef = useRef<number | null>(null)
+  // 用于中止当前正在进行的 fetch 请求
+  const controllerRef = useRef<AbortController | null>(null)
   // 中文注释：通过 t() 获取步骤名称，避免硬编码
   function stepLabel(code: string): string {
     return t(`step_${code}`)
@@ -237,6 +239,8 @@ export default function ReviewForm({
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       setProgressStep('sending_request')
       const controller = new AbortController()
+      // 保存 controller 以便外部中止
+      controllerRef.current = controller
       // 客户端等待后端响应的超时（毫秒），可通过 Vite 环境变量 VITE_CLIENT_TIMEOUT_MS 配置，默认 1800000（30 分钟）
       // 在浏览器中不可直接访问 process.env，使用 import.meta.env（由 Vite 在构建时注入）
       const timeoutMs = Number((import.meta as any).env.VITE_CLIENT_TIMEOUT_MS || 1800000)
@@ -246,6 +250,8 @@ export default function ReviewForm({
         res = await fetch(apiUrl, { method: 'POST', body: fd, headers, signal: controller.signal })
       } finally {
         clearTimeout(timeoutId)
+        // 请求结束后清理 controllerRef
+        controllerRef.current = null
       }
       if (!res.ok) {
         const txt = await res.text()
@@ -362,6 +368,26 @@ export default function ReviewForm({
         window.clearInterval(timerRef.current)
         timerRef.current = null
       }
+    }
+  }
+
+  // 中文注释：中止当前与大模型的对话请求
+  function handleAbort() {
+    try {
+      if (controllerRef.current) {
+        controllerRef.current.abort()
+        // 清理 UI 状态
+        setLoading(false)
+        setProgressStep('done')
+        setError(t('form.error.aborted'))
+        if (timerRef.current) {
+          window.clearInterval(timerRef.current)
+          timerRef.current = null
+        }
+        controllerRef.current = null
+      }
+    } catch (e) {
+      // 忽略中止异常
     }
   }
 
@@ -575,6 +601,9 @@ export default function ReviewForm({
       <div className="flex items-center space-x-2">
         <button type="submit" className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md disabled:opacity-60" disabled={loading}>
           {loading ? t('form.submit.loading') : t('form.submit')}
+        </button>
+        <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-red-500" onClick={handleAbort} disabled={!controllerRef.current}>
+          {t('form.abort')}
         </button>
         <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={handleResetAll}>
           {t('form.reset')}

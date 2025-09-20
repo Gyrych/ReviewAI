@@ -30,7 +30,7 @@ function detectInitialLang(): Lang {
 // 中文注释：翻译字典
 const dictZh: Record<string, string> = {
   // app 层
-  'app.title': '仪器研究',
+  'app.title': '评审工具',
   'app.theme.toDark': '切换暗色',
   'app.theme.toLight': '切换亮色',
   'app.lang.toggle': 'EN/中',
@@ -76,6 +76,7 @@ const dictZh: Record<string, string> = {
   'form.submit.loading': '提交中...',
   'form.submit': '提交',
   'form.reset': '重置',
+  'form.abort': '中止',
   'form.save.loading': '保存中...',
   'form.save': '保存会话',
   'form.save.ok': '会话已保存',
@@ -84,6 +85,7 @@ const dictZh: Record<string, string> = {
   'form.customApi.warning': '提示：您使用的是自定义或未知的 API 地址，系统不会验证其可用性。若上游返回错误，请检查地址或切换到下拉中的受支持地址。',
   'form.error.timeout': '请求超时：上游响应较慢或网络不稳定，请尝试切换为 /beta 路径或稍后重试。',
   'form.error.submitFail': '提交失败',
+  'form.error.aborted': '已中止',
 
   // 步骤标签
   'step_idle': '空闲',
@@ -113,7 +115,7 @@ const dictZh: Record<string, string> = {
 
 const dictEn: Record<string, string> = {
   // app layer
-  'app.title': 'Schematic Review',
+  'app.title': 'Review Tool',
   'app.theme.toDark': 'Dark Mode',
   'app.theme.toLight': 'Light Mode',
   'app.lang.toggle': 'EN/中',
@@ -159,6 +161,7 @@ const dictEn: Record<string, string> = {
   'form.submit.loading': 'Submitting...',
   'form.submit': 'Submit',
   'form.reset': 'Reset',
+  'form.abort': 'Abort',
   'form.save.loading': 'Saving...',
   'form.save': 'Save Session',
   'form.save.ok': 'Session saved',
@@ -167,6 +170,7 @@ const dictEn: Record<string, string> = {
   'form.customApi.warning': 'Warning: You are using a custom/unknown API URL. The system will not validate its availability. If errors occur, check the URL or switch to a supported one.',
   'form.error.timeout': 'Request timed out: upstream is slow or network unstable. Try /beta path or retry later.',
   'form.error.submitFail': 'Submit failed',
+  'form.error.aborted': 'Aborted',
 
   // steps
   'step_idle': 'Idle',
