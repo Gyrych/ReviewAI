@@ -125,6 +125,19 @@ export async function extractCircuitJsonFromImages(
 
   // If search enrichment is enabled, detect ambiguous params and enrich
   if (enableSearch && Array.isArray(combined.components)) {
+    // Record enrichment start in timeline
+    if (timeline) {
+      timeline.push({
+        step: 'component_enrichment_start',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_enrichment',
+          description: '开始对不明确组件参数进行网络搜索补充'
+        }
+      })
+    }
+
+    let enrichmentCount = 0
     for (const comp of combined.components) {
       try {
         if (!comp) continue
@@ -155,6 +168,7 @@ export async function extractCircuitJsonFromImages(
               comp.enrichment = comp.enrichment || {}
               comp.enrichment[pname] = { candidates: (results.results || []).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })), queriedAt: results.fetchedAt, provider: results.provider }
               logInfo('vision.enrichment', { compId: comp.id || comp.label, param: pname, query, provider: results.provider })
+              enrichmentCount++
             } catch (e) {
               logError('vision.enrichment.error', { error: String(e), compId: comp.id || comp.label, param: pname })
             }
@@ -163,6 +177,19 @@ export async function extractCircuitJsonFromImages(
       } catch (e) {
         logError('vision.enrichment.loop.error', { error: String(e), comp: comp })
       }
+    }
+
+    // Record enrichment completion in timeline
+    if (timeline) {
+      timeline.push({
+        step: 'component_enrichment_done',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_enrichment',
+          enrichedParametersCount: enrichmentCount,
+          description: `组件参数补充完成，共补充${enrichmentCount}个参数`
+        }
+      })
     }
   }
 
@@ -295,10 +322,40 @@ export async function extractCircuitJsonFromImages(
   const normalized = normalizeToCircuitSchema(combined, images, tStart)
 
   // 强制：对IC类器件进行资料检索并落盘（uploads/datasheets/）
+  if (timeline) {
+    timeline.push({
+      step: 'ic_datasheet_fetch_start',
+      ts: Date.now(),
+      meta: {
+        type: 'backend',
+        description: '开始为IC器件下载datasheet资料'
+      }
+    })
+  }
+
   try {
     datasheetMeta = await fetchAndSaveDatasheetsForICComponents(normalized.components, topN)
   } catch (e) {
     logError('vision.datasheets.save.failed', { error: String(e) })
+  }
+
+  // 记录IC资料下载完成
+  if (timeline) {
+    const icCount = normalized.components?.filter((c: any) => {
+      const t = (c?.type || '').toString().toLowerCase()
+      return t.includes('ic') || t.includes('chip') || t.includes('opamp') || t.includes('op-amp')
+    }).length || 0
+
+    timeline.push({
+      step: 'ic_datasheet_fetch_done',
+      ts: Date.now(),
+      meta: {
+        type: 'backend',
+        icComponentsCount: icCount,
+        datasheetsDownloaded: datasheetMeta.length,
+        description: `IC器件资料下载完成，识别出${icCount}个IC器件，下载${datasheetMeta.length}份资料`
+      }
+    })
   }
 
   // 将资料元数据添加到 normalized 对象中，以便返回给前端
@@ -2541,7 +2598,7 @@ async function fetchAndSaveDatasheetsForICComponents(components: any[], topN: nu
     for (const comp of Array.isArray(components) ? components : []) {
       try {
         if (!isICComponent(comp)) continue
-        const id = (comp?.id || 'C') as string
+        const id = (comp?.id || '') as string
         const label = (comp?.label || '') as string
         const value = (comp?.value || '') as string
         const type = (comp?.type || '') as string
@@ -2551,11 +2608,15 @@ async function fetchAndSaveDatasheetsForICComponents(components: any[], topN: nu
           // 如果有具体的型号（如AD825, LF353），直接搜索型号 + datasheet
           q = `${label.trim()} datasheet`
         } else if (type && type.toLowerCase().includes('opamp')) {
-          // 对于运算放大器，使用更通用的搜索
-          q = `${type} ${id} datasheet`
+          // 对于运算放大器，使用更通用的搜索，但不使用默认的'C'
+          q = `${type} ${id} datasheet`.trim()
+        } else if (id && id.trim()) {
+          // 如果有器件编号，使用编号进行搜索
+          q = `${id} datasheet`
         } else {
-          // 默认搜索方式
-          q = [type, label || id, value, 'datasheet'].filter(Boolean).join(' ')
+          // 如果没有任何标识信息，跳过搜索
+          logInfo('vision.datasheet.skip', { component: comp, reason: 'no valid identifier found' })
+          continue
         }
 
         // 清理查询字符串
