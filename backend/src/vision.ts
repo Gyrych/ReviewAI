@@ -171,6 +171,19 @@ export async function extractCircuitJsonFromImages(
   try {
     logInfo('vision.ocr.start', { imageCount: images.length, enableOCR: true })
 
+    // 记录OCR开始到timeline
+    if (timeline) {
+      timeline.push({
+        step: 'ocr_recognition_start',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_ocr',
+          imageCount: images.length,
+          description: `开始OCR辅助识别，共处理${images.length}张图片`
+        }
+      })
+    }
+
     // 对每张图片并行进行OCR识别
     const ocrPromises = images.map(async (img) => {
       try {
@@ -211,6 +224,38 @@ export async function extractCircuitJsonFromImages(
 
     logInfo('vision.ocr.fusion_completed', mergedOCRResult.ocrStats)
 
+    // 记录OCR融合完成到timeline
+    if (timeline) {
+      timeline.push({
+        step: 'ocr_recognition_done',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_ocr',
+          ...mergedOCRResult.ocrStats,
+          description: `OCR辅助识别完成，提取${mergedOCRResult.ocrStats.totalExtractedComponents}个元件，${mergedOCRResult.ocrStats.totalExtractedValues}个数值`,
+          // 添加详细的OCR输出结果
+          ocrDetails: {
+            // 汇总所有图片的OCR结果
+            extractedComponents: mergedOCRResult.extractedComponents,
+            extractedValues: mergedOCRResult.extractedValues,
+            // 包含每张图片的详细识别信息
+            imageDetails: ocrResults.map((result, index) => ({
+              imageIndex: index,
+              filename: images[index]?.originalname || `image_${index + 1}`,
+              success: result.success,
+              confidence: result.confidence,
+              textLength: result.text?.length || 0,
+              extractedComponentsCount: result.extractedComponents?.length || 0,
+              extractedValuesCount: result.extractedValues?.length || 0,
+              // 精简版识别文本（避免timeline过大）
+              textPreview: result.text?.substring(0, 200) + (result.text?.length > 200 ? '...' : ''),
+              languages: result.languages
+            }))
+          }
+        }
+      })
+    }
+
     // 将OCR结果添加到metadata中
     if (!combined.metadata) combined.metadata = {}
     combined.metadata.ocrResult = mergedOCRResult
@@ -221,6 +266,20 @@ export async function extractCircuitJsonFromImages(
       errorType: error instanceof Error ? error.constructor.name : 'Unknown',
       stack: error instanceof Error ? error.stack : undefined
     })
+
+    // 记录OCR失败到timeline
+    if (timeline) {
+      timeline.push({
+        step: 'ocr_recognition_failed',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_ocr',
+          error: String(error),
+          description: 'OCR辅助识别失败，继续使用大模型识别结果'
+        }
+      })
+    }
+
     // OCR失败不影响主流程继续
   }
 

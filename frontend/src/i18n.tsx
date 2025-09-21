@@ -178,6 +178,9 @@ const dictZh: Record<string, string> = {
   'step_recognition_consolidation_start': '识别整合 - 开始',
   'step_recognition_consolidation_done': '识别整合 - 完成',
   'step_recognition_consolidation_fallback': '识别整合 - 回退',
+  'step_ocr_recognition_start': 'OCR辅助识别 - 开始',
+  'step_ocr_recognition_done': 'OCR辅助识别 - 完成',
+  'step_ocr_recognition_failed': 'OCR辅助识别 - 失败',
   // 分组标签
   'timeline.group.parse': '解析阶段',
   'timeline.group.search': '检索阶段',
@@ -351,6 +354,9 @@ const dictEn: Record<string, string> = {
   'step_recognition_consolidation_start': 'Recognition consolidation - start',
   'step_recognition_consolidation_done': 'Recognition consolidation - done',
   'step_recognition_consolidation_fallback': 'Recognition consolidation - fallback',
+  'step_ocr_recognition_start': 'OCR recognition - start',
+  'step_ocr_recognition_done': 'OCR recognition - done',
+  'step_ocr_recognition_failed': 'OCR recognition - failed',
   // groups
   'timeline.group.parse': 'Parse',
   'timeline.group.search': 'Search',
