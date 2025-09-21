@@ -254,8 +254,26 @@ export default function ReviewForm({
         controllerRef.current = null
       }
       if (!res.ok) {
-        const txt = await res.text()
-        throw new Error(txt || `Status ${res.status}`)
+        const contentType = res.headers.get('content-type') || ''
+        if (res.status === 422 && contentType.includes('application/json')) {
+          const j = await res.json()
+          // 中文注释：低置信/冲突场景——仍然消费 enrichedJson/overlay 并提示人工复核
+          try {
+            if (j.enrichedJson) {
+              const parsed = (typeof j.enrichedJson === 'string') ? JSON.parse(j.enrichedJson) : j.enrichedJson
+              setLocalEnrichedJson(parsed)
+              if (typeof setEnrichedJson === 'function') setEnrichedJson(parsed)
+            }
+            if (j.overlay && typeof setOverlay === 'function') setOverlay(j.overlay)
+            // 将 warnings 转化为问题确认前置文案
+            const warn = Array.isArray(j.warnings) ? j.warnings.join(', ') : String(j.warnings || '')
+            setError(t('form.warning.lowConfidence') + (warn ? `: ${warn}` : ''))
+          } catch (e) {}
+          // 继续向下走 Markdown 展示逻辑（若包含）
+        } else {
+          const txt = await res.text()
+          throw new Error(txt || `Status ${res.status}`)
+        }
       }
       // 若请求成功且使用了自定义 api/model 配对，则通知父组件保存该配对以便加入下拉
       try {
@@ -297,6 +315,16 @@ export default function ReviewForm({
         md = j.markdown || j.result || ''
         qFromJson = j.questions || j.issues || j.model_feedback || j.model_questions || j.questions_text || ''
         if (!md) md = JSON.stringify(j)
+        // UI 侧：根据时间线提示多阶段进度（若可用）
+        try {
+          const steps: string[] = (j.timeline || []).map((x: any) => x.step)
+          // 尝试将阶段线性映射为用户可读标记
+          if (steps.includes('images_processing_start')) setProgressStep('images_processing_start')
+          if (steps.includes('images_processing_done')) setProgressStep('images_processing_done')
+          if (steps.includes('datasheets_fetch_done')) setProgressStep('datasheets_fetch_done')
+          if (steps.includes('second_stage_analysis_start')) setProgressStep('second_stage_analysis_start')
+          if (steps.includes('second_stage_analysis_done')) setProgressStep('second_stage_analysis_done')
+        } catch {}
       } else {
         md = await res.text()
       }
@@ -596,6 +624,14 @@ export default function ReviewForm({
       <div className="flex items-center space-x-4">
         <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.current', { step: stepLabel(progressStep) || progressStep })}</div>
         <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.elapsed', { seconds: Math.floor(elapsedMs/1000) })}</div>
+      </div>
+      {/* 若可用，显示阶段提示 */}
+      <div className="text-xs text-gray-500 dark:text-gray-300">
+        {progressStep === 'images_processing_start' && t('progress.images_processing_start')}
+        {progressStep === 'images_processing_done' && t('progress.images_processing_done')}
+        {progressStep === 'datasheets_fetch_done' && t('progress.datasheets_fetch_done')}
+        {progressStep === 'second_stage_analysis_start' && t('progress.second_stage_analysis_start')}
+        {progressStep === 'second_stage_analysis_done' && t('progress.second_stage_analysis_done')}
       </div>
 
       <div className="flex items-center space-x-2">

@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import https from 'https'
 import { webSearch } from './search'
+import crypto from 'crypto'
 import { logInfo, logError } from './logger'
 
 // 将图片文件转发给用户指定的模型 API，请求返回遵循 circuit schema 的 JSON
@@ -20,6 +21,7 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
   // 注意：
   // - 对 openrouter.ai：使用 JSON 多模态消息（base64 data URL）而非 multipart
   // - 其他主机：沿用 multipart/form-data（已修复重试复用 body 的问题）
+  const tStart = Date.now()
   const combined: any = { components: [], connections: [] }
 
   for (const img of images) {
@@ -259,20 +261,218 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
     }
   }
 
-  // Optionally save enriched JSON to uploads for auditing
+  // 规范化为 circuit-schema：connections -> nets，补齐 metadata/uncertainties
+  const normalized = normalizeToCircuitSchema(combined, images, tStart)
+
+  // 强制：对关键器件进行资料检索并落盘（uploads/datasheets/）
+  try {
+    await fetchAndSaveDatasheetsForKeyComponents(normalized.components, topN)
+  } catch (e) {
+    logError('vision.datasheets.save.failed', { error: String(e) })
+  }
+
+  // Optionally save enriched JSON to uploads for auditing（命名与路径统一）
   if (saveEnriched) {
     try {
       const uploadsDir = path.join(__dirname, '..', 'uploads')
       if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true })
-      const fname = `review_${new Date().toISOString().replace(/[:.]/g, '-')}.enriched.json`
+      const tsIso = new Date().toISOString()
+      const tsName = tsIso.replace(/[:]/g, '-').replace(/\..+$/, 'Z')
+      const fname = `enriched_${tsName}.json`
       const outPath = path.join(uploadsDir, fname)
-      fs.writeFileSync(outPath, JSON.stringify(combined, null, 2), { encoding: 'utf8' })
+      fs.writeFileSync(outPath, JSON.stringify(normalized, null, 2), { encoding: 'utf8' })
       logInfo('vision.enriched.saved', { path: outPath })
+
+      // 推荐项：若 overlay 存在，额外保存 overlay 文件并登记日志
+      if ((normalized as any).overlay && (normalized as any).overlay.svg) {
+        const svgPath = path.join(uploadsDir, `overlay_${tsName.replace(/[-:]/g, '').replace('T', '_').slice(0, 15)}.svg`)
+        try { fs.writeFileSync(svgPath, String((normalized as any).overlay.svg), { encoding: 'utf8' }) } catch {}
+        if ((normalized as any).overlay.mapping) {
+          const mapPath = path.join(uploadsDir, `overlay_${tsName.replace(/[-:]/g, '').replace('T', '_').slice(0, 15)}.json`)
+          try { fs.writeFileSync(mapPath, JSON.stringify((normalized as any).overlay.mapping, null, 2), { encoding: 'utf8' }) } catch {}
+        }
+      }
     } catch (e) {
       logError('vision.enriched.save.failed', { error: String(e) })
     }
   }
 
-  return combined
+  return normalized
 }
+
+// 中文注释：将上游返回的 {components, connections} 规范化为 circuit-schema 所需结构
+function normalizeToCircuitSchema(raw: any, images: { path: string; originalname: string }[], tStart: number): any {
+  const out: any = {}
+  out.components = Array.isArray(raw.components) ? raw.components : []
+  // 将 connections 转换为 nets（最小可用格式）
+  const nets: any[] = []
+  if (Array.isArray(raw.nets)) {
+    for (const n of raw.nets) {
+      // 透传已有 nets
+      nets.push(n)
+    }
+  } else if (Array.isArray(raw.connections)) {
+    let idx = 1
+    for (const c of raw.connections) {
+      try {
+        const pins: string[] = []
+        // 兼容常见结构：{ from: { componentId, pin }, to: { componentId, pin }, confidence? }
+        const from = c?.from
+        const to = c?.to
+        if (from && from.componentId && from.pin) pins.push(`${from.componentId}.${from.pin}`)
+        if (to && to.componentId && to.pin) pins.push(`${to.componentId}.${to.pin}`)
+        if (pins.length >= 2) {
+          nets.push({ net_id: `N${idx++}`, connected_pins: Array.from(new Set(pins)), signal_type: 'signal', confidence: typeof c.confidence === 'number' ? c.confidence : 1.0 })
+        }
+      } catch (e) {
+        // 跳过无法识别的 connection
+      }
+    }
+  }
+  out.nets = nets
+
+  // 透传 overlay（若存在）
+  if (raw.overlay) out.overlay = raw.overlay
+
+  // 构造 metadata（最小必填）
+  const tEnd = Date.now()
+  const source_type = (() => {
+    try {
+      const anyPdf = images.some((im) => (im.originalname || '').toLowerCase().endsWith('.pdf'))
+      return anyPdf ? 'pdf' : 'image'
+    } catch { return 'image' }
+  })()
+  const overall_confidence = computeOverallConfidence(out)
+  out.metadata = Object.assign({}, raw.metadata || {}, {
+    source_type,
+    timestamp: new Date().toISOString(),
+    inference_time_ms: Math.max(0, tEnd - tStart),
+    overall_confidence,
+  })
+
+  // uncertainties（如无来源，保留为空数组）
+  if (Array.isArray(raw.uncertainties)) out.uncertainties = raw.uncertainties
+  else out.uncertainties = []
+
+  return out
+}
+
+// 中文注释：计算整体置信度（nets 与组件 pins 置信度的最小值；若均缺失则默认 1.0）
+function computeOverallConfidence(norm: any): number {
+  let confidences: number[] = []
+  try {
+    if (Array.isArray(norm.nets)) {
+      for (const n of norm.nets) {
+        if (typeof n?.confidence === 'number') confidences.push(n.confidence)
+      }
+    }
+  } catch {}
+  try {
+    if (Array.isArray(norm.components)) {
+      for (const c of norm.components) {
+        const pins = Array.isArray(c?.pins) ? c.pins : []
+        for (const p of pins) {
+          if (typeof p?.confidence === 'number') confidences.push(p.confidence)
+        }
+      }
+    }
+  } catch {}
+  if (!confidences.length) return 1.0
+  return Math.min(...confidences.map((v) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : 1.0)))
+}
+
+// 中文注释：判断是否为关键器件（非简单无源器件）
+function isKeyComponent(comp: any): boolean {
+  try {
+    const t = (comp?.type || '').toString().toLowerCase()
+    const id = (comp?.id || '').toString().toLowerCase()
+    const passive = ['res', 'resistor', 'cap', 'capacitor', 'ind', 'inductor', 'ferrite', 'led', 'diode']
+    if (passive.includes(t)) return false
+    // 常见关键器件关键词
+    const keywords = ['ic', 'mcu', 'pmic', 'soc', 'fpga', 'cpld', 'adc', 'dac', 'amplifier', 'opamp', 'converter', 'regulator', 'transceiver', 'phy', 'controller', 'sensor', 'driver', 'bridge', 'interface']
+    if (keywords.some(k => t.includes(k))) return true
+    // 若类型未知但编号像 U* 也视为关键器件
+    if (/^u\d+/i.test(id)) return true
+  } catch {}
+  return true
+}
+
+// 中文注释：为关键器件检索 datasheet 并落盘，同时保存元数据
+async function fetchAndSaveDatasheetsForKeyComponents(components: any[], topN: number): Promise<void> {
+  try {
+    const datasheetsDir = path.join(__dirname, '..', 'uploads', 'datasheets')
+    if (!fs.existsSync(datasheetsDir)) fs.mkdirSync(datasheetsDir, { recursive: true })
+
+    const metaItems: any[] = []
+    const nowIso = new Date().toISOString()
+    const tsName = nowIso.replace(/[-:]/g, '').replace(/\..+$/, 'Z')
+
+    for (const comp of Array.isArray(components) ? components : []) {
+      try {
+        if (!isKeyComponent(comp)) continue
+        const id = (comp?.id || 'C') as string
+        const label = (comp?.label || '') as string
+        const value = (comp?.value || '') as string
+        const type = (comp?.type || '') as string
+        const q = [type, label || id, value, 'datasheet'].filter(Boolean).join(' ')
+        const results = await webSearch(q, { topN })
+        const first = (results.results || [])[0]
+        let savedPath: string | null = null
+        let sourceType = 'third-party'
+        let docTitle = first?.title || ''
+        let docDate = ''
+        let confidence = 0.6
+        if (first && first.url) {
+          try {
+            const r = await fetch(first.url, { timeout: 30000 })
+            if (r && r.ok) {
+              const ct = (r.headers && r.headers.get ? (r.headers.get('content-type') || '') : '')
+              const ext = ct.includes('pdf') ? 'pdf' : (ct.includes('html') ? 'html' : 'bin')
+              const h = crypto.createHash('sha1').update(first.url).digest('hex').slice(0, 8)
+              const safeName = `${String(id || 'C').replace(/[^A-Za-z0-9_-]/g, '')}_${tsName}_${h}.${ext}`
+              const filePath = path.join(datasheetsDir, safeName)
+              const buf = Buffer.from(await r.arrayBuffer())
+              fs.writeFileSync(filePath, buf)
+              savedPath = filePath
+              // 简单来源类型推断
+              const uhost = (() => { try { return new URL(first.url).hostname.toLowerCase() } catch { return '' } })()
+              if (/st(\.|-)com|texas|ti\.com|analog\.com|microchip|nxp|infineon|renesas|onsemi|skyworks|nvidia|intel|amd|silabs/.test(uhost)) sourceType = 'manufacturer'
+              if (/digikey|mouser|arrow|element14|farnell|rs-online|lcsc/.test(uhost)) sourceType = 'distributor'
+              confidence = ct.includes('pdf') ? 0.9 : 0.7
+            }
+          } catch (e) {
+            // 下载失败忽略
+          }
+        }
+
+        metaItems.push({
+          component_name: id,
+          query_string: q,
+          retrieved_at: nowIso,
+          source_url: first?.url || '',
+          source_type: sourceType,
+          document_title: docTitle,
+          document_version_or_date: docDate,
+          confidence,
+          notes: savedPath ? `saved: ${savedPath}` : 'save skipped or failed',
+          candidates: results.results || [],
+        })
+      } catch (e) {
+        logError('vision.datasheets.component.error', { error: String(e) })
+      }
+    }
+
+    // 聚合元数据写入单文件
+    try {
+      const metaPath = path.join(datasheetsDir, `metadata_${tsName}.json`)
+      fs.writeFileSync(metaPath, JSON.stringify({ items: metaItems }, null, 2), { encoding: 'utf8' })
+      logInfo('vision.datasheets.metadata.saved', { path: metaPath, count: metaItems.length })
+    } catch (e) {
+      logError('vision.datasheets.metadata.save.failed', { error: String(e) })
+    }
+  } catch (e) {
+    logError('vision.datasheets.dir.failed', { error: String(e) })
+  }
+}
+
 

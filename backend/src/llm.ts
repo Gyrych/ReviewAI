@@ -14,6 +14,43 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   // Extend system prompt to mention enrichment field if present
   const enrichmentNote = `If the supplied JSON includes an \`enrichment\` field on components, these contain web search candidate sources for ambiguous parameter values. For each such parameter, evaluate the candidate sources, state which candidate appears most credible (with brief justification), and explicitly list any parameters that still require manual verification along with their candidate source URLs.`
   const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}\n\n${enrichmentNote}` : `${systemBase}\n\n${enrichmentNote}`
+
+  // 阶段判定：若尚未确认问题（或确认后未见用户逐条回复），仅输出“【Clarifying Question】”清单；
+  // 若已确认且用户回复过，则仅输出“【Review Report】”。
+  function determinePhase(h?: { role: string; content: string }[]): 'clarify' | 'review' {
+    try {
+      const msgs = Array.isArray(h) ? h : []
+      let lastClarifyIdx = -1
+      for (let i = 0; i < msgs.length; i++) {
+        const m = msgs[i]
+        if (m && m.role === 'assistant' && typeof m.content === 'string' && (/【问题确认】/.test(m.content) || /【Clarifying Question】/.test(m.content))) {
+          lastClarifyIdx = i
+        }
+      }
+      if (lastClarifyIdx < 0) return 'clarify'
+      // 存在澄清，则检查其后是否有用户回复
+      const hasUserReplyAfter = msgs.slice(lastClarifyIdx + 1).some((m) => m && m.role === 'user' && typeof m.content === 'string' && m.content.trim().length > 0)
+      return hasUserReplyAfter ? 'review' : 'clarify'
+    } catch {
+      return 'clarify'
+    }
+  }
+  const phase = determinePhase(history)
+
+  // 语言/前缀选择：若 systemPrompt 包含中文标记，则使用中文前缀；否则使用英文
+  function chooseLocalePrefixes(sp?: string): { clarify: string; report: string; locale: 'zh'|'en' } {
+    try {
+      const txt = (sp || '').toString()
+      const hasZh = /【问题确认】|【评审报告】/.test(txt) || /[\u4e00-\u9fa5]/.test(txt)
+      if (hasZh) return { clarify: '【问题确认】', report: '【评审报告】', locale: 'zh' }
+    } catch {}
+    return { clarify: '【Clarifying Question】', report: '【Review Report】', locale: 'en' }
+  }
+  const prefixes = chooseLocalePrefixes(systemPrompt)
+
+  const phaseGuard = phase === 'clarify'
+    ? `Output only a numbered list of clarifying questions. Each item MUST start with "${prefixes.clarify}" and be specific to the input. Do NOT include the full review or "${prefixes.report}". Avoid decorative brackets inside the body except the mandated prefix.`
+    : `Output the formal review only. Start with "${prefixes.report}" line, then sections in Markdown starting from ## as required by the template. Do NOT include any clarifying questions or "${prefixes.clarify}" in this stage.`
   // include history as additional context
   let historyText = ''
   if (history && Array.isArray(history) && history.length > 0) {
@@ -22,7 +59,7 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
       historyText += `${h.role}: ${h.content}\n`
     }
   }
-  const userPrompt = `Circuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${historyText}\n\nPlease output only Markdown.`
+  const userPrompt = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${historyText}\n\nPlease output only Markdown.`
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
   const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false }

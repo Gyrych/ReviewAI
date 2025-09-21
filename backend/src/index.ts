@@ -61,7 +61,8 @@ app.post('/api/review', upload.any(), async (req, res) => {
         const sp = typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts
         if (sp) {
           systemPrompt = sp.systemPrompt || ''
-          requirements = (systemPrompt ? systemPrompt + '\n\n' : '') + (sp.requirements || requirements)
+          // 中文注释：系统提示词仅作为 system role 注入，不再重复拼接到 requirements，避免语言与内容重复
+          requirements = (sp.requirements || requirements)
           specs = (sp.specs || specs)
           // 注意：已弃用 reviewGuidelines 字段，保持兼容性但不使用
         }
@@ -86,8 +87,14 @@ app.post('/api/review', upload.any(), async (req, res) => {
       }
     }
     // 先收集 multer 保存的文件信息（只保留 image/*），以便 provider 分支使用
-    const maybeFiles = (req as any).files
-    const files = Array.isArray(maybeFiles) ? maybeFiles.filter((f: any) => f.mimetype && f.mimetype.startsWith('image/')) : []
+  const maybeFiles = (req as any).files
+  // 中文注释：接受图片与 PDF（原理图 PDF）
+  const files = Array.isArray(maybeFiles)
+    ? maybeFiles.filter((f: any) => {
+        const mt = f.mimetype || ''
+        return (typeof mt === 'string') && (mt.startsWith('image/') || mt === 'application/pdf')
+      })
+    : []
     // provider 优先使用前端传入；若未传则基于 apiUrl 或 model 名称做简单推断（支持 deepseek 自动识别）
     let provider = body.provider
     if (!provider) {
@@ -143,11 +150,15 @@ app.post('/api/review', upload.any(), async (req, res) => {
       const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched))
       circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched })
       timeline.push({ step: 'images_processing_done', ts: Date.now() })
+      // 视觉阶段内部已完成 datasheets 下载与元数据落盘，此处补记时间线
+      timeline.push({ step: 'datasheets_fetch_done', ts: Date.now() })
+    } else {
+      timeline.push({ step: 'images_processing_skipped', ts: Date.now() })
     }
 
-    timeline.push({ step: 'llm_request_start', ts: Date.now() })
+    timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() })
     const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history)
-    timeline.push({ step: 'llm_request_done', ts: Date.now() })
+    timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() })
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
     // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson
@@ -164,7 +175,29 @@ app.post('/api/review', upload.any(), async (req, res) => {
     } catch (e) { /* ignore logging errors */ }
 
     // 若存在需要人工确认的 low confidence 或冲突，返回 422 并在 body 中包含相关信息（但仍返回 JSON）
-    const lowConflicts = (circuitJson && circuitJson.nets && circuitJson.nets.some((n:any)=>n.confidence !== undefined && n.confidence < 0.9)) || false
+    // 中文注释：低置信触发策略（网络 + 器件）：任一 < 0.90 则触发 422
+    let lowConflicts = false
+    try {
+      if (Array.isArray((circuitJson as any).nets)) {
+        lowConflicts = (circuitJson as any).nets.some((n: any) => typeof n?.confidence === 'number' && n.confidence < 0.9)
+      }
+      if (!lowConflicts && Array.isArray((circuitJson as any).components)) {
+        let minPinConf = 1.0
+        for (const c of (circuitJson as any).components) {
+          const pins = Array.isArray(c?.pins) ? c.pins : []
+          for (const p of pins) {
+            if (typeof p?.confidence === 'number') {
+              minPinConf = Math.min(minPinConf, p.confidence)
+            }
+          }
+        }
+        if (minPinConf < 0.9) lowConflicts = true
+      }
+      // 若 metadata.overall_confidence 存在，亦可作为补充判据
+      if (!lowConflicts && (circuitJson as any).metadata && typeof (circuitJson as any).metadata.overall_confidence === 'number') {
+        if ((circuitJson as any).metadata.overall_confidence < 0.9) lowConflicts = true
+      }
+    } catch {}
     if (lowConflicts) {
       res.status(422).json(Object.assign(responseBody, { warnings: ['low_confidence_or_conflict'] }))
     } else {

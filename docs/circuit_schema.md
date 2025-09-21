@@ -28,7 +28,7 @@
   - `signal_type`：`power`/`gnd`/`signal`/`analog`/`diff`/`unknown`。
   - `confidence`：网络识别置信度（0-1）。
 
-- `metadata`：推理元数据，包括 `image_id`, `image_resolution`, `model_version`, `inference_time_ms`, `random_seed`, `warnings`。
+- `metadata`：推理元数据（最小必填）：`source_type`（image/pdf）、`timestamp`（UTC ISO 8601）、`overall_confidence`（0-1）、`inference_time_ms`；推荐包含 `image_id`, `image_resolution`, `model_version`, `random_seed`, `warnings`。
 
 - `uncertainties`：可选，列出低置信或冲突项及候选解释。
 
@@ -61,7 +61,7 @@
 
 6. Overlay 与可视化
 
-- 每次推理需输出 `overlay.svg` 与 `overlay.json`（映射 SVG 元素 id 到 JSON 实体），便于前端高亮与人工修正。
+- 推荐在保存 enriched JSON 时同时保存 `overlay.svg` 与 `overlay.json`（映射 SVG 元素 id 到 JSON 实体），便于前端高亮与人工修正；响应体仍可直接返回 overlay 供 UI 使用。
 
 7. 示例（节选）
 
@@ -87,6 +87,6 @@
 
 8. 版本与追溯
 
-- 每次生成的 JSON 应记录 `model_version` 与 `random_seed` 并保存到 `backend/uploads/enriched_<timestamp>.json` 以便回溯与离线分析。
+- 每次生成的 JSON 应记录 `model_version` 与 `random_seed` 并保存到 `backend/uploads/enriched_<YYYY-MM-DDTHH-mm-ssZ>.json`（UTC ISO 8601）以便回溯与离线分析。
 
 

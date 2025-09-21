@@ -6,8 +6,9 @@
 
 ## 重要必读（强提醒）
 
-- 请在“仓库根目录”提供双语系统提示词：中文 `系统提示词.md`、英文 `SystemPrompt.md`。
-- 前端将依据当前 UI 语言请求 `GET /api/system-prompt?lang=zh|en`。若目标语言文件缺失（404），UI 将显示“无系统提示词环境”的非阻断警示，但仍允许与大模型正常对话。
+- **首选位置**：将系统提示词放在 `./schematic-ai-review-prompt/` 子目录：`schematic-ai-review-prompt/系统提示词.md`（中文）和 `schematic-ai-review-prompt/SystemPrompt.md`（英文）。
+- **兼容回退**：若子目录中找不到对应文件，后端会回退读取仓库根目录下的 `系统提示词.md` / `SystemPrompt.md`。
+- 若在两处均未找到目标语言文件，接口返回 404，UI 将显示非阻断警示“无系统提示词环境”，但仍允许与大模型正常对话。
 - 如需现成的系统提示词内容，可联系作者付费索取：gyrych@gmail.com
 
 ## 开发服务器
