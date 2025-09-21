@@ -5,7 +5,7 @@ import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
+export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], datasheetMeta?: any[]): Promise<string> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for LLM call')
   }
@@ -59,7 +59,19 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
       historyText += `${h.role}: ${h.content}\n`
     }
   }
-  const userPrompt = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${historyText}\n\nPlease output only Markdown.`
+  // 构建IC器件资料信息
+  let datasheetInfo = ''
+  if (datasheetMeta && Array.isArray(datasheetMeta) && datasheetMeta.length > 0) {
+    datasheetInfo = '\n\nIC Component Datasheets Retrieved:\n'
+    for (const meta of datasheetMeta) {
+      if (meta.component_name && meta.source_url) {
+        datasheetInfo += `- ${meta.component_name}: ${meta.source_url} (confidence: ${(meta.confidence * 100).toFixed(1)}%)\n`
+      }
+    }
+    datasheetInfo += '\nPlease consider these datasheets when analyzing the circuit design.'
+  }
+
+  const userPrompt = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${datasheetInfo}${historyText}\n\nPlease output only Markdown.`
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
   const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false }

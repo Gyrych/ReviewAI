@@ -5,6 +5,9 @@ import path from 'path'
 
 export type SessionHistory = { role: 'user' | 'assistant'; content: string }
 
+// 中文注释：步骤时间线条目，用于记录与大模型交互的处理阶段
+export type SessionTimelineItem = { step: string; ts?: number; meta?: any }
+
 export type SessionFileV1 = {
   id?: string
   version: 1
@@ -18,6 +21,8 @@ export type SessionFileV1 = {
   questionConfirm: string
   dialog: string
   history: SessionHistory[]
+  // 可选：记录处理步骤时间线（前端/后端均可写入）
+  timeline?: SessionTimelineItem[]
   markdown: string
   enrichedJson?: any
   overlay?: any

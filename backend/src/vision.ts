@@ -6,9 +6,27 @@ import { webSearch } from './search'
 import crypto from 'crypto'
 import { logInfo, logError } from './logger'
 
-// 将图片文件转发给用户指定的模型 API，请求返回遵循 circuit schema 的 JSON
-// 新增 options: enableSearch (default true), topN (default 5), saveEnriched (default true)
-export async function extractCircuitJsonFromImages(images: { path: string; originalname: string }[], apiUrl: string, model: string, authHeader?: string, options?: { enableSearch?: boolean; topN?: number; saveEnriched?: boolean }): Promise<any> {
+// 中文注释：多轮视觉识别和结果整合系统
+// 支持对同一图片进行多次识别，然后通过大模型整合结果，提高识别准确性
+
+/**
+ * 从图片中提取电路JSON的主函数
+ * 支持单轮和多轮识别模式
+ */
+export async function extractCircuitJsonFromImages(
+  images: { path: string; originalname: string }[],
+  apiUrl: string,
+  model: string,
+  authHeader?: string,
+  options?: {
+    enableSearch?: boolean;
+    topN?: number;
+    saveEnriched?: boolean;
+    multiPassRecognition?: boolean;
+    recognitionPasses?: number;
+  },
+  timeline?: { step: string; ts: number; meta?: any }[]
+): Promise<any> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for vision extraction')
   }
@@ -16,206 +34,91 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
   const enableSearch = options?.enableSearch !== false
   const topN = options?.topN || Number(process.env.SEARCH_TOPN) || 5
   const saveEnriched = options?.saveEnriched !== false
+  const multiPassRecognition = options?.multiPassRecognition === true;
+  const recognitionPasses = Math.max(1, Math.min(options?.recognitionPasses || 5, 10)) // 限制在1-10次之间
 
-  // 对于每张图片，向 apiUrl 发送请求，要求返回遵循 schema 的 JSON
-  // 注意：
-  // - 对 openrouter.ai：使用 JSON 多模态消息（base64 data URL）而非 multipart
-  // - 其他主机：沿用 multipart/form-data（已修复重试复用 body 的问题）
+  logInfo('vision.extraction_start', {
+    imageCount: images.length,
+    multiPassEnabled: multiPassRecognition,
+    recognitionPasses: multiPassRecognition ? recognitionPasses : 1,
+    apiUrl: apiUrl.split('/').pop(), // 只记录域名部分
+    model,
+    enableSearch,
+    topN,
+    saveEnriched
+  })
+
+  // 统计信息收集
+  const processingStats = {
+    totalImages: images.length,
+    successfulRecognitions: 0,
+    failedRecognitions: 0,
+    totalComponents: 0,
+    totalConnections: 0,
+    processingTime: 0
+  }
+
+  // 初始化IC器件资料元数据
+  let datasheetMeta: any[] = []
+
   const tStart = Date.now()
   const combined: any = { components: [], connections: [] }
 
+  // 处理每张图片
   for (const img of images) {
-    // 为避免在多次重试中复用同一可读流或 FormData（会导致 "body used already" 错误），
-    // 我们在每次尝试发送请求时为该尝试创建新的 FormData 实例并在需要时新建 stream。
-    // 优化：对于较小文件可以缓冲到内存以支持高效重试；对于大文件每次使用新的 createReadStream。
-    const stat = fs.existsSync(img.path) ? fs.statSync(img.path) : null
-    const fileSize = stat ? stat.size : 0
-    const MEM_BUFFER_THRESHOLD = 5 * 1024 * 1024 // 5MB 阈值，可调整
-    const useBuffer = fileSize > 0 && fileSize <= MEM_BUFFER_THRESHOLD
-    let fileBuffer: Buffer | null = null
-    if (useBuffer) {
-      try {
-        fileBuffer = fs.readFileSync(img.path)
-      } catch (e) {
-        // 如果读取失败，退回到流模式
-        fileBuffer = null
-      }
-    }
-
-    // 在 prompt 中指示模型返回严格的 JSON，遵循约定 schema
-    const promptText = `Please analyze the circuit diagram image and return a JSON with keys: components (array), connections (array). Each component should have id,type,label,params,pins. connections should list from/to with componentId and pin. Return only JSON.`
-
-    // 构造尝试用的 URL 列表（保持原有策略）
-    let tryUrls: string[] = []
-    let isOpenRouterHost = false
     try {
-      const u = new URL(apiUrl)
-      const host = (u.hostname || '').toLowerCase()
-      isOpenRouterHost = host.includes('openrouter.ai')
-      if (isOpenRouterHost) {
-        if (u.pathname && u.pathname !== '/') tryUrls.push(apiUrl)
-        tryUrls.push(u.origin + '/api/v1/chat/completions')
-        tryUrls.push(u.origin + '/api/v1/chat')
-        tryUrls.push(u.origin + '/chat/completions')
+      logInfo('vision.processing_image', { filename: img.originalname })
+
+      let recognitionResults: any[] = []
+
+      if (multiPassRecognition) {
+        // 多轮识别模式
+        recognitionResults = await doMultiPassRecognition(img, apiUrl, model, authHeader, recognitionPasses, timeline)
       } else {
-        tryUrls.push(apiUrl)
+        // 单轮识别模式
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader)
+        recognitionResults = [result]
       }
+
+      // 如果有多轮结果，进行整合
+      let finalResult: any
+      if (recognitionResults.length > 1) {
+        finalResult = await consolidateRecognitionResults(recognitionResults, apiUrl, model, authHeader, timeline)
+      } else {
+        finalResult = recognitionResults[0]
+      }
+
+      // 合并到总结果中
+      if (finalResult.components && Array.isArray(finalResult.components)) {
+        combined.components.push(...finalResult.components)
+      }
+      if (finalResult.connections && Array.isArray(finalResult.connections)) {
+        combined.connections.push(...finalResult.connections)
+      }
+
+      // 更新统计信息
+      processingStats.successfulRecognitions++
+      processingStats.totalComponents += finalResult.components?.length || 0
+      processingStats.totalConnections += finalResult.connections?.length || 0
+
+      logInfo('vision.image_processed', {
+        filename: img.originalname,
+        recognitionPasses: recognitionResults.length,
+        finalComponents: finalResult.components?.length || 0,
+        finalConnections: finalResult.connections?.length || 0,
+        componentsWithLabels: finalResult.components?.filter((c: any) => c.label && c.label.trim()).length || 0
+      })
+
     } catch (e) {
-      tryUrls.push(apiUrl)
+      processingStats.failedRecognitions++
+
+      logError('vision.image_processing_failed', {
+        filename: img.originalname,
+        error: String(e),
+        errorType: e instanceof Error ? e.constructor.name : 'Unknown'
+      })
+      // 继续处理其他图片，不中断整个流程
     }
-
-    // 超时时间（毫秒），可通过环境变量 VISION_TIMEOUT_MS 覆盖，默认 1800000（30 分钟）
-    const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '1800000')
-    const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
-    // keep-alive agent 提升连接稳定性（默认 keepAlive true）
-    const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
-
-    // 辅助函数：带重试与 keep-alive 的 fetch
-    async function fetchWithRetry(url: string, opts: any, retries: number) {
-      let lastErr: any = null
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-          // 注入 agent 以启用 keep-alive
-          opts.agent = opts.agent || keepAliveAgent
-          const r = await fetch(url, opts)
-          return r
-        } catch (e) {
-          lastErr = e
-          logError('vision.try.exception', { tryUrl: url, error: String(e), attempt })
-          if (attempt < retries) {
-            // 指数退避
-            const delay = Math.min(30000, 1000 * Math.pow(2, attempt))
-            await new Promise((res) => setTimeout(res, delay))
-            continue
-          }
-        }
-      }
-      throw lastErr
-    }
-
-    let resp: any = null
-    let lastErr: any = null
-    for (const tryUrl of tryUrls) {
-      let stream: any = null
-      try {
-        if (isOpenRouterHost) {
-          // OpenRouter: 使用 JSON 多模态消息，内联 base64 图片，走 chat/completions 兼容接口
-          // 估测 MIME 类型（仅用于 data URL 标注；不影响功能）
-          const lower = (img.originalname || '').toLowerCase()
-          let mime = 'application/octet-stream'
-          if (lower.endsWith('.png')) mime = 'image/png'
-          else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mime = 'image/jpeg'
-          else if (lower.endsWith('.webp')) mime = 'image/webp'
-          else if (lower.endsWith('.gif')) mime = 'image/gif'
-          else if (lower.endsWith('.pdf')) mime = 'application/pdf'
-
-          // 读取文件为 base64（为简化与可靠性，此处不限制大小；如需优化可改为分块/阈值）
-          const buf = fileBuffer || fs.readFileSync(img.path)
-          const dataUrl = `data:${mime};base64,${buf.toString('base64')}`
-
-          // OpenAI/OR 兼容消息：system + user(content: [text, image_url])
-          const payload = {
-            model,
-            messages: [
-              { role: 'system', content: 'You are an expert circuit diagram parser. Return ONLY JSON with keys: components[], connections[]; no extra text.' },
-              {
-                role: 'user',
-                content: [
-                  { type: 'text', text: promptText },
-                  { type: 'image_url', image_url: { url: dataUrl } },
-                ],
-              },
-            ],
-          }
-
-          const headers: any = { 'Content-Type': 'application/json' }
-          if (authHeader) headers['Authorization'] = authHeader
-          // 支持可选的 OpenRouter 推荐头（通过环境变量配置）
-          if (process && process.env && process.env.OPENROUTER_HTTP_REFERER) headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER
-          if (process && process.env && process.env.OPENROUTER_X_TITLE) headers['X-Title'] = process.env.OPENROUTER_X_TITLE
-          logInfo('vision.try', { tryUrl, mode: 'json' })
-          // 显式关闭流式，并提升超时到 180s 以容纳多模态推理
-          ;(payload as any).stream = false
-          resp = await fetchWithRetry(tryUrl, { method: 'POST', body: JSON.stringify(payload), headers, timeout: visionTimeout }, fetchRetries)
-          if (resp.ok) {
-            logInfo('vision.try.success', { tryUrl, status: resp.status })
-            break
-          }
-          const txt = await resp.text()
-          lastErr = `status ${resp.status} ${txt.substring(0,200)}`
-          logError('vision.try.failed', { tryUrl, status: resp.status })
-        } else {
-          // 默认：multipart/form-data（图片直传）
-          // 为该次尝试新建 FormData
-          const form = new (require('form-data'))()
-          if (fileBuffer) {
-            form.append('file', fileBuffer, { filename: img.originalname })
-          } else {
-            stream = fs.createReadStream(img.path)
-            form.append('file', stream, { filename: img.originalname })
-          }
-          form.append('prompt', promptText)
-          form.append('model', model)
-
-          const headers: any = Object.assign({}, form.getHeaders())
-          if (authHeader) headers['Authorization'] = authHeader
-          logInfo('vision.try', { tryUrl, mode: 'multipart' })
-          // 使用与 JSON 分支一致的超时配置
-          resp = await fetchWithRetry(tryUrl, { method: 'POST', body: form, headers, timeout: visionTimeout }, fetchRetries)
-          if (resp.ok) {
-            logInfo('vision.try.success', { tryUrl, status: resp.status })
-            break
-          }
-          const txt = await resp.text()
-          lastErr = `status ${resp.status} ${txt.substring(0,200)}`
-          logError('vision.try.failed', { tryUrl, status: resp.status })
-        }
-      } catch (e) {
-        lastErr = e
-        logError('vision.try.exception', { tryUrl, error: String(e) })
-      } finally {
-        // 确保销毁本次尝试创建的流，避免资源泄露
-        if (stream && typeof stream.destroy === 'function') {
-          try { stream.destroy() } catch (e) { /* ignore */ }
-        }
-      }
-    }
-    if (!resp) throw new Error(`vision upstream error: ${lastErr || 'no response'}`)
-    if (!resp.ok) {
-      const txt = await resp.text()
-      throw new Error(`vision upstream error: ${resp.status} ${txt.substring(0, 200)}`)
-    }
-    const txt = await resp.text()
-    // 检测上游返回 HTML 的情况并给出更明确的错误提示
-    const ct = (resp.headers && resp.headers.get ? resp.headers.get('content-type') : '') || ''
-    if (ct.toLowerCase().includes('text/html') || /^\s*<!doctype/i.test(txt) || txt.trim().startsWith('<html')) {
-      throw new Error(`vision upstream returned HTML (likely endpoint incorrect or model not found). Upstream response snippet: ${String(txt).slice(0,200)}`)
-    }
-    let parsed: any = null
-    let wrapper: any = null
-    try {
-      wrapper = JSON.parse(txt)
-      // OpenRouter/OpenAI 兼容：从 choices[0].message.content 中提取 JSON
-      if (wrapper && wrapper.choices && Array.isArray(wrapper.choices) && wrapper.choices[0]) {
-        const c = wrapper.choices[0]
-        const content = (c.message && c.message.content) || c.text || ''
-        if (content && typeof content === 'string') {
-          const m = content.match(/\{[\s\S]*\}/)
-          if (m) parsed = JSON.parse(m[0])
-        }
-      }
-    } catch (e) {
-      // 非 JSON 响应：尝试直接从文本中抽取 JSON
-      const m = txt.match(/\{[\s\S]*\}/)
-      if (m) {
-        try { parsed = JSON.parse(m[0]) } catch (e2) { /* fallthrough */ }
-      }
-    }
-    const j: any = parsed || wrapper
-
-    // 合并 components 与 connections（简单拼接，未做去重）
-    if (j && Array.isArray(j.components)) combined.components.push(...j.components)
-    if (j && Array.isArray(j.connections)) combined.connections.push(...j.connections)
   }
 
   // If search enrichment is enabled, detect ambiguous params and enrich
@@ -264,12 +167,15 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
   // 规范化为 circuit-schema：connections -> nets，补齐 metadata/uncertainties
   const normalized = normalizeToCircuitSchema(combined, images, tStart)
 
-  // 强制：对关键器件进行资料检索并落盘（uploads/datasheets/）
+  // 强制：对IC类器件进行资料检索并落盘（uploads/datasheets/）
   try {
-    await fetchAndSaveDatasheetsForKeyComponents(normalized.components, topN)
+    datasheetMeta = await fetchAndSaveDatasheetsForICComponents(normalized.components, topN)
   } catch (e) {
     logError('vision.datasheets.save.failed', { error: String(e) })
   }
+
+  // 将资料元数据添加到 normalized 对象中，以便返回给前端
+  normalized.datasheetMeta = datasheetMeta
 
   // Optionally save enriched JSON to uploads for auditing（命名与路径统一）
   if (saveEnriched) {
@@ -297,7 +203,626 @@ export async function extractCircuitJsonFromImages(images: { path: string; origi
     }
   }
 
+  // 计算最终处理时间
+  const tEnd = Date.now()
+  processingStats.processingTime = tEnd - tStart
+
+  // 记录最终统计信息
+  logInfo('vision.extraction_complete', {
+    ...processingStats,
+    successRate: processingStats.totalImages > 0 ? (processingStats.successfulRecognitions / processingStats.totalImages * 100).toFixed(1) + '%' : '0%',
+    averageComponentsPerImage: processingStats.successfulRecognitions > 0 ? (processingStats.totalComponents / processingStats.successfulRecognitions).toFixed(1) : '0',
+    averageConnectionsPerImage: processingStats.successfulRecognitions > 0 ? (processingStats.totalConnections / processingStats.successfulRecognitions).toFixed(1) : '0',
+    totalProcessingTimeMs: processingStats.processingTime,
+    averageProcessingTimePerImage: processingStats.totalImages > 0 ? Math.round(processingStats.processingTime / processingStats.totalImages) + 'ms' : '0ms'
+  })
+
   return normalized
+}
+
+// ========================================
+// 多轮识别核心函数实现
+// ========================================
+
+/**
+ * 对单张图片进行一次视觉识别
+ * @param img 图片信息
+ * @param apiUrl API地址
+ * @param model 模型名称
+ * @param authHeader 认证头
+ * @returns 识别结果 {components, connections}
+ */
+async function recognizeSingleImage(
+  img: { path: string; originalname: string },
+  apiUrl: string,
+  model: string,
+  authHeader?: string
+): Promise<any> {
+  const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '1800000')
+  const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
+  const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
+
+  // 准备文件缓冲 - 内存优化
+  const stat = fs.existsSync(img.path) ? fs.statSync(img.path) : null
+  const fileSize = stat ? stat.size : 0
+  const MEM_BUFFER_THRESHOLD = 5 * 1024 * 1024 // 5MB阈值
+  const useBuffer = fileSize > 0 && fileSize <= MEM_BUFFER_THRESHOLD
+  let fileBuffer: Buffer | null = null
+
+  if (useBuffer) {
+    try {
+      fileBuffer = fs.readFileSync(img.path)
+      logInfo('vision.file_buffered', {
+        filename: img.originalname,
+        fileSize: fileSize + ' bytes',
+        useBuffer: true
+      })
+    } catch (e) {
+      fileBuffer = null
+      logError('vision.file_buffer_failed', {
+        filename: img.originalname,
+        error: String(e)
+      })
+    }
+  } else {
+    logInfo('vision.file_streaming', {
+      filename: img.originalname,
+      fileSize: fileSize + ' bytes',
+      useBuffer: false,
+      reason: fileSize > MEM_BUFFER_THRESHOLD ? 'file too large' : 'file not accessible'
+    })
+  }
+
+  // 主识别prompt
+  const promptText = `Analyze this circuit schematic image and return a JSON object with two keys: "components" and "connections".
+
+Each component should have:
+- id: reference designator (like "U1", "R1", "C1")
+- type: component type (like "op-amp", "resistor", "capacitor", "transistor")
+- label: part number or model name shown on the schematic (like "AD825", "LM358", "1kΩ", "10uF")
+- params: object with additional parameters
+- pins: array of pin names/numbers
+
+For connections, list nets with from/to pairs like: {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
+
+IMPORTANT: Read ALL text labels and part numbers visible on the schematic. Include the exact model numbers and values you see written next to each component.
+
+Return only valid JSON.`
+
+  // 备用prompt
+  const fallbackPromptText = `Look at this circuit diagram. Find all electronic components and their connections.
+
+Return JSON like this:
+{
+  "components": [
+    {"id": "U1", "type": "op-amp", "label": "AD825"},
+    {"id": "R1", "type": "resistor", "label": "1kΩ"}
+  ],
+  "connections": [
+    {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
+  ]
+}
+
+Read the text on the schematic to get the correct labels and models.`
+
+  // 构造尝试URL列表
+  let tryUrls: string[] = []
+  let isOpenRouterHost = false
+  try {
+    const u = new URL(apiUrl)
+    const host = (u.hostname || '').toLowerCase()
+    isOpenRouterHost = host.includes('openrouter.ai')
+    if (isOpenRouterHost) {
+      if (u.pathname && u.pathname !== '/') tryUrls.push(apiUrl)
+      tryUrls.push(u.origin + '/api/v1/chat/completions')
+      tryUrls.push(u.origin + '/api/v1/chat')
+      tryUrls.push(u.origin + '/chat/completions')
+    } else {
+      tryUrls.push(apiUrl)
+    }
+  } catch (e) {
+    tryUrls.push(apiUrl)
+  }
+
+  // 带重试的fetch函数
+  const fetchWithRetryLocal = async (url: string, opts: any, retries: number) => {
+    let lastErr: any = null
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        opts.agent = opts.agent || keepAliveAgent
+        const r = await fetch(url, opts)
+        return r
+      } catch (e) {
+        lastErr = e
+        logError('vision.fetch.retry', { url, attempt, error: String(e) })
+        if (attempt < retries) {
+          const delay = Math.min(30000, 1000 * Math.pow(2, attempt))
+          await new Promise((res) => setTimeout(res, delay))
+        }
+      }
+    }
+    throw lastErr
+  }
+
+  // 主要识别尝试
+  let result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, promptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal)
+
+  // 如果主要尝试失败，尝试备用prompt
+  if (!result || (!Array.isArray(result.components) && !Array.isArray(result.connections))) {
+    logInfo('vision.trying_fallback', { filename: img.originalname })
+    result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, fallbackPromptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal)
+  }
+
+  // 最终验证结果
+  if (!result || (!Array.isArray(result.components) && !Array.isArray(result.connections))) {
+    logError('vision.recognition_failed', {
+      filename: img.originalname,
+      result: result
+    })
+    return { components: [], connections: [] }
+  }
+
+  return result
+}
+
+/**
+ * 执行单次识别尝试
+ */
+async function performRecognitionAttempt(
+  img: { path: string; originalname: string },
+  tryUrls: string[],
+  isOpenRouterHost: boolean,
+  promptText: string,
+  model: string,
+  authHeader: string | undefined,
+  fileBuffer: Buffer | null,
+  visionTimeout: number,
+  fetchRetries: number,
+  fetchWithRetryLocal: any
+): Promise<any> {
+  for (const tryUrl of tryUrls) {
+    let stream: any = null
+    try {
+      let resp: any = null
+
+      if (isOpenRouterHost) {
+        // OpenRouter JSON模式
+        const lower = (img.originalname || '').toLowerCase()
+        let mime = 'application/octet-stream'
+        if (lower.endsWith('.png')) mime = 'image/png'
+        else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) mime = 'image/jpeg'
+        else if (lower.endsWith('.webp')) mime = 'image/webp'
+        else if (lower.endsWith('.gif')) mime = 'image/gif'
+        else if (lower.endsWith('.pdf')) mime = 'application/pdf'
+
+        const buf = fileBuffer || fs.readFileSync(img.path)
+        const dataUrl = `data:${mime};base64,${buf.toString('base64')}`
+
+        const payload = {
+          model,
+          messages: [
+            { role: 'system', content: 'You are an expert circuit diagram parser. Return ONLY JSON with keys: components[], connections[]; no extra text.' },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: promptText },
+                { type: 'image_url', image_url: { url: dataUrl } },
+              ],
+            },
+          ],
+        }
+
+        const headers: any = { 'Content-Type': 'application/json' }
+        if (authHeader) headers['Authorization'] = authHeader
+        if (process?.env?.OPENROUTER_HTTP_REFERER) headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER
+        if (process?.env?.OPENROUTER_X_TITLE) headers['X-Title'] = process.env.OPENROUTER_X_TITLE
+
+        ;(payload as any).stream = false
+        resp = await fetchWithRetryLocal(tryUrl, { method: 'POST', body: JSON.stringify(payload), headers, timeout: visionTimeout }, fetchRetries)
+
+      } else {
+        // Multipart模式
+        const form = new (require('form-data'))()
+        if (fileBuffer) {
+          form.append('file', fileBuffer, { filename: img.originalname })
+        } else {
+          stream = fs.createReadStream(img.path)
+          form.append('file', stream, { filename: img.originalname })
+        }
+        form.append('prompt', promptText)
+        form.append('model', model)
+
+        const headers: any = Object.assign({}, form.getHeaders())
+        if (authHeader) headers['Authorization'] = authHeader
+
+        resp = await fetchWithRetryLocal(tryUrl, { method: 'POST', body: form, headers, timeout: visionTimeout }, fetchRetries)
+      }
+
+      if (!resp || !resp.ok) {
+        logError('vision.attempt_failed', { tryUrl, status: resp?.status })
+        continue
+      }
+
+      const txt = await resp.text()
+      const parsed = parseVisionResponse(txt)
+
+      if (parsed && (Array.isArray(parsed.components) || Array.isArray(parsed.connections))) {
+        logInfo('vision.attempt_success', { tryUrl, filename: img.originalname })
+        return parsed
+      }
+
+    } catch (e) {
+      logError('vision.attempt_exception', { tryUrl, filename: img.originalname, error: String(e) })
+    } finally {
+      if (stream && typeof stream.destroy === 'function') {
+        try { stream.destroy() } catch (e) { /* ignore */ }
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * 解析视觉模型响应
+ */
+function parseVisionResponse(txt: string): any {
+  // 检测HTML响应
+  const ct = 'application/json' // 简化处理
+  if (txt.includes('<html') || txt.includes('<!doctype')) {
+    throw new Error(`vision upstream returned HTML`)
+  }
+
+  let parsed: any = null
+  let wrapper: any = null
+
+  try {
+    wrapper = JSON.parse(txt)
+    // OpenRouter/OpenAI兼容：从choices[0].message.content提取JSON
+    if (wrapper && wrapper.choices && Array.isArray(wrapper.choices) && wrapper.choices[0]) {
+      const c = wrapper.choices[0]
+      const content = (c.message && c.message.content) || c.text || ''
+      if (content && typeof content === 'string') {
+        // 尝试多种方式提取JSON
+        let jsonMatch = content.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) {
+          jsonMatch = content.match(/(?:\{[\s\S]*"components"[\s\S]*\}|\{[\s\S]*"connections"[\s\S]*\})/)
+        }
+        if (!jsonMatch && content.includes('components')) {
+          const start = content.indexOf('{')
+          const lastBrace = content.lastIndexOf('}')
+          if (start >= 0 && lastBrace > start) {
+            const potentialJson = content.substring(start, lastBrace + 1)
+            try {
+              parsed = JSON.parse(potentialJson)
+            } catch (e) {
+              // 继续尝试其他方法
+            }
+          }
+        }
+        if (jsonMatch && !parsed) {
+          parsed = JSON.parse(jsonMatch[0])
+        }
+      }
+    }
+  } catch (e) {
+    // 非JSON响应：尝试直接从文本中抽取JSON
+    const m = txt.match(/\{[\s\S]*\}/)
+    if (m) {
+      try { parsed = JSON.parse(m[0]) } catch (e2) { /* fallthrough */ }
+    }
+  }
+
+  return parsed || wrapper
+}
+
+/**
+ * 对同一图片进行多轮识别
+ * @param img 图片信息
+ * @param apiUrl API地址
+ * @param model 模型名称
+ * @param authHeader 认证头
+ * @param passes 识别轮数
+ * @returns 多轮识别结果数组
+ */
+async function doMultiPassRecognition(
+  img: { path: string; originalname: string },
+  apiUrl: string,
+  model: string,
+  authHeader: string | undefined,
+  passes: number,
+  timeline?: { step: string; ts: number; meta?: any }[]
+): Promise<any[]> {
+  const results: any[] = []
+  const startTime = Date.now()
+
+  logInfo('vision.multi_pass.start', {
+    filename: img.originalname,
+    totalPasses: passes
+  })
+
+  // 记录多轮识别开始到timeline
+  if (timeline) {
+    timeline.push({
+      step: 'multi_pass_recognition_start',
+      ts: startTime,
+      meta: {
+        type: 'vision_multi_pass',
+        totalPasses: passes,
+        description: `开始多轮视觉识别，共${passes}轮`
+      }
+    })
+  }
+
+  // 性能优化：根据passes数量动态调整并发度
+  // passes <= 3: 并发度1（避免过度并行）
+  // passes 4-6: 并发度2
+  // passes > 6: 并发度3（最大并发度）
+  const maxConcurrent = passes <= 3 ? 1 : passes <= 6 ? 2 : 3
+  const batches: any[][] = []
+
+  for (let i = 0; i < passes; i += maxConcurrent) {
+    batches.push(Array.from({ length: Math.min(maxConcurrent, passes - i) }, (_, idx) => idx + i))
+  }
+
+  logInfo('vision.multi_pass.concurrency', {
+    filename: img.originalname,
+    maxConcurrent,
+    batchCount: batches.length
+  })
+
+  for (const batch of batches) {
+    const batchPromises = batch.map(async (passIndex) => {
+      const passNumber = passIndex + 1
+      logInfo('vision.multi_pass.attempt', {
+        filename: img.originalname,
+        pass: passNumber,
+        totalPasses: passes
+      })
+
+      try {
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader)
+
+        // 为结果添加轮次标识
+        if (result.components) {
+          result.components.forEach((comp: any) => {
+            if (!comp.params) comp.params = {}
+            comp.params._recognitionPass = passNumber
+          })
+        }
+
+        logInfo('vision.multi_pass.result', {
+          filename: img.originalname,
+          pass: passNumber,
+          componentsCount: result.components?.length || 0,
+          connectionsCount: result.connections?.length || 0
+        })
+
+        return result
+
+      } catch (e) {
+        logError('vision.multi_pass.error', {
+          filename: img.originalname,
+          pass: passNumber,
+          error: String(e)
+        })
+        return { components: [], connections: [] }
+      }
+    })
+
+    const batchResults = await Promise.all(batchPromises)
+    results.push(...batchResults)
+  }
+
+  const endTime = Date.now()
+  const totalTime = endTime - startTime
+
+  logInfo('vision.multi_pass.complete', {
+    filename: img.originalname,
+    totalResults: results.length,
+    successfulResults: results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length,
+    totalProcessingTime: totalTime + 'ms',
+    averageTimePerPass: results.length > 0 ? Math.round(totalTime / results.length) + 'ms' : '0ms'
+  })
+
+  // 记录多轮识别完成到timeline
+  if (timeline) {
+    timeline.push({
+      step: 'multi_pass_recognition_done',
+      ts: endTime,
+      meta: {
+        type: 'vision_multi_pass',
+        totalPasses: passes,
+        successfulPasses: results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length,
+        totalProcessingTime: totalTime,
+        averageTimePerPass: results.length > 0 ? Math.round(totalTime / results.length) : 0,
+        description: `多轮视觉识别完成，${results.length}轮中有${results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length}轮成功`
+      }
+    })
+  }
+
+  return results
+}
+
+/**
+ * 整合多轮识别结果，通过大模型进行智能整合
+ * @param results 多轮识别结果数组
+ * @param apiUrl API地址
+ * @param model 模型名称
+ * @param authHeader 认证头
+ * @returns 整合后的最终结果
+ */
+async function consolidateRecognitionResults(
+  results: any[],
+  apiUrl: string,
+  model: string,
+  authHeader: string | undefined,
+  timeline?: { step: string; ts: number; meta?: any }[]
+): Promise<any> {
+  if (results.length === 0) {
+    return { components: [], connections: [] }
+  }
+
+  if (results.length === 1) {
+    return results[0]
+  }
+
+  logInfo('vision.consolidation.start', {
+    totalResults: results.length
+  })
+
+  // 记录结果整合开始到timeline
+  if (timeline) {
+    timeline.push({
+      step: 'recognition_consolidation_start',
+      ts: Date.now(),
+      meta: {
+        type: 'vision_consolidation',
+        resultCount: results.length,
+        description: `开始整合${results.length}个识别结果`
+      }
+    })
+  }
+
+  // 构建智能整合prompt
+  const consolidationPrompt = `I have ${results.length} circuit diagram recognition results from analyzing the same schematic image multiple times. Your task is to intelligently consolidate them into a single, most accurate result.
+
+RECOGNITION RESULTS:
+${results.map((result, idx) => `
+=== Recognition Result ${idx + 1} ===
+Component Count: ${(result.components || []).length}
+Connection Count: ${(result.connections || []).length}
+Components: ${JSON.stringify(result.components || [], null, 2)}
+Connections: ${JSON.stringify(result.connections || [], null, 2)}
+`).join('\n')}
+
+CONSOLIDATION INSTRUCTIONS:
+
+1. **Component Analysis**:
+   - Identify ALL unique components across all results
+   - For components with the same ID, merge their information intelligently
+   - Prioritize results that have complete component information (id, type, label, params, pins)
+   - If multiple results have different labels for the same component, choose the most specific/detailed one
+   - Remove any duplicate or obviously incorrect components
+
+2. **Connection Analysis**:
+   - Combine all valid connections from different results
+   - Remove duplicate connections (same from/to pairs)
+   - Prioritize connections that appear in multiple results
+   - Validate that connections reference existing components
+
+3. **Quality Assessment**:
+   - Prefer results with more components (indicating better recognition)
+   - Favor results with more detailed component information
+   - Cross-validate component labels and connection patterns
+   - Remove outliers that significantly differ from the majority
+
+4. **Data Completeness**:
+   - Ensure all components have required fields: id, type
+   - Include label information when available (critical for IC identification)
+   - Preserve pin information for component connections
+   - Include parameter information when present
+
+5. **Conflict Resolution**:
+   - For conflicting component types, choose the most common/sensible one
+   - For conflicting labels, prefer manufacturer part numbers over generic names
+   - For connection conflicts, keep connections that are validated by multiple results
+
+OUTPUT FORMAT:
+Return only a valid JSON object with exactly two keys:
+- "components": array of consolidated component objects
+- "connections": array of consolidated connection objects
+
+Each component must have: id, type, and optionally: label, params, pins
+Each connection must have: from (with componentId, pin), to (with componentId, pin)
+
+Ensure the consolidated result represents the most accurate and complete circuit diagram recognition possible.`
+
+  // 整合超时控制：根据输入结果数量动态调整
+  const consolidationTimeout = Math.max(30000, Math.min(120000, results.length * 15000)) // 30秒到2分钟，根据结果数量调整
+
+  logInfo('vision.consolidation.timeout_config', {
+    resultCount: results.length,
+    timeoutMs: consolidationTimeout
+  })
+
+  try {
+    const consolidationResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(authHeader ? { 'Authorization': authHeader } : {})
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: 'You are an expert at consolidating multiple circuit recognition results. Return only valid JSON.' },
+          { role: 'user', content: consolidationPrompt }
+        ],
+        stream: false
+      }),
+      signal: AbortSignal.timeout(consolidationTimeout)
+    })
+
+    if (consolidationResponse.ok) {
+      const responseText = await consolidationResponse.text()
+      const parsed = parseVisionResponse(responseText)
+
+      if (parsed && (Array.isArray(parsed.components) || Array.isArray(parsed.connections))) {
+        logInfo('vision.consolidation.success', {
+          originalResults: results.length,
+          consolidatedComponents: parsed.components?.length || 0,
+          consolidatedConnections: parsed.connections?.length || 0
+        })
+
+        // 记录整合成功到timeline
+        if (timeline) {
+          timeline.push({
+            step: 'recognition_consolidation_done',
+            ts: Date.now(),
+            meta: {
+              type: 'vision_consolidation',
+              resultCount: results.length,
+              consolidatedComponents: parsed.components?.length || 0,
+              consolidatedConnections: parsed.connections?.length || 0,
+              description: `结果整合成功，生成${parsed.components?.length || 0}个器件和${parsed.connections?.length || 0}条连接`
+            }
+          })
+        }
+
+        return parsed
+      }
+    }
+  } catch (e) {
+    logError('vision.consolidation.failed', { error: String(e) })
+  }
+
+  // 如果整合失败，返回最好的单个结果
+  const bestResult = results
+    .filter(r => r && Array.isArray(r.components))
+    .sort((a, b) => (b.components?.length || 0) - (a.components?.length || 0))[0]
+
+  logInfo('vision.consolidation.fallback', {
+    reason: 'Consolidation failed, using best individual result',
+    componentsCount: bestResult?.components?.length || 0
+  })
+
+  // 记录整合失败（使用最佳结果）到timeline
+  if (timeline) {
+    timeline.push({
+      step: 'recognition_consolidation_fallback',
+      ts: Date.now(),
+      meta: {
+        type: 'vision_consolidation',
+        resultCount: results.length,
+        fallbackComponents: bestResult?.components?.length || 0,
+        fallbackConnections: bestResult?.connections?.length || 0,
+        description: `结果整合失败，使用最佳单轮结果：${bestResult?.components?.length || 0}个器件`
+      }
+    })
+  }
+
+  return bestResult || { components: [], connections: [] }
 }
 
 // 中文注释：将上游返回的 {components, connections} 规范化为 circuit-schema 所需结构
@@ -381,24 +906,74 @@ function computeOverallConfidence(norm: any): number {
   return Math.min(...confidences.map((v) => (typeof v === 'number' && v >= 0 && v <= 1 ? v : 1.0)))
 }
 
-// 中文注释：判断是否为关键器件（非简单无源器件）
-function isKeyComponent(comp: any): boolean {
+// 中文注释：判断是否为IC类器件（集成电路）
+function isICComponent(comp: any): boolean {
   try {
     const t = (comp?.type || '').toString().toLowerCase()
     const id = (comp?.id || '').toString().toLowerCase()
-    const passive = ['res', 'resistor', 'cap', 'capacitor', 'ind', 'inductor', 'ferrite', 'led', 'diode']
-    if (passive.includes(t)) return false
-    // 常见关键器件关键词
-    const keywords = ['ic', 'mcu', 'pmic', 'soc', 'fpga', 'cpld', 'adc', 'dac', 'amplifier', 'opamp', 'converter', 'regulator', 'transceiver', 'phy', 'controller', 'sensor', 'driver', 'bridge', 'interface']
-    if (keywords.some(k => t.includes(k))) return true
-    // 若类型未知但编号像 U* 也视为关键器件
-    if (/^u\d+/i.test(id)) return true
-  } catch {}
+    const label = (comp?.label || '').toString().toLowerCase()
+
+    // 明确排除的元件类型（这些不是IC）
+    const excludedTypes = [
+      'res', 'resistor', 'cap', 'capacitor', 'ind', 'inductor', 'ferrite',
+      'led', 'diode', 'switch', 'button', 'connector', 'header', 'pin',
+      'jack', 'socket', 'terminal', 'wire', 'trace', 'net', 'ground',
+      'power', 'vcc', 'gnd', 'vdd', 'vss', 'via', 'pad', 'hole',
+      'crystal', 'oscillator', 'transformer', 'relay', 'fuse', 'breaker'
+    ]
+
+    // 如果类型在排除列表中，直接返回false
+    if (excludedTypes.some(ex => t.includes(ex))) return false
+
+    // IC类器件的明确标识
+    const icKeywords = [
+      'ic', 'chip', 'integrated', 'mcu', 'microcontroller', 'processor', 'cpu',
+      'pmic', 'power management', 'soc', 'system on chip', 'fpga', 'cpld',
+      'adc', 'analog to digital', 'dac', 'digital to analog', 'amplifier', 'opamp', 'op-amp',
+      'converter', 'regulator', 'transceiver', 'phy', 'physical layer',
+      'controller', 'sensor', 'driver', 'bridge', 'interface', 'codec',
+      'memory', 'ram', 'rom', 'flash', 'eeprom', 'sram', 'dram',
+      'logic', 'gate', 'flip-flop', 'latch', 'multiplexer', 'demultiplexer',
+      'counter', 'timer', 'pwm', 'modulator', 'demodulator'
+    ]
+
+    // 如果类型包含IC关键词，返回true
+    if (icKeywords.some(k => t.includes(k) || label.includes(k))) return true
+
+    // 检查器件编号模式（IC通常用U开头，或有特定编号模式）
+    const icIdPatterns = [
+      /^u\d+/i,      // U1, U2, U123等
+      /^ic\d+/i,     // IC1, IC2等
+      /^chip\d+/i,   // CHIP1等
+      /^[a-z]+\d+[a-z]*\d*/i  // 像ATMEGA328, STM32F4等IC型号
+    ]
+
+    if (icIdPatterns.some(pattern => pattern.test(id) || pattern.test(label))) return true
+
+    // 检查是否有引脚信息（IC通常有多个引脚）
+    const pins = comp?.pins
+    if (Array.isArray(pins) && pins.length >= 4) return true
+
+    // 检查是否有复杂的参数（IC通常有型号、封装等信息）
+    const params = comp?.params
+    if (params && typeof params === 'object') {
+      const paramKeys = Object.keys(params)
+      if (paramKeys.some(key => ['package', 'model', 'part', 'manufacturer', 'vendor'].includes(key.toLowerCase()))) {
   return true
+      }
+    }
+
+  } catch (e) {
+    // 出错时保守处理，不当作IC
+    return false
+  }
+
+  // 默认不认为是IC类器件
+  return false
 }
 
-// 中文注释：为关键器件检索 datasheet 并落盘，同时保存元数据
-async function fetchAndSaveDatasheetsForKeyComponents(components: any[], topN: number): Promise<void> {
+// 中文注释：为IC类器件检索 datasheet 并落盘，同时保存元数据
+async function fetchAndSaveDatasheetsForICComponents(components: any[], topN: number): Promise<any[]> {
   try {
     const datasheetsDir = path.join(__dirname, '..', 'uploads', 'datasheets')
     if (!fs.existsSync(datasheetsDir)) fs.mkdirSync(datasheetsDir, { recursive: true })
@@ -409,14 +984,38 @@ async function fetchAndSaveDatasheetsForKeyComponents(components: any[], topN: n
 
     for (const comp of Array.isArray(components) ? components : []) {
       try {
-        if (!isKeyComponent(comp)) continue
+        if (!isICComponent(comp)) continue
         const id = (comp?.id || 'C') as string
         const label = (comp?.label || '') as string
         const value = (comp?.value || '') as string
         const type = (comp?.type || '') as string
-        const q = [type, label || id, value, 'datasheet'].filter(Boolean).join(' ')
+        // 改进搜索查询构造，使其更适合找到datasheet
+        let q = ''
+        if (label && label.trim()) {
+          // 如果有具体的型号（如AD825, LF353），直接搜索型号 + datasheet
+          q = `${label.trim()} datasheet`
+        } else if (type && type.toLowerCase().includes('opamp')) {
+          // 对于运算放大器，使用更通用的搜索
+          q = `${type} ${id} datasheet`
+        } else {
+          // 默认搜索方式
+          q = [type, label || id, value, 'datasheet'].filter(Boolean).join(' ')
+        }
+
+        // 清理查询字符串
+        q = q.replace(/\s+/g, ' ').trim()
         const results = await webSearch(q, { topN })
         const first = (results.results || [])[0]
+
+        // 记录搜索结果到日志，帮助调试
+        logInfo('vision.datasheet.search', {
+          component: id,
+          query: q,
+          resultsCount: results.results?.length || 0,
+          firstResult: first ? { title: first.title, url: first.url } : null,
+          provider: results.provider
+        })
+
         let savedPath: string | null = null
         let sourceType = 'third-party'
         let docTitle = first?.title || ''
@@ -470,8 +1069,11 @@ async function fetchAndSaveDatasheetsForKeyComponents(components: any[], topN: n
     } catch (e) {
       logError('vision.datasheets.metadata.save.failed', { error: String(e) })
     }
+
+    return metaItems
   } catch (e) {
     logError('vision.datasheets.dir.failed', { error: String(e) })
+    return []
   }
 }
 

@@ -67,6 +67,12 @@ export default function ReviewForm({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
   const isHydratingRef = useRef<boolean>(false)
   const [noSystemPromptWarning, setNoSystemPromptWarning] = useState<boolean>(false)
+  // 多轮识别和搜索配置
+  const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(false)
+  const [recognitionPasses, setRecognitionPasses] = useState<number>(5)
+  const [enableSearch, setEnableSearch] = useState<boolean>(true)
+  const [searchTopN, setSearchTopN] = useState<number>(5)
+  const [saveEnriched, setSaveEnriched] = useState<boolean>(true)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -243,6 +249,17 @@ export default function ReviewForm({
       // dialog content is used to interact with the large model (also sent as last history entry)
       fd.append('dialog', submittedDialog)
 
+      // 添加多轮识别和搜索配置参数
+      fd.append('multiPassRecognition', multiPassRecognition.toString())
+      if (multiPassRecognition) {
+        fd.append('recognitionPasses', recognitionPasses.toString())
+      }
+      fd.append('enableSearch', enableSearch.toString())
+      if (enableSearch) {
+        fd.append('searchTopN', searchTopN.toString())
+      }
+      fd.append('saveEnriched', saveEnriched.toString())
+
       const headers: Record<string, string> = {}
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
 
@@ -374,8 +391,19 @@ export default function ReviewForm({
         if (qcText) newEntries.push({ role: 'assistant', content: qcText })
         if (reportPart && reportPart.trim()) newEntries.push({ role: 'assistant', content: reportPart.trim() })
         if (newEntries.length > 0) setHistory((h) => h.concat(newEntries))
-        // 记录 timeline 中的结果节点
-        setTimeline((t) => t.concat([{ step: 'analysis_result', ts: Date.now(), meta: { report: !!reportPart } }]))
+        // 记录 timeline 中的结果节点，包含大模型返回的具体内容
+        setTimeline((t) => t.concat([{
+          step: 'analysis_result',
+          ts: Date.now(),
+          meta: {
+            report: !!reportPart,
+            llmResponse: {
+              clarifyingQuestions: qcText,
+              reviewReport: reportPart?.trim(),
+              fullResponse: md
+            }
+          }
+        }]))
         // 若用户未改动输入，则清空输入框，准备下一轮
         if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         if (reportPart && reportPart.trim()) onResult(reportPart.trim())
@@ -392,7 +420,16 @@ export default function ReviewForm({
           if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
           if (qcText) entries.push({ role: 'assistant', content: qcText })
           if (entries.length > 0) setHistory((h) => h.concat(entries))
-          setTimeline((t) => t.concat([{ step: 'clarifying_question', ts: Date.now() }]))
+          setTimeline((t) => t.concat([{
+            step: 'clarifying_question',
+            ts: Date.now(),
+            meta: {
+              llmResponse: {
+                clarifyingQuestions: qcText,
+                fullResponse: md
+              }
+            }
+          }]))
           if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         } else {
           // 将全文作为评审结果展示
@@ -403,7 +440,15 @@ export default function ReviewForm({
             if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
             entries.push({ role: 'assistant', content: md.trim() })
             setHistory((h) => h.concat(entries))
-            setTimeline((t) => t.concat([{ step: 'analysis_result', ts: Date.now() }]))
+            setTimeline((t) => t.concat([{
+              step: 'analysis_result',
+              ts: Date.now(),
+              meta: {
+                llmResponse: {
+                  fullResponse: md.trim()
+                }
+              }
+            }]))
             if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
           }
         }
@@ -640,6 +685,77 @@ export default function ReviewForm({
         </div>
       </div>
 
+      {/* 多轮识别和搜索配置 */}
+      <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
+        <div className="space-y-3">
+          {/* 多轮识别配置 */}
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={multiPassRecognition}
+                onChange={(e) => setMultiPassRecognition(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
+            </label>
+            {multiPassRecognition && (
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-600 dark:text-gray-400">{t('form.multiPass.passes')}:</label>
+                <select
+                  value={recognitionPasses}
+                  onChange={(e) => setRecognitionPasses(Number(e.target.value))}
+                  className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                >
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* 搜索配置 */}
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={enableSearch}
+                onChange={(e) => setEnableSearch(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.search.enable')}</span>
+            </label>
+            {enableSearch && (
+              <div className="flex items-center space-x-2">
+                <label className="text-sm text-gray-600 dark:text-gray-400">{t('form.search.topN')}:</label>
+                <select
+                  value={searchTopN}
+                  onChange={(e) => setSearchTopN(Number(e.target.value))}
+                  className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                >
+                  {[3, 5, 10, 15, 20].map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* 保存配置 */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={saveEnriched}
+              onChange={(e) => setSaveEnriched(e.target.checked)}
+              className="rounded border-gray-300 dark:border-gray-600"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.saveEnriched.enable')}</span>
+          </div>
+        </div>
+      </div>
+
       {/* 文件上传已在上方显示，避免重复显示 */}
 
       <div className="grid grid-cols-1 gap-2">
@@ -704,35 +820,282 @@ export default function ReviewForm({
       {/* 将时间线放到按钮下方 */}
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
         <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
-        <div className="mt-1 space-y-2 max-h-48 overflow-auto">
+        <div className="mt-1 space-y-2 max-h-64 overflow-auto">
           {(() => {
-            function isBackendStep(s: string) {
-              return /^(request_received|images_processing_start|images_processing_done|images_processing_skipped|datasheets_fetch_done|second_stage_analysis_start|second_stage_analysis_done)$/i.test(s)
-            }
-            const backendTimeline = (timeline || []).filter((it) => it && it.step && isBackendStep(it.step))
-            if (!backendTimeline || backendTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
-            return [...backendTimeline].slice().reverse().map((it, idx) => {
+            // 显示所有步骤，包括前端和后端步骤
+            const allTimeline = timeline || []
+            if (!allTimeline || allTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
+
+            // 为前端步骤添加更详细的元数据
+            const enhancedTimeline = allTimeline.map((item, index) => {
+              const enhancedItem = { ...item }
+
+              // 分类步骤类型
+              function getStepType(step: string): { type: string; modelType?: string; description: string } {
+                const aiSteps = {
+                  'images_processing_start': { type: 'ai_interaction', modelType: 'vision', description: '调用视觉模型解析图片' },
+                  'images_processing_done': { type: 'ai_interaction', modelType: 'vision', description: '视觉模型解析完成' },
+                  'multi_pass_recognition_start': { type: 'ai_interaction', modelType: 'vision', description: '开始多轮视觉识别' },
+                  'multi_pass_recognition_done': { type: 'ai_interaction', modelType: 'vision', description: '多轮视觉识别完成' },
+                  'recognition_consolidation_start': { type: 'ai_interaction', modelType: 'llm', description: '开始结果整合' },
+                  'recognition_consolidation_done': { type: 'ai_interaction', modelType: 'llm', description: '结果整合完成' },
+                  'recognition_consolidation_fallback': { type: 'ai_interaction', modelType: 'vision', description: '结果整合回退' },
+                  'second_stage_analysis_start': { type: 'ai_interaction', modelType: 'llm', description: '调用大语言模型分析' },
+                  'second_stage_analysis_done': { type: 'ai_interaction', modelType: 'llm', description: '大语言模型分析完成' }
+                }
+
+                if (aiSteps[step as keyof typeof aiSteps]) {
+                  return aiSteps[step as keyof typeof aiSteps]
+                }
+
+                // 前端步骤
+                if (['preparing', 'uploading_files', 'using_cached_enriched_json', 'sending_request', 'done'].includes(step)) {
+                  return { type: 'frontend', description: '前端操作' }
+                }
+
+                // 后端辅助步骤
+                if (['request_received', 'datasheets_fetch_done', 'images_processing_skipped'].includes(step)) {
+                  return { type: 'backend', description: '后端处理' }
+                }
+
+                // 错误步骤
+                if (['aborted'].includes(step)) {
+                  return { type: 'error', description: '操作异常' }
+                }
+
+                return { type: 'unknown', description: '未知步骤' }
+              }
+
+              const stepInfo = getStepType(item.step)
+
+              // 为前端对话步骤添加内容
+              if (item.step === 'preparing') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: t('step_preparing'),
+                  description: stepInfo.description,
+                  files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
+                }
+              } else if (item.step === 'uploading_files') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: t('step_uploading_files'),
+                  description: stepInfo.description,
+                  files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
+                }
+              } else if (item.step === 'using_cached_enriched_json') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: t('step_using_cached_enriched_json'),
+                  description: stepInfo.description,
+                  cachedData: localEnrichedJson ? '包含已解析的图片结构化数据' : '无缓存数据'
+                }
+              } else if (item.step === 'sending_request') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: t('step_sending_request'),
+                  description: stepInfo.description,
+                  requestData: {
+                    apiUrl: modelApiUrl,
+                    model: model,
+                    hasSystemPrompt: !!(requirements || specs),
+                    hasFiles: files.length > 0,
+                    hasDialog: !!(dialog || '').trim()
+                  }
+                }
+              } else if (item.step === 'images_processing_start') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '开始调用视觉模型',
+                  description: stepInfo.description,
+                  visionRequest: {
+                    fileCount: files.length,
+                    apiUrl: modelApiUrl,
+                    model: model
+                  }
+                }
+              } else if (item.step === 'multi_pass_recognition_start') {
+                const meta = item.meta || {}
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '开始多轮视觉识别',
+                  description: stepInfo.description,
+                  totalPasses: meta.totalPasses,
+                  multiPassInfo: `将对图片进行${meta.totalPasses}轮独立识别，提高识别准确性`
+                }
+              } else if (item.step === 'multi_pass_recognition_done') {
+                const meta = item.meta || {}
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '多轮视觉识别完成',
+                  description: stepInfo.description,
+                  totalPasses: meta.totalPasses,
+                  successfulPasses: meta.successfulPasses,
+                  totalProcessingTime: meta.totalProcessingTime,
+                  averageTimePerPass: meta.averageTimePerPass,
+                  multiPassResult: `${meta.successfulPasses}/${meta.totalPasses}轮识别成功，总耗时${meta.totalProcessingTime}ms`
+                }
+              } else if (item.step === 'recognition_consolidation_start') {
+                const meta = item.meta || {}
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '开始结果整合',
+                  description: stepInfo.description,
+                  resultCount: meta.resultCount,
+                  consolidationInfo: `使用大模型整合${meta.resultCount}个识别结果，生成最准确的最终结果`
+                }
+              } else if (item.step === 'recognition_consolidation_done') {
+                const meta = item.meta || {}
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '结果整合完成',
+                  description: stepInfo.description,
+                  resultCount: meta.resultCount,
+                  consolidatedComponents: meta.consolidatedComponents,
+                  consolidatedConnections: meta.consolidatedConnections,
+                  consolidationResult: `成功整合${meta.resultCount}个结果，最终生成${meta.consolidatedComponents}个器件和${meta.consolidatedConnections}条连接`
+                }
+              } else if (item.step === 'recognition_consolidation_fallback') {
+                const meta = item.meta || {}
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '结果整合回退',
+                  description: stepInfo.description,
+                  resultCount: meta.resultCount,
+                  fallbackComponents: meta.fallbackComponents,
+                  fallbackConnections: meta.fallbackConnections,
+                  consolidationFallback: `整合失败，使用最佳单轮结果：${meta.fallbackComponents}个器件，${meta.fallbackConnections}条连接`
+                }
+              } else if (item.step === 'images_processing_done') {
+                const visionResult = item.meta?.visionResult
+                if (visionResult) {
+                  enhancedItem.meta = {
+                    type: stepInfo.type,
+                    modelType: stepInfo.modelType,
+                    action: '视觉模型解析完成',
+                    description: stepInfo.description,
+                    content: item.meta?.summary || '包含结构化描述',
+                    visionResult: visionResult,
+                    visionResponse: '结构化JSON数据包含器件、连接和网络信息'
+                  }
+                } else {
+                  enhancedItem.meta = { type: stepInfo.type, action: '图片处理完成' }
+                }
+              } else if (item.step === 'datasheets_fetch_done') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: 'IC器件资料下载完成',
+                  description: stepInfo.description,
+                  datasheetCount: item.meta?.datasheetCount || 0,
+                  downloadedCount: item.meta?.downloadedCount || 0,
+                  datasheets: item.meta?.datasheets || []
+                }
+              } else if (item.step === 'second_stage_analysis_start') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '开始调用大语言模型',
+                  description: stepInfo.description,
+                  analysisRequest: {
+                    hasCircuitData: !!localEnrichedJson,
+                    hasRequirements: !!(requirements || '').trim(),
+                    hasSpecs: !!(specs || '').trim(),
+                    hasHistory: history.length > 0,
+                    apiUrl: modelApiUrl,
+                    model: model
+                  }
+                }
+              } else if (item.step === 'second_stage_analysis_done') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: '大语言模型分析完成',
+                  description: stepInfo.description,
+                  analysisComplete: true
+                }
+              } else if (item.step === 'analysis_result') {
+                const llmResponse = item.meta?.llmResponse
+                enhancedItem.meta = {
+                  type: 'llm_response',
+                  modelType: 'llm',
+                  action: t('step_analysis_result'),
+                  content: llmResponse?.reviewReport ? t('timeline.reviewReport') : (llmResponse?.clarifyingQuestions ? t('timeline.clarifyingQuestions') : t('step_done')),
+                  llmResponse: llmResponse
+                }
+              } else if (item.step === 'clarifying_question') {
+                const llmResponse = item.meta?.llmResponse
+                enhancedItem.meta = {
+                  type: 'llm_response',
+                  modelType: 'llm',
+                  action: t('step_clarifying_question'),
+                  content: t('timeline.clarifyingQuestions'),
+                  llmResponse: llmResponse
+                }
+              } else if (item.step === 'aborted') {
+                enhancedItem.meta = { type: stepInfo.type, action: t('step_aborted') }
+              } else if (item.step === 'done') {
+                enhancedItem.meta = { type: stepInfo.type, action: t('step_done') }
+              } else if (item.step === 'request_received') {
+                enhancedItem.meta = {
+                  type: stepInfo.type,
+                  action: '请求已接收',
+                  description: stepInfo.description
+                }
+              }
+
+              return enhancedItem
+            })
+
+            return enhancedTimeline.slice().reverse().map((it, idx) => {
               const step = it.step || ''
+              // 更新分组逻辑
               let groupKey = 'timeline.group.other'
-              if (/images_processing|datasheets|parse|enriched/i.test(step)) groupKey = 'timeline.group.parse'
+              if (/images_processing/i.test(step)) groupKey = 'timeline.group.vision'
               else if (/datasheets_fetch|search|fetch/i.test(step)) groupKey = 'timeline.group.search'
-              else if (/second_stage_analysis|analysis|analysis_result|clarifying_question/i.test(step)) groupKey = 'timeline.group.analyze'
+              else if (/second_stage_analysis/i.test(step)) groupKey = 'timeline.group.llm'
               else if (/request|sending|llm_request|request_received/i.test(step)) groupKey = 'timeline.group.request'
+              else if (/preparing|uploading|using_cached|aborted|done/i.test(step)) groupKey = 'timeline.group.frontend'
+              else if (/analysis|clarifying_question/i.test(step)) groupKey = 'timeline.group.response'
+
               const isCurrent = progressStep && (step === progressStep || step.includes(progressStep))
               const isError = /aborted|error|fail/i.test(step)
+              const isAIInteraction = it.meta?.type === 'ai_interaction'
+              const isVisionStep = it.meta?.modelType === 'vision'
+              const isLLMStep = it.meta?.modelType === 'llm'
+              const isLLMResponse = it.meta?.type === 'llm_response'
+              const isVisionResult = it.meta?.type === 'vision_result'
               const key = `${it.step}_${it.ts}_${idx}`
               const expanded = !!expandedTimelineItems[key]
+
               return (
-                <div key={key} className={`border-b border-gray-100 dark:border-cursorBorder ${isCurrent ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
+                <div key={key} className={`border-b border-gray-100 dark:border-cursorBorder ${isCurrent ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} ${isAIInteraction ? 'bg-purple-50 dark:bg-purple-900/20' : ''} ${isLLMResponse ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${isVisionResult ? 'bg-green-50 dark:bg-green-900/20' : ''}`}>
                   <div className="flex items-start justify-between gap-2 p-1 cursor-pointer" onClick={() => setExpandedTimelineItems((s) => ({ ...s, [key]: !s[key] }))}>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="text-sm dark:text-gray-200 flex items-center gap-2">
-                        <span className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-xs ${isError ? 'text-red-600' : (isCurrent ? 'text-yellow-600' : 'text-gray-500')}`}>{isError ? '✖' : (isCurrent ? '●' : '○')}</span>
+                        <span className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-xs ${isError ? 'text-red-600' : (isAIInteraction ? 'text-purple-600' : (isLLMResponse ? 'text-blue-600' : (isVisionResult ? 'text-green-600' : (isCurrent ? 'text-yellow-600' : 'text-gray-500'))))}`}>
+                          {isError ? '✖' : (isAIInteraction ? '🧠' : (isLLMResponse ? '🤖' : (isVisionResult ? '👁️' : (isCurrent ? '●' : '○'))))}
+                        </span>
                         <div className="truncate">{stepLabel(it.step) || it.step}</div>
+                        {isAIInteraction && (
+                          <span className={`text-xs px-1 py-0.5 rounded text-white ${isVisionStep ? 'bg-green-600' : (isLLMStep ? 'bg-blue-600' : 'bg-purple-600')}`}>
+                            {isVisionStep ? '视觉' : (isLLMStep ? 'LLM' : 'AI')}
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">{t(groupKey)}{it.meta ? (' · ' + (typeof it.meta === 'string' ? it.meta : JSON.stringify(it.meta))) : ''}</div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">
+                        {t(groupKey)}
+                        {it.meta && it.meta.action ? ` · ${it.meta.action}` : ''}
+                        {it.meta && it.meta.description ? ` · ${it.meta.description}` : ''}
+                        {it.meta && it.meta.content && !isAIInteraction ? ` · ${it.meta.content}` : ''}
                     </div>
-                    <div className="text-[11px] text-gray-400 dark:text-gray-500 text-right">
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500 text-right flex-shrink-0">
                       {formatAbsolute(it.ts)}
                       <div className="text-[10px]">{formatRelative(it.ts)}</div>
                     </div>
@@ -740,7 +1103,274 @@ export default function ReviewForm({
                   {expanded && (
                     <div className="p-2 pt-0 text-[12px] text-gray-700 dark:text-gray-300">
                       <div className="text-[11px] text-gray-500 mb-1">{t('timeline.detail')}</div>
-                      <pre className="overflow-auto bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder p-2 rounded text-xs">{JSON.stringify({ step: it.step, ts: it.ts, meta: it.meta }, null, 2)}</pre>
+                      <div className="space-y-2">
+                        <div><strong>步骤：</strong>{stepLabel(it.step) || it.step}</div>
+                        <div><strong>时间：</strong>{formatAbsolute(it.ts)}</div>
+                        {it.meta && it.meta.type && <div><strong>类型：</strong>{it.meta.type}</div>}
+                        {it.meta && it.meta.action && <div><strong>操作：</strong>{it.meta.action}</div>}
+                        {it.meta && it.meta.content && <div><strong>内容：</strong>{it.meta.content}</div>}
+
+                        {/* 显示文件上传信息 */}
+                        {it.meta && it.meta.files && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-orange-600 dark:text-orange-400 mb-2 font-medium">📁 {t('timeline.uploadInfo')}</div>
+                            <div className="space-y-1 text-xs">
+                              <div><strong>{t('timeline.fileCount')}：</strong>{it.meta.files.length}</div>
+                              {it.meta.files.map((file: any, idx: number) => (
+                                <div key={idx} className="ml-2 text-gray-600 dark:text-gray-400">
+                                  • {file.name} ({(file.size / 1024).toFixed(1)} KB, {file.type})
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示请求信息 */}
+                        {it.meta && (it.meta.requestData || it.meta.visionRequest || it.meta.analysisRequest) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-purple-600 dark:text-purple-400 mb-2 font-medium">📤 {t('timeline.requestInfo')}</div>
+                            <div className="space-y-1 text-xs">
+                              {it.meta.requestData && (
+                                <>
+                                  <div><strong>{t('timeline.apiUrl')}：</strong>{it.meta.requestData.apiUrl}</div>
+                                  <div><strong>{t('timeline.model')}：</strong>{it.meta.requestData.model}</div>
+                                  <div><strong>{t('timeline.hasSystemPrompt')}：</strong>{it.meta.requestData.hasSystemPrompt ? '是' : '否'}</div>
+                                  <div><strong>{t('timeline.hasFiles')}：</strong>{it.meta.requestData.hasFiles ? '是' : '否'}</div>
+                                  <div><strong>{t('timeline.hasDialog')}：</strong>{it.meta.requestData.hasDialog ? '是' : '否'}</div>
+                                </>
+                              )}
+                              {it.meta.visionRequest && (
+                                <>
+                                  <div><strong>{t('timeline.visionModel')}：</strong>{it.meta.visionRequest.model}</div>
+                                  <div><strong>{t('timeline.apiUrl')}：</strong>{it.meta.visionRequest.apiUrl}</div>
+                                  <div><strong>{t('timeline.processedFiles')}：</strong>{it.meta.visionRequest.fileCount}</div>
+                                </>
+                              )}
+                              {it.meta.analysisRequest && (
+                                <>
+                                  <div><strong>{t('timeline.languageModel')}：</strong>{it.meta.analysisRequest.model}</div>
+                                  <div><strong>{t('timeline.apiUrl')}：</strong>{it.meta.analysisRequest.apiUrl}</div>
+                                  <div><strong>{t('timeline.hasCircuitData')}：</strong>{it.meta.analysisRequest.hasCircuitData ? '是' : '否'}</div>
+                                  <div><strong>{t('timeline.hasRequirements')}：</strong>{it.meta.analysisRequest.hasRequirements ? '是' : '否'}</div>
+                                  <div><strong>{t('timeline.hasSpecs')}：</strong>{it.meta.analysisRequest.hasSpecs ? '是' : '否'}</div>
+                                  <div><strong>{t('timeline.hasHistory')}：</strong>{it.meta.analysisRequest.hasHistory ? '是' : '否'}</div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示缓存数据信息 */}
+                        {it.meta && it.meta.cachedData && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-cyan-600 dark:text-cyan-400 mb-2 font-medium">💾 {t('timeline.cachedData')}</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400">
+                              {it.meta.cachedData}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示器件资料信息 */}
+                        {it.meta && (it.meta.datasheetCount !== undefined || it.meta.datasheets) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-indigo-600 dark:text-indigo-400 mb-2 font-medium">📋 {t('timeline.datasheetDetails')}</div>
+                            <div className="space-y-2 text-xs">
+                              <div className="flex gap-4">
+                                <div><strong>{t('timeline.retrievedComponents')}：</strong>{it.meta.datasheetCount || 0}</div>
+                                <div><strong>{t('timeline.successfulDownloads')}：</strong>{it.meta.downloadedCount || 0}</div>
+                              </div>
+
+                              {it.meta.datasheets && it.meta.datasheets.length > 0 && (
+                                <div className="mt-3">
+                                  <details className="border rounded border-gray-200 dark:border-gray-600">
+                                    <summary className="cursor-pointer p-2 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
+                                      📚 {t('timeline.allDatasheetInfo')} ({it.meta.datasheets.length})
+                                    </summary>
+                                    <div className="p-2 border-t border-gray-200 dark:border-gray-600 space-y-3 max-h-64 overflow-y-auto">
+                                      {it.meta.datasheets.map((sheet: any, idx: number) => (
+                                        <div key={idx} className="border rounded border-gray-100 dark:border-gray-700 p-2 bg-white dark:bg-gray-800">
+                                          <div className="font-medium text-gray-800 dark:text-gray-200 mb-1">
+                                            {sheet.component_name} - {sheet.query_string}
+                                          </div>
+                                          <div className="grid grid-cols-1 gap-1 text-xs text-gray-600 dark:text-gray-400">
+                                            <div><strong>{t('timeline.sourceType')}：</strong>{sheet.source_type}</div>
+                                            <div><strong>{t('timeline.documentTitle')}：</strong>{sheet.document_title || t('common.none')}</div>
+                                            <div><strong>{t('timeline.sourceUrl')}：</strong>
+                                              {sheet.source_url ? (
+                                                <a href={sheet.source_url} target="_blank" rel="noopener noreferrer"
+                                                   className="text-blue-600 dark:text-blue-400 hover:underline break-all">
+                                                  {sheet.source_url}
+                                                </a>
+                                              ) : t('common.none')}
+                                            </div>
+                                            <div><strong>{t('timeline.confidence')}：</strong>{(sheet.confidence * 100).toFixed(1)}%</div>
+                                            <div><strong>{t('timeline.retrievalTime')}：</strong>{new Date(sheet.retrieved_at).toLocaleString()}</div>
+                                            <div><strong>{t('timeline.status')}：</strong>{sheet.notes}</div>
+
+                                            {sheet.candidates && sheet.candidates.length > 1 && (
+                                              <details className="mt-2">
+                                                <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+                                                  {t('timeline.otherCandidates')} ({sheet.candidates.length - 1})
+                                                </summary>
+                                                <div className="mt-1 space-y-1 pl-2">
+                                                  {sheet.candidates.slice(1).map((candidate: any, cidx: number) => (
+                                                    <div key={cidx} className="text-xs">
+                                                      <a href={candidate.url} target="_blank" rel="noopener noreferrer"
+                                                         className="text-blue-500 dark:text-blue-400 hover:underline break-all">
+                                                        {candidate.title}
+                                                      </a>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </details>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示图片解析结果 */}
+                        {it.meta && it.meta.visionResult && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-green-600 dark:text-green-400 mb-2 font-medium">👁️ {t('timeline.visionResult')}</div>
+                            <div className="space-y-2 text-xs">
+                              {/* 统计信息 */}
+                              <div className="grid grid-cols-2 gap-2">
+                                <div><strong>{t('timeline.componentsCount')}：</strong>{it.meta.visionResult.componentsCount}</div>
+                                <div><strong>{t('timeline.connectionsCount')}：</strong>{it.meta.visionResult.connectionsCount}</div>
+                                {it.meta.visionResult.netsCount > 0 && <div><strong>{t('timeline.netsCount')}：</strong>{it.meta.visionResult.netsCount}</div>}
+                                {it.meta.visionResult.hasOverlay && <div><strong>{t('timeline.visualization')}：</strong>{t('timeline.hasOverlay')}</div>}
+                              </div>
+                              {it.meta.visionResult.enrichedComponentsCount > 0 && (
+                                <div><strong>{t('timeline.paramEnrichment')}：</strong>{it.meta.visionResult.enrichedComponentsCount} 个器件</div>
+                              )}
+
+                              {/* 完整的结构化数据 */}
+                              {localEnrichedJson && (
+                                <div className="mt-3">
+                                  <details className="border rounded border-gray-200 dark:border-gray-600">
+                                    <summary className="cursor-pointer p-2 text-xs font-medium bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300">
+                                      📋 {t('timeline.fullStructuredDescription')}
+                                    </summary>
+                                    <div className="p-2 border-t border-gray-200 dark:border-gray-600">
+                                      <pre className="text-[10px] overflow-auto max-h-64 bg-gray-50 dark:bg-gray-800 p-2 rounded whitespace-pre-wrap">
+                                        {JSON.stringify(localEnrichedJson, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </details>
+                                </div>
+                              )}
+
+                              {it.meta.visionResponse && (
+                                <div className="mt-2">
+                                  <strong>{t('timeline.returnContent')}：</strong>
+                                  <div className="text-gray-600 dark:text-gray-400 mt-1">{it.meta.visionResponse}</div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示多轮识别信息 */}
+                        {it.meta && (it.meta.totalPasses || it.meta.multiPassInfo || it.meta.multiPassResult) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-cyan-600 dark:text-cyan-400 mb-2 font-medium">🔄 {t('timeline.multiPassRecognition')}</div>
+                            <div className="space-y-2 text-xs">
+                              {it.meta.totalPasses && (
+                                <div><strong>{t('timeline.totalPasses')}：</strong>{it.meta.totalPasses}</div>
+                              )}
+                              {it.meta.successfulPasses !== undefined && (
+                                <div><strong>{t('timeline.successfulPasses')}：</strong>{it.meta.successfulPasses}</div>
+                              )}
+                              {it.meta.totalProcessingTime && (
+                                <div><strong>{t('timeline.totalProcessingTime')}：</strong>{it.meta.totalProcessingTime}ms</div>
+                              )}
+                              {it.meta.averageTimePerPass && (
+                                <div><strong>{t('timeline.averageTimePerPass')}：</strong>{it.meta.averageTimePerPass}ms</div>
+                              )}
+                              {it.meta.multiPassInfo && (
+                                <div><strong>{t('timeline.multiPassInfo')}：</strong>{it.meta.multiPassInfo}</div>
+                              )}
+                              {it.meta.multiPassResult && (
+                                <div><strong>{t('timeline.multiPassResult')}：</strong>{it.meta.multiPassResult}</div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示结果整合信息 */}
+                        {it.meta && (it.meta.resultCount || it.meta.consolidationInfo || it.meta.consolidationResult) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-indigo-600 dark:text-indigo-400 mb-2 font-medium">🧠 {t('timeline.consolidation')}</div>
+                            <div className="space-y-2 text-xs">
+                              {it.meta.resultCount && (
+                                <div><strong>{t('timeline.resultCount')}：</strong>{it.meta.resultCount}</div>
+                              )}
+                              {it.meta.consolidatedComponents !== undefined && (
+                                <div><strong>{t('timeline.consolidatedComponents')}：</strong>{it.meta.consolidatedComponents}</div>
+                              )}
+                              {it.meta.consolidatedConnections !== undefined && (
+                                <div><strong>{t('timeline.consolidatedConnections')}：</strong>{it.meta.consolidatedConnections}</div>
+                              )}
+                              {it.meta.consolidationInfo && (
+                                <div><strong>{t('timeline.consolidationInfo')}：</strong>{it.meta.consolidationInfo}</div>
+                              )}
+                              {it.meta.consolidationResult && (
+                                <div><strong>{t('timeline.consolidationResult')}：</strong>{it.meta.consolidationResult}</div>
+                              )}
+                              {it.meta.consolidationFallback && (
+                                <div className="text-orange-600 dark:text-orange-400">
+                                  <strong>{t('timeline.consolidationFallback')}：</strong>{it.meta.consolidationFallback}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 显示大模型返回的具体内容 */}
+                        {it.meta && it.meta.llmResponse && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-blue-600 dark:text-blue-400 mb-2 font-medium">🤖 {t('timeline.llmResponse')}</div>
+                            {it.meta.llmResponse.clarifyingQuestions && (
+                              <div className="mb-2">
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('timeline.clarifyingQuestions')}：</div>
+                                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded text-xs whitespace-pre-wrap border-l-2 border-yellow-400">
+                                  {it.meta.llmResponse.clarifyingQuestions}
+                                </div>
+                              </div>
+                            )}
+                            {it.meta.llmResponse.reviewReport && (
+                              <div className="mb-2">
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('timeline.reviewReport')}：</div>
+                                <div className="bg-green-50 dark:bg-green-900/20 p-2 rounded text-xs whitespace-pre-wrap border-l-2 border-green-400 max-h-32 overflow-y-auto">
+                                  {it.meta.llmResponse.reviewReport}
+                                </div>
+                              </div>
+                            )}
+                            {it.meta.llmResponse.fullResponse && !it.meta.llmResponse.clarifyingQuestions && !it.meta.llmResponse.reviewReport && (
+                              <div className="mb-2">
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('timeline.fullResponse')}：</div>
+                                <div className="bg-gray-50 dark:bg-gray-800 p-2 rounded text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                  {it.meta.llmResponse.fullResponse}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {it.meta && Object.keys(it.meta).length > 0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer text-xs text-gray-500">完整元数据</summary>
+                            <pre className="overflow-auto bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder p-2 rounded text-xs mt-1">{JSON.stringify(it.meta, null, 2)}</pre>
+                          </details>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

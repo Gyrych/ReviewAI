@@ -146,28 +146,71 @@ app.post('/api/review', upload.any(), async (req, res) => {
       }
     }
 
-    // 调用 LLM，已移除 reviewGuidelines 参数
-    // 记录后端各阶段时间戳以便前端展示详细的会话进度与耗时
-    const timeline: { step: string; ts: number }[] = []
-    timeline.push({ step: 'request_received', ts: Date.now() })
+  // 调用 LLM，已移除 reviewGuidelines 参数
+  // 记录后端各阶段时间戳以便前端展示详细的会话进度与耗时
+  const timeline: { step: string; ts: number; meta?: any }[] = []
+  timeline.push({ step: 'request_received', ts: Date.now() })
 
-    // 如果需要识别图片，标记并记录阶段时间点；在此处创建必要的局部变量以避免作用域问题
-    if (!body.enrichedJson && files.length > 0) {
+  // 初始化IC器件资料元数据
+  let datasheetMeta: any[] = []
+
+  // 如果需要识别图片，标记并记录阶段时间点；在此处创建必要的局部变量以避免作用域问题
+  if (!body.enrichedJson && files.length > 0) {
       timeline.push({ step: 'images_processing_start', ts: Date.now() })
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
       const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch))
       const topN = body.searchTopN ? Number(body.searchTopN) : undefined
       const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched))
-      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched })
-      timeline.push({ step: 'images_processing_done', ts: Date.now() })
+      const multiPassRecognition = body.multiPassRecognition === 'true' ? true : false
+      const recognitionPasses = body.recognitionPasses ? Number(body.recognitionPasses) : 5
+      // 记录解析到的选项，便于诊断（包含是否启用多轮识别与轮数）
+      logInfo('vision.options.parsed', {
+        enableSearch,
+        topN,
+        saveEnriched,
+        multiPassRecognition,
+        recognitionPasses
+      })
+      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline)
+
+      // 记录图片解析结果摘要到 timeline
+      const processingMeta: any = {
+        componentsCount: Array.isArray(circuitJson?.components) ? circuitJson.components.length : 0,
+        connectionsCount: Array.isArray(circuitJson?.connections) ? circuitJson.connections.length : 0,
+        netsCount: Array.isArray(circuitJson?.nets) ? circuitJson.nets.length : 0,
+        hasOverlay: !!(circuitJson as any)?.overlay,
+        hasMetadata: !!(circuitJson as any)?.metadata,
+        enrichedComponentsCount: Array.isArray(circuitJson?.components) ? circuitJson.components.filter((c: any) => c.enrichment).length : 0
+      }
+      timeline.push({
+        step: 'images_processing_done',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_result',
+          visionResult: processingMeta,
+          summary: `识别出 ${processingMeta.componentsCount} 个器件，${processingMeta.connectionsCount} 条连接，${processingMeta.netsCount} 个网络${processingMeta.hasOverlay ? '，包含可视化覆盖层' : ''}${processingMeta.enrichedComponentsCount > 0 ? `，${processingMeta.enrichedComponentsCount} 个器件有参数补充` : ''}`
+        }
+      })
+
       // 视觉阶段内部已完成 datasheets 下载与元数据落盘，此处补记时间线
-      timeline.push({ step: 'datasheets_fetch_done', ts: Date.now() })
+      const datasheetCount = (circuitJson as any)?.datasheetMeta?.length || 0
+      const downloadedCount = (circuitJson as any)?.datasheetMeta?.filter((item: any) => item.notes && item.notes.includes('saved:'))?.length || 0
+      timeline.push({
+        step: 'datasheets_fetch_done',
+        ts: Date.now(),
+        meta: {
+          type: 'backend',
+          datasheetCount,
+          downloadedCount,
+          datasheets: (circuitJson as any)?.datasheetMeta || []
+        }
+      })
     } else {
       timeline.push({ step: 'images_processing_skipped', ts: Date.now() })
     }
 
     timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() })
-    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history)
+    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta)
     timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() })
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
@@ -255,6 +298,7 @@ app.post('/api/sessions/save', (req, res) => {
       questionConfirm: String(body.questionConfirm || ''),
       dialog: String(body.dialog || ''),
       history: Array.isArray(body.history) ? body.history : [],
+      timeline: Array.isArray(body.timeline) ? body.timeline : undefined,
       markdown: String(body.markdown || ''),
       enrichedJson: body.enrichedJson,
       overlay: body.overlay,
