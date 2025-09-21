@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start:all": "node start-all.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.4"
   }
 }
-
-
