@@ -1,6 +1,10 @@
 // 中文注释：前端会话相关类型定义
 
+// 中文注释：会话消息历史条目
 export type SessionHistory = { role: 'user' | 'assistant'; content: string }
+
+// 中文注释：步骤时间线条目，用于记录与大模型交互的处理阶段
+export type SessionTimelineItem = { step: string; ts?: number; meta?: any }
 
 export type SessionFileV1 = {
   id?: string
@@ -15,6 +19,8 @@ export type SessionFileV1 = {
   questionConfirm: string
   dialog: string
   history: SessionHistory[]
+  // 可选：记录处理步骤时间线（前端/后端均可写入）
+  timeline?: SessionTimelineItem[]
   markdown: string
   enrichedJson?: any
   overlay?: any
@@ -36,6 +42,7 @@ export type SessionSeed = {
   questionConfirm: string
   dialog: string
   history: SessionHistory[]
+  timeline?: SessionTimelineItem[]
   files: { name: string; type: string; size: number; lastModified?: number; dataBase64: string }[]
   enrichedJson?: any
 }

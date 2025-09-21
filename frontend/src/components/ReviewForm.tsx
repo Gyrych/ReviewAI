@@ -58,6 +58,10 @@ export default function ReviewForm({
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
+  // 中文注释：记录与大模型交互的步骤时间线（用于展示历史步骤）
+  const [timeline, setTimeline] = useState<{ step: string; ts?: number; meta?: any }[]>([])
+  // 控制哪些后端 timeline 项被展开以显示详情
+  const [expandedTimelineItems, setExpandedTimelineItems] = useState<Record<string, boolean>>({})
   const [localEnrichedJson, setLocalEnrichedJson] = useState<any | null>(null)
   const [saving, setSaving] = useState<boolean>(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
@@ -112,6 +116,8 @@ export default function ReviewForm({
         }
         // enrichedJson 回填
         if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
+        // 回填 timeline（若存在）
+        try { setTimeline(Array.isArray((seed as any).timeline) ? [...(seed as any).timeline] : []) } catch {}
         // 文件重建：base64 -> Blob -> File
         if (Array.isArray(seed.files) && seed.files.length > 0) {
           const rebuilt: File[] = []
@@ -161,6 +167,8 @@ export default function ReviewForm({
     if (timerRef.current) window.clearInterval(timerRef.current)
     timerRef.current = window.setInterval(() => setElapsedMs((s) => s + 1000), 1000)
     try {
+      // 在提交流程开始时记录 timeline 条目
+      setTimeline((t) => t.concat([{ step: 'preparing', ts: Date.now() }]))
       // 中文注释：在发送前仅创建“提交快照”，不立即改动界面；等待上游返回后再入历史与翻页
       const dialogTrimmed = (dialog || '').trim()
       const submittedDialog = dialogTrimmed
@@ -203,10 +211,12 @@ export default function ReviewForm({
       // 如果已有后端返回的 enrichedJson（图片已解析为描述），则不需要重复上传图片
       if (!localEnrichedJson) {
         setProgressStep('uploading_files')
+        setTimeline((t) => t.concat([{ step: 'uploading_files', ts: Date.now() }]))
         files.forEach((f) => fd.append('files', f))
       } else {
         // 将已生成的图片描述（结构化 JSON）随表单一并发送，便于后端复用而非二次识别
         setProgressStep('using_cached_enriched_json')
+        setTimeline((t) => t.concat([{ step: 'using_cached_enriched_json', ts: Date.now() }]))
         try { fd.append('enrichedJson', JSON.stringify(localEnrichedJson)) } catch (e) {}
       }
       // 若为自定义 API，则优先使用 customModelName（若有），否则使用下拉的 model 值
@@ -238,6 +248,7 @@ export default function ReviewForm({
 
       // Always post to the backend endpoint; backend will forward to the external model at modelApiUrl
       setProgressStep('sending_request')
+      setTimeline((t) => t.concat([{ step: 'sending_request', ts: Date.now() }]))
       const controller = new AbortController()
       // 保存 controller 以便外部中止
       controllerRef.current = controller
@@ -300,6 +311,12 @@ export default function ReviewForm({
               setElapsedMs(Math.max(0, now - peek.timeline[0].ts))
             }
           } catch (e) {}
+          // 合并后端返回的 timeline 到本地 timeline（保留本地已有条目）
+          try {
+            const remote: any[] = peek.timeline || []
+            const normalized = remote.map((x) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
+            setTimeline((t) => t.concat(normalized))
+          } catch {}
         }
       }
 
@@ -317,6 +334,11 @@ export default function ReviewForm({
         if (!md) md = JSON.stringify(j)
         // UI 侧：根据时间线提示多阶段进度（若可用）
         try {
+          // 若后端返回 timeline，将其合并并尝试映射用户可读进度
+          if (Array.isArray(j.timeline)) {
+            const remote = j.timeline.map((x: any) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
+            setTimeline((t) => t.concat(remote))
+          }
           const steps: string[] = (j.timeline || []).map((x: any) => x.step)
           // 尝试将阶段线性映射为用户可读标记
           if (steps.includes('images_processing_start')) setProgressStep('images_processing_start')
@@ -352,6 +374,8 @@ export default function ReviewForm({
         if (qcText) newEntries.push({ role: 'assistant', content: qcText })
         if (reportPart && reportPart.trim()) newEntries.push({ role: 'assistant', content: reportPart.trim() })
         if (newEntries.length > 0) setHistory((h) => h.concat(newEntries))
+        // 记录 timeline 中的结果节点
+        setTimeline((t) => t.concat([{ step: 'analysis_result', ts: Date.now(), meta: { report: !!reportPart } }]))
         // 若用户未改动输入，则清空输入框，准备下一轮
         if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         if (reportPart && reportPart.trim()) onResult(reportPart.trim())
@@ -368,6 +392,7 @@ export default function ReviewForm({
           if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
           if (qcText) entries.push({ role: 'assistant', content: qcText })
           if (entries.length > 0) setHistory((h) => h.concat(entries))
+          setTimeline((t) => t.concat([{ step: 'clarifying_question', ts: Date.now() }]))
           if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         } else {
           // 将全文作为评审结果展示
@@ -378,6 +403,7 @@ export default function ReviewForm({
             if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
             entries.push({ role: 'assistant', content: md.trim() })
             setHistory((h) => h.concat(entries))
+            setTimeline((t) => t.concat([{ step: 'analysis_result', ts: Date.now() }]))
             if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
           }
         }
@@ -386,12 +412,14 @@ export default function ReviewForm({
       const msg = err?.message || ''
       if (err?.name === 'AbortError' || /aborted/i.test(msg)) {
         setError(t('form.error.timeout'))
+        setTimeline((t) => t.concat([{ step: 'aborted', ts: Date.now() }]))
       } else {
         setError(msg || t('form.error.submitFail'))
       }
     } finally {
       setLoading(false)
       setProgressStep('done')
+      setTimeline((t) => t.concat([{ step: 'done', ts: Date.now() }]))
       if (timerRef.current) {
         window.clearInterval(timerRef.current)
         timerRef.current = null
@@ -460,6 +488,8 @@ export default function ReviewForm({
         questionConfirm,
         dialog,
         history,
+        // 将本地 timeline 一并持久化（若有）
+        timeline: timeline.length > 0 ? timeline : undefined,
         markdown: markdown || '',
         enrichedJson: localEnrichedJson || undefined,
         overlay: overlay || undefined,
@@ -519,6 +549,30 @@ export default function ReviewForm({
     const idx = p - 1
     if (idx < userDialogItems.length) return userDialogItems[idx] || ''
     return ''
+  }
+
+  // 格式化时间戳为相对时间短文本（例如：刚刚、5s、2m、HH:MM）
+  function formatRelative(ts?: number): string {
+    if (!ts) return ''
+    try {
+      const delta = Math.floor((Date.now() - ts) / 1000)
+      if (delta < 5) return '刚刚'
+      if (delta < 60) return `${delta}s`
+      if (delta < 3600) return `${Math.floor(delta / 60)}m`
+      const d = new Date(ts)
+      const hh = String(d.getHours()).padStart(2, '0')
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      return `${hh}:${mm}`
+    } catch (e) { return '' }
+  }
+
+  // 格式化为本地日期时间（用于显示每步的具体时间）
+  function formatAbsolute(ts?: number): string {
+    if (!ts) return ''
+    try {
+      const d = new Date(ts)
+      return d.toLocaleString()
+    } catch (e) { return '' }
   }
 
   // 中文注释：重置整个选项卡与结果区；如有未保存内容，先询问是否保存
@@ -620,9 +674,8 @@ export default function ReviewForm({
 
       {error && <div className="text-red-600 text-sm">{error}</div>}
 
-      {/* 会话进度与计时显示 */}
-      <div className="flex items-center space-x-4">
-        <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.current', { step: stepLabel(progressStep) || progressStep })}</div>
+      {/* 会话进度显示（保留 elapsed） */}
+      <div className="mb-2">
         <div className="text-sm text-gray-600 dark:text-gray-300">{t('form.progress.elapsed', { seconds: Math.floor(elapsedMs/1000) })}</div>
       </div>
       {/* 若可用，显示阶段提示 */}
@@ -647,6 +700,54 @@ export default function ReviewForm({
         <button type="button" className="px-4 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded-md disabled:opacity-60" onClick={handleSaveSession} disabled={saving}>
           {saving ? t('form.save.loading') : t('form.save')}
         </button>
+      </div>
+      {/* 将时间线放到按钮下方 */}
+      <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
+        <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
+        <div className="mt-1 space-y-2 max-h-48 overflow-auto">
+          {(() => {
+            function isBackendStep(s: string) {
+              return /^(request_received|images_processing_start|images_processing_done|images_processing_skipped|datasheets_fetch_done|second_stage_analysis_start|second_stage_analysis_done)$/i.test(s)
+            }
+            const backendTimeline = (timeline || []).filter((it) => it && it.step && isBackendStep(it.step))
+            if (!backendTimeline || backendTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
+            return [...backendTimeline].slice().reverse().map((it, idx) => {
+              const step = it.step || ''
+              let groupKey = 'timeline.group.other'
+              if (/images_processing|datasheets|parse|enriched/i.test(step)) groupKey = 'timeline.group.parse'
+              else if (/datasheets_fetch|search|fetch/i.test(step)) groupKey = 'timeline.group.search'
+              else if (/second_stage_analysis|analysis|analysis_result|clarifying_question/i.test(step)) groupKey = 'timeline.group.analyze'
+              else if (/request|sending|llm_request|request_received/i.test(step)) groupKey = 'timeline.group.request'
+              const isCurrent = progressStep && (step === progressStep || step.includes(progressStep))
+              const isError = /aborted|error|fail/i.test(step)
+              const key = `${it.step}_${it.ts}_${idx}`
+              const expanded = !!expandedTimelineItems[key]
+              return (
+                <div key={key} className={`border-b border-gray-100 dark:border-cursorBorder ${isCurrent ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
+                  <div className="flex items-start justify-between gap-2 p-1 cursor-pointer" onClick={() => setExpandedTimelineItems((s) => ({ ...s, [key]: !s[key] }))}>
+                    <div className="min-w-0">
+                      <div className="text-sm dark:text-gray-200 flex items-center gap-2">
+                        <span className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-xs ${isError ? 'text-red-600' : (isCurrent ? 'text-yellow-600' : 'text-gray-500')}`}>{isError ? '✖' : (isCurrent ? '●' : '○')}</span>
+                        <div className="truncate">{stepLabel(it.step) || it.step}</div>
+                      </div>
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">{t(groupKey)}{it.meta ? (' · ' + (typeof it.meta === 'string' ? it.meta : JSON.stringify(it.meta))) : ''}</div>
+                    </div>
+                    <div className="text-[11px] text-gray-400 dark:text-gray-500 text-right">
+                      {formatAbsolute(it.ts)}
+                      <div className="text-[10px]">{formatRelative(it.ts)}</div>
+                    </div>
+                  </div>
+                  {expanded && (
+                    <div className="p-2 pt-0 text-[12px] text-gray-700 dark:text-gray-300">
+                      <div className="text-[11px] text-gray-500 mb-1">{t('timeline.detail')}</div>
+                      <pre className="overflow-auto bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder p-2 rounded text-xs">{JSON.stringify({ step: it.step, ts: it.ts, meta: it.meta }, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          })()}
+        </div>
       </div>
     </form>
   )

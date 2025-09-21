@@ -5,8 +5,36 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void }) {
+export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson, timeline }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void, timeline?: { step: string; ts?: number; meta?: any }[] }) {
   const { t } = useI18n()
+  const [expanded, setExpanded] = React.useState<Record<number, boolean>>({})
+  function toggleExpand(i: number) { setExpanded((s) => ({ ...s, [i]: !s[i] })) }
+  function renderTimeline() {
+    if (!timeline || timeline.length === 0) return null
+    const reversed = [...timeline].slice().reverse()
+    return (
+      <div className="mb-4 p-2 border rounded bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder">
+        <div className="text-sm font-medium mb-2">{t('timeline.label')}</div>
+        <ul className="text-xs space-y-1">
+          {reversed.map((it, idx) => (
+            <li key={idx} className="">
+              <div className="flex items-center justify-between cursor-pointer" onClick={() => toggleExpand(idx)}>
+                <div className="truncate mr-4">{t(`step_${it.step}`) || it.step}</div>
+                <div className="text-gray-500 dark:text-gray-400 text-right">
+                  <div>{it.ts ? new Date(it.ts).toLocaleString() : ''}</div>
+                </div>
+              </div>
+              {expanded[idx] && (
+                <div className="mt-1 p-2 bg-white dark:bg-cursorPanel rounded border dark:border-cursorBorder text-xs">
+                  <pre className="whitespace-pre-wrap">{JSON.stringify(it, null, 2)}</pre>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
   function renderOverlay() {
     if (!overlay) return null
     // overlay.svg can be raw SVG string or base64; for simplicity assume raw SVG

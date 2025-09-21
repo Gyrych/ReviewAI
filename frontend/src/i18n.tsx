@@ -86,6 +86,9 @@ const dictZh: Record<string, string> = {
   'form.error.timeout': '请求超时：上游响应较慢或网络不稳定，请尝试切换为 /beta 路径或稍后重试。',
   'form.error.submitFail': '提交失败',
   'form.error.aborted': '已中止',
+  // 时间线/步骤历史标签
+  'timeline.label': '步骤历史',
+  'timeline.detail': '步骤详情',
 
   // 步骤标签
   'step_idle': '空闲',
@@ -96,8 +99,22 @@ const dictZh: Record<string, string> = {
   'step_done': '完成',
   'step_images_processing_start': '图像处理 - 开始',
   'step_images_processing_done': '图像处理 - 完成',
+  'step_images_processing_skipped': '图像处理 - 跳过',
+  'step_request_received': '请求已接收',
+  'step_datasheets_fetch_done': '器件资料下载 - 完成',
+  'step_second_stage_analysis_start': '二次分析 - 开始',
+  'step_second_stage_analysis_done': '二次分析 - 完成',
+  'step_analysis_result': '分析结果',
+  'step_clarifying_question': '问题确认',
+  'step_aborted': '已中止',
   'step_llm_request_start': '调用模型 - 开始',
   'step_llm_request_done': '调用模型 - 完成',
+  // 分组标签
+  'timeline.group.parse': '解析阶段',
+  'timeline.group.search': '检索阶段',
+  'timeline.group.analyze': '分析阶段',
+  'timeline.group.request': '请求阶段',
+  'timeline.group.other': '其他',
 
   // FileUpload 层
   'upload.select': '选择文件',
@@ -171,6 +188,9 @@ const dictEn: Record<string, string> = {
   'form.error.timeout': 'Request timed out: upstream is slow or network unstable. Try /beta path or retry later.',
   'form.error.submitFail': 'Submit failed',
   'form.error.aborted': 'Aborted',
+  // timeline label
+  'timeline.label': 'Step timeline',
+  'timeline.detail': 'Step detail',
 
   // steps
   'step_idle': 'Idle',
@@ -181,8 +201,22 @@ const dictEn: Record<string, string> = {
   'step_done': 'Done',
   'step_images_processing_start': 'Image processing - start',
   'step_images_processing_done': 'Image processing - done',
+  'step_images_processing_skipped': 'Image processing - skipped',
+  'step_request_received': 'Request received',
+  'step_datasheets_fetch_done': 'Datasheets fetch - done',
+  'step_second_stage_analysis_start': 'Second-stage analysis - start',
+  'step_second_stage_analysis_done': 'Second-stage analysis - done',
+  'step_analysis_result': 'Analysis result',
+  'step_clarifying_question': 'Clarifying question',
+  'step_aborted': 'Aborted',
   'step_llm_request_start': 'LLM request - start',
   'step_llm_request_done': 'LLM request - done',
+  // groups
+  'timeline.group.parse': 'Parse',
+  'timeline.group.search': 'Search',
+  'timeline.group.analyze': 'Analyze',
+  'timeline.group.request': 'Request',
+  'timeline.group.other': 'Other',
 
   // FileUpload
   'upload.select': 'Select Files',

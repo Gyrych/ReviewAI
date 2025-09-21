@@ -14,6 +14,7 @@ export default function App() {
     'google/gemini-2.5-pro',
     'google/gemini-2.5-flash',
     'x-ai/grok-4',
+    'x-ai/grok-4-fast:free',
     'qwen/qwen2.5-vl-32b-instruct',
     'qwen/qwen2.5-vl-32b-instruct:free',
     'qwen/qwen2.5-vl-72b-instruct',
@@ -354,7 +355,7 @@ export default function App() {
         </div>
         <div className="col-span-7">
           <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
-          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} />
+          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined} />
         </div>
       </div>
     </div>

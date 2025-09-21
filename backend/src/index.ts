@@ -33,8 +33,18 @@ app.get('/api/system-prompt', (req, res) => {
     const qLangRaw = (req.query.lang as string) || ''
     const qLang = (qLangRaw === 'en' || qLangRaw === 'zh') ? qLangRaw : 'zh'
     const filename = qLang === 'en' ? 'SystemPrompt.md' : '系统提示词.md'
-    const p = path.resolve(__dirname, '..', '..', filename)
-    if (!fs.existsSync(p)) return res.status(404).json({ error: 'system prompt file not found', lang: qLang })
+    // 优先从 schematic-ai-review-prompt 目录读取（首选），若不存在则回退到仓库根目录
+    const preferredDir = path.resolve(__dirname, '..', '..', 'schematic-ai-review-prompt')
+    const preferredPath = path.join(preferredDir, filename)
+    const fallbackPath = path.resolve(__dirname, '..', '..', filename)
+    let p = preferredPath
+    if (!fs.existsSync(p)) {
+      if (fs.existsSync(fallbackPath)) {
+        p = fallbackPath
+      } else {
+        return res.status(404).json({ error: 'system prompt file not found', lang: qLang })
+      }
+    }
     const txt = fs.readFileSync(p, { encoding: 'utf8' })
     res.type('text/plain').send(txt)
   } catch (e: any) {
