@@ -53,7 +53,7 @@ export default function App() {
     try {
       const urlForCheck = modelApiUrl === 'custom' ? (customApiUrl || '') : modelApiUrl
       if ((urlForCheck || '').startsWith('https://openrouter.ai')) {
-        const openRouterModels = [...OPENROUTER_MODEL_PRESETS].sort((a,b) => a.localeCompare(b))
+        const openRouterModels = [...OPENROUTER_MODEL_PRESETS, 'custom'].sort((a,b) => a.localeCompare(b))
         setModelOptions(openRouterModels)
         if (!openRouterModels.includes(model)) setModel(openRouterModels[0])
       } else {
@@ -128,12 +128,13 @@ export default function App() {
       const isOpenRouter = (url || '').startsWith('https://openrouter.ai')
       const loadedModel = (s.customModelName && s.customModelName.trim()) ? s.customModelName.trim() : (s.model || '')
       if (isOpenRouter) {
-        // 若模型在预设下拉中，优先使用下拉；否则填入自定义模型名
+        // 若模型在预设下拉中，优先使用下拉；否则设置为自定义选项
         const preset = OPENROUTER_MODEL_PRESETS.includes(loadedModel)
         if (preset) {
           setModel(loadedModel)
           setCustomModelName('')
         } else {
+          setModel('custom')
           setCustomModelName(loadedModel)
         }
       } else if (!inAllowed) {
@@ -163,6 +164,7 @@ export default function App() {
         questionConfirm: s.questionConfirm || '',
         dialog: s.dialog || '',
         history: Array.isArray(s.history) ? s.history : [],
+        timeline: Array.isArray(s.timeline) ? s.timeline : [],
         files: Array.isArray(s.files) ? s.files : [],
         enrichedJson: s.enrichedJson,
       })
@@ -251,10 +253,10 @@ export default function App() {
                   <>
                     <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
                       {modelOptions.map((m) => (
-                        <option key={m} value={m}>{m}</option>
+                        <option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>
                       ))}
                     </select>
-                    {( (modelApiUrl === 'custom' && (customApiUrl || '').startsWith('https://openrouter.ai')) || modelApiUrl === DEFAULT_API_URLS[1]) && (
+                    {modelApiUrl === DEFAULT_API_URLS[1] && model === 'custom' && (
                       <div className="mt-2">
                         <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                         <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.openrouter')}</p>

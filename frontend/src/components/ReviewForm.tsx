@@ -72,7 +72,6 @@ export default function ReviewForm({
   const [recognitionPasses, setRecognitionPasses] = useState<number>(5)
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
   const [searchTopN, setSearchTopN] = useState<number>(5)
-  const [saveEnriched, setSaveEnriched] = useState<boolean>(true)
 
   const questionRef = useRef<HTMLTextAreaElement | null>(null)
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
@@ -123,7 +122,34 @@ export default function ReviewForm({
         // enrichedJson 回填
         if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
         // 回填 timeline（若存在）
-        try { setTimeline(Array.isArray((seed as any).timeline) ? [...(seed as any).timeline] : []) } catch {}
+        try {
+          const loadedTimeline = Array.isArray((seed as any).timeline) ? [...(seed as any).timeline] : []
+          setTimeline(loadedTimeline)
+
+          // 根据加载的 timeline 恢复进度状态
+          if (loadedTimeline.length > 0) {
+            // 设置当前进度步骤为最后一个步骤
+            const lastStep = loadedTimeline[loadedTimeline.length - 1]
+            setProgressStep(lastStep.step)
+
+            // 计算总耗时（从第一个步骤到最后一个步骤）
+            try {
+              const firstStep = loadedTimeline[0]
+              if (firstStep.ts && lastStep.ts) {
+                const totalElapsed = Math.max(0, lastStep.ts - firstStep.ts)
+                setElapsedMs(totalElapsed)
+              }
+            } catch (e) {
+              // 忽略时间计算错误
+            }
+          }
+
+          // 停止任何正在运行的计时器，因为这是已保存的会话
+          if (timerRef.current) {
+            window.clearInterval(timerRef.current)
+            timerRef.current = null
+          }
+        } catch {}
         // 文件重建：base64 -> Blob -> File
         if (Array.isArray(seed.files) && seed.files.length > 0) {
           const rebuilt: File[] = []
@@ -258,7 +284,7 @@ export default function ReviewForm({
       if (enableSearch) {
         fd.append('searchTopN', searchTopN.toString())
       }
-      fd.append('saveEnriched', saveEnriched.toString())
+      fd.append('saveEnriched', 'true')
 
       const headers: Record<string, string> = {}
       if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`
@@ -644,6 +670,7 @@ export default function ReviewForm({
       setError(null)
       setProgressStep('idle')
       setElapsedMs(0)
+      setTimeline([])
       setHasUnsavedChanges(false)
       // 重置分页
       try {
@@ -743,16 +770,6 @@ export default function ReviewForm({
             )}
           </div>
 
-          {/* 保存配置 */}
-          <div className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={saveEnriched}
-              onChange={(e) => setSaveEnriched(e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
-            />
-            <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.saveEnriched.enable')}</span>
-          </div>
         </div>
       </div>
 

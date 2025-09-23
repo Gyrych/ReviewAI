@@ -1,5 +1,6 @@
 import fetch from 'node-fetch'
 import { URL } from 'url'
+import { logInfo, logError } from './logger'
 
 type SearchResult = {
   query: string
@@ -58,11 +59,10 @@ export async function webSearch(query: string, opts?: { provider?: string; topN?
           timeout: 15000
         })
 
-        if (resp.ok) {
+        if (resp && resp.ok) {
           const html = await resp.text()
           // 简单解析DuckDuckGo HTML结果
-          const linkRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/g
-          const snippetRegex = /<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>.*?<span[^>]*>([^<]*)</g
+          const linkRegex = /<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]*)<\/a>/g
           let match
 
           while ((match = linkRegex.exec(html)) !== null && results.length < topN) {
@@ -77,9 +77,91 @@ export async function webSearch(query: string, opts?: { provider?: string; topN?
               })
             }
           }
+
+          // 如果解析后仍然没有结果，记录 HTML 摘要用于诊断（前 2KB）
+          if (results.length === 0) {
+            try {
+              const snippet = String(html).slice(0, 2048)
+              logInfo('search.html.snippet', { provider: 'duckduckgo_html', query, snippet })
+            } catch (e) {
+              // 忽略日志写入错误
+            }
+          }
+        } else if (resp) {
+          // 非 2xx 响应，记录少量响应体用于调试
+          let snippet = ''
+          try { snippet = (await resp.text()).slice(0, 1024) } catch { snippet = 'could not read body' }
+          logError('search.html.fetch_failed', { provider: 'duckduckgo_html', url: searchUrl, http_status: resp.status, snippet })
         }
-      } catch (e) {
-        // 如果HTML搜索失败，回退到API
+
+        // 如果直接抓取结果为空或失败，尝试通过公共代理 r.jina.ai 回退抓取（可能绕过简单反爬）
+        if (results.length === 0) {
+          try {
+            const proxyUrl = `https://r.jina.ai/http://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
+            const pResp = await fetch(proxyUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 15000 })
+            if (pResp && pResp.ok) {
+              const pHtml = await pResp.text()
+              // 解析代理返回的 HTML
+              let pMatch
+              while ((pMatch = /<a[^>]*href=\"([^\"]*)\"[^>]*>([^<]*)<\/a>/g.exec(pHtml)) !== null && results.length < topN) {
+                const url = pMatch[1]
+                const title = pMatch[2].replace(/<\/?b>/g, '').trim()
+                if (url && title && url.startsWith('http') && !url.includes('duckduckgo.com')) {
+                  results.push({ title: title, url: url, snippet: `Search result for: ${query}` })
+                }
+              }
+              // 如果锚点解析仍为空，尝试从纯文本中提取 URL（代理可能返回纯文本）
+              if (results.length === 0) {
+                try {
+                  const urlRegex = /https?:\/\/[^\s"'<>]+/g
+                  const seen = new Set<string>()
+                  const preferred = [
+                    'ti.com','texas','analog.com','st.com','stmicroelectronics','microchip.com','nxp.com','infineon.com','renesas.com','onsemi.com','skyworksinc.com','nvidia.com','intel.com','amd.com','silabs.com',
+                    'mouser.com','digikey','arrow.com','farnell','element14','rs-online','lcsc.com'
+                  ]
+                  const candidates: Array<{ url: string; score: number }> = []
+                  let m: RegExpExecArray | null
+                  while ((m = urlRegex.exec(pHtml)) !== null) {
+                    const u = m[0]
+                    if (!u.startsWith('http')) continue
+                    try {
+                      const host = new URL(u).hostname.toLowerCase()
+                      if (host.includes('duckduckgo.com')) continue
+                      if (seen.has(u)) continue
+                      seen.add(u)
+                      let score = 0
+                      if (u.toLowerCase().endsWith('.pdf')) score += 5
+                      if (preferred.some(p => host.includes(p))) score += 3
+                      candidates.push({ url: u, score })
+                    } catch {}
+                  }
+                  candidates.sort((a,b) => b.score - a.score)
+                  for (const c of candidates.slice(0, topN - results.length)) {
+                    results.push({ title: c.url.split('/').slice(2,3)[0] || 'link', url: c.url, snippet: `Search result for: ${query}` })
+                  }
+                } catch {}
+              }
+              if (results.length === 0) {
+                const snippet = String(pHtml).slice(0, 2048)
+                logInfo('search.html.proxy_snippet', { provider: 'jina_proxy', query, snippet })
+              } else {
+                logInfo('search.html.proxy_success', { provider: 'jina_proxy', query, count: results.length })
+              }
+            } else if (pResp) {
+              let snippet = ''
+              try { snippet = (await pResp.text()).slice(0, 1024) } catch { snippet = 'could not read body' }
+              logError('search.proxy.fetch_failed', { provider: 'jina_proxy', url: proxyUrl, http_status: pResp.status, snippet })
+            }
+          } catch (e: any) {
+            const errMsg = e && e.message ? e.message : String(e)
+            logError('search.proxy.exception', { provider: 'jina_proxy', query, error: errMsg })
+          }
+        }
+      } catch (e: any) {
+        // 记录异常以便诊断 HTML 抓取失败的原因
+        const errMsg = e && e.message ? e.message : String(e)
+        const stack = e && e.stack ? e.stack : undefined
+        logError('search.html.exception', { provider: 'duckduckgo_html', query, error: errMsg, stack })
       }
 
       // 如果HTML搜索也没有结果，使用Instant Answer API

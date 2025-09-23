@@ -181,6 +181,10 @@ const dictZh: Record<string, string> = {
   'step_ocr_recognition_start': 'OCR辅助识别 - 开始',
   'step_ocr_recognition_done': 'OCR辅助识别 - 完成',
   'step_ocr_recognition_failed': 'OCR辅助识别 - 失败',
+  'step_component_enrichment_start': '组件参数补充 - 开始',
+  'step_component_enrichment_done': '组件参数补充 - 完成',
+  'step_ic_datasheet_fetch_start': '器件资料获取 - 开始',
+  'step_ic_datasheet_fetch_done': '器件资料获取 - 完成',
   // 分组标签
   'timeline.group.parse': '解析阶段',
   'timeline.group.search': '检索阶段',
@@ -357,6 +361,10 @@ const dictEn: Record<string, string> = {
   'step_ocr_recognition_start': 'OCR recognition - start',
   'step_ocr_recognition_done': 'OCR recognition - done',
   'step_ocr_recognition_failed': 'OCR recognition - failed',
+  'step_component_enrichment_start': 'Component enrichment - start',
+  'step_component_enrichment_done': 'Component enrichment - done',
+  'step_ic_datasheet_fetch_start': 'IC datasheet fetch - start',
+  'step_ic_datasheet_fetch_done': 'IC datasheet fetch - done',
   // groups
   'timeline.group.parse': 'Parse',
   'timeline.group.search': 'Search',

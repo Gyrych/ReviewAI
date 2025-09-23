@@ -158,9 +158,21 @@ app.post('/api/review', upload.any(), async (req, res) => {
   if (!body.enrichedJson && files.length > 0) {
       timeline.push({ step: 'images_processing_start', ts: Date.now() })
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
-      const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch))
+      // 统一解析布尔/选项字段，记录原始值以便诊断前端传参问题
+      function parseBooleanField(value: any, defaultVal: boolean): boolean {
+        if (value === undefined) return defaultVal
+        if (typeof value === 'boolean') return value
+        const s = String(value).trim().toLowerCase()
+        if (s === 'false' || s === '0' || s === 'no') return false
+        if (s === 'true' || s === '1' || s === 'yes') return true
+        // 无法识别时返回默认值并记录警告
+        logError('vision.options.parse_warning', { fieldValue: value, defaultVal })
+        return defaultVal
+      }
+
+      const enableSearch = parseBooleanField(body.enableSearch, true)
       const topN = body.searchTopN ? Number(body.searchTopN) : undefined
-      const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched))
+      const saveEnriched = parseBooleanField(body.saveEnriched, true)
       const multiPassRecognition = body.multiPassRecognition === 'true' ? true : false
       const recognitionPasses = body.recognitionPasses ? Number(body.recognitionPasses) : 5
       // 记录解析到的选项，便于诊断（包含是否启用多轮识别与轮数）

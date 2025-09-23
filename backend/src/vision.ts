@@ -353,6 +353,9 @@ export async function extractCircuitJsonFromImages(
         type: 'backend',
         icComponentsCount: icCount,
         datasheetsDownloaded: datasheetMeta.length,
+        datasheetCount: datasheetMeta.length,
+        downloadedCount: datasheetMeta.filter((item: any) => item.notes && item.notes.includes('saved:')).length,
+        datasheets: datasheetMeta,
         description: `IC器件资料下载完成，识别出${icCount}个IC器件，下载${datasheetMeta.length}份资料`
       }
     })
@@ -642,33 +645,24 @@ const CHARACTER_CORRECTIONS: { [key: string]: string[] } = {
 
   // 中文数字单位校正
   'k': ['千', 'K'],
-  'M': ['兆', 'M'],
-  'µ': ['微'],
+  'M': ['兆'],
+  // 移除重复键 'µ'，合并含义到上方字符映射
   'n': ['纳'],
   'p': ['皮'],
   'm': ['毫'],
-  'Ω': ['欧', '欧姆'],
-  'F': ['法', '法拉'],
-  'H': ['亨', '亨利'],
-  'V': ['伏'],
-  'A': ['安'],
-  'W': ['瓦'],
+  // 移除重复键 'Ω'，避免与上方特殊符号重复
+  // 移除与字母混淆表重复的键：F/H/V/A/W
   'Hz': ['赫'],
 
   // 电路元件中文名称校正（支持简繁体）
-  'R': ['电阻', '電阻', 'R'],
-  'C': ['电容', '電容', 'C'],
-  'L': ['电感', '電感', 'L'],
-  'D': ['二极管', '二極管', 'D'],
-  'Q': ['晶体管', '三极管', '晶體管', '三極管', 'Q'],
-  'U': ['芯片', '晶片', '集成电路', '積體電路', 'U'],
+  // 移除与字母混淆表重复的键：R/C/L/D/Q/U
   'IC': ['芯片', '晶片', '集成电路', '積體電路'],
-  'GND': ['地', 'GND'],
-  'VCC': ['电源', '電源', 'VCC'],
-  'VDD': ['电源', '電源', 'VDD'],
-  'SW': ['开关', '開關', 'SW'],
-  'VR': ['电位器', '電位器', 'VR'],
-  'T': ['变压器', '變壓器', 'T'],
+  'GND': ['地'],
+  'VCC': ['电源', '電源'],
+  'VDD': ['电源', '電源'],
+  'SW': ['开关', '開關'],
+  'VR': ['电位器', '電位器'],
+  // 单字符 'T' 与字母混淆表重复，移除
 }
 
 /**
@@ -676,46 +670,34 @@ const CHARACTER_CORRECTIONS: { [key: string]: string[] } = {
  */
 const COMMON_IC_MODELS: { [key: string]: string[] } = {
   // 运算放大器
-  'AD825': ['AD825', 'AD82S', 'AD8Z5', 'AD825', 'AD82S'],
-  'LM358': ['LM358', 'LM35B', 'LMS58', 'LM358', 'LM3S8'],
-  'TL071': ['TL071', 'TL071', 'TLO71', 'TL071', 'T1071'],
-  'TL072': ['TL072', 'TL072', 'TLO72', 'TL072'],
-  'OP07': ['OP07', 'OP07', '0P07', 'OP07'],
-  'AD620': ['AD620', 'AD620', 'AD62O', 'AD620'],
-  'INA126': ['INA126', 'INA126', 'INA12G', 'INA126'],
+  'AD825': ['AD825', 'AD82S', 'AD8Z5'],
+  'LM358': ['LM358', 'LM35B', 'LMS58', 'LM3S8'],
+  'TL071': ['TL071', 'TLO71', 'T1071'],
+  'TL072': ['TL072', 'TLO72'],
+  'OP07': ['OP07', '0P07'],
+  'AD620': ['AD620', 'AD62O'],
+  'INA126': ['INA126', 'INA12G'],
 
   // 微控制器
-  'STM32F4': ['STM32F4', 'STM32F4', 'STMS2F4', 'STM32F4'],
-  'STM32F1': ['STM32F1', 'STM32F1', 'STMS2F1', 'STM32F1'],
-  'ATMEGA328': ['ATMEGA328', 'ATMEGA328', 'ATME6A328', 'ATMEGA328'],
-  'ATMEGA2560': ['ATMEGA2560', 'ATMEGA2560', 'ATME6A2560', 'ATMEGA2560'],
-  'PIC16F877A': ['PIC16F877A', 'PIC16F877A', 'PIC16F877A', 'PIC16F877A'],
-  'PIC18F4550': ['PIC18F4550', 'PIC18F4550', 'PIC18F4550', 'PIC18F4550'],
+  'STM32F4': ['STM32F4', 'STMS2F4'],
+  'STM32F1': ['STM32F1', 'STMS2F1'],
+  'ATMEGA328': ['ATMEGA328', 'ATME6A328'],
+  'ATMEGA2560': ['ATMEGA2560', 'ATME6A2560'],
+  'PIC16F877A': ['PIC16F877A'],
+  'PIC18F4550': ['PIC18F4550'],
 
   // 数字芯片
-  '74HC595': ['74HC595', '74HC595', '74HCS9S', '74HC595'],
-  '74HC165': ['74HC165', '74HC165', '74HC16S', '74HC165'],
-  'CD4051': ['CD4051', 'CD4051', 'CD40S1', 'CD4051'],
-  'MAX7219': ['MAX7219', 'MAX7219', 'MAX7219', 'MAX7219'],
-  'DS1307': ['DS1307', 'DS1307', 'DS1307', 'DS1307'],
+  '74HC595': ['74HC595', '74HCS9S'],
+  '74HC165': ['74HC165', '74HC16S'],
+  'CD4051': ['CD4051', 'CD40S1'],
+  'MAX7219': ['MAX7219'],
+  'DS1307': ['DS1307'],
 
   // 电源管理
-  'LM7805': ['LM7805', 'LM7805', 'LM78O5', 'LM7805'],
-  'LM317': ['LM317', 'LM317', 'LM317', 'LM317'],
-  'AMS1117': ['AMS1117', 'AMS1117', 'AMS1117', 'AMS1117'],
-  'MP2307': ['MP2307', 'MP2307', 'MP2307', 'MP2307'],
-
-  // 通信芯片
-  'ESP8266': ['ESP8266', 'ESP8266', 'ESP8266', 'ESP8266'],
-  'ESP32': ['ESP32', 'ESP32', 'ESP32', 'ESP32'],
-  'NRF24L01': ['NRF24L01', 'NRF24L01', 'NRF24L01', 'NRF24L01'],
-  'MAX485': ['MAX485', 'MAX485', 'MAX485', 'MAX485'],
-
-  // 传感器
-  'DHT11': ['DHT11', 'DHT11', 'DHT11', 'DHT11'],
-  'DS18B20': ['DS18B20', 'DS18B20', 'DS18B20', 'DS18B20'],
-  'BMP280': ['BMP280', 'BMP280', 'BMP280', 'BMP280'],
-  'MPU6050': ['MPU6050', 'MPU6050', 'MPU6050', 'MPU6050'],
+  'LM7805': ['LM7805', 'LM78O5'],
+  'LM317': ['LM317'],
+  'AMS1117': ['AMS1117'],
+  'MP2307': ['MP2307'],
 }
 
 /**
@@ -1282,7 +1264,7 @@ async function performOCRRecognition(imagePath: string): Promise<any> {
     })
 
     // 多语言支持：尝试加载简体中文、繁体中文和英文的组合
-    let loadedLanguages = []
+    let loadedLanguages: string[] = []
     const languageOptions = [
       'chi_sim+chi_tra+eng',  // 简体+繁体+英文
       'chi_sim+eng',          // 简体+英文
@@ -1560,10 +1542,13 @@ function fuseVisionAndOCRResults(visionComponents: any[], ocrResult: any): any[]
   // 为每个大模型识别的组件寻找OCR补充信息
   visionComponents.forEach(visionComp => {
     // 查找匹配的OCR组件
-    const matchingOCRComp = ocrResult.extractedComponents.find((ocrComp: any) =>
-      ocrComp.id === visionComp.id ||
-      ocrComp.id.toLowerCase() === visionComp.id.toLowerCase()
-    )
+    const matchingOCRComp = ocrResult.extractedComponents.find((ocrComp: any) => {
+      const vid = (visionComp && typeof visionComp.id === 'string') ? visionComp.id : ''
+      const oid = (ocrComp && typeof ocrComp.id === 'string') ? ocrComp.id : ''
+      if (!vid && !oid) return false
+      if (vid && oid && vid === oid) return true
+      return (vid && oid) ? vid.toLowerCase() === oid.toLowerCase() : false
+    })
 
     if (matchingOCRComp) {
       // 如果OCR有更具体的标签信息，添加到params中作为候选
@@ -1582,9 +1567,13 @@ function fuseVisionAndOCRResults(visionComponents: any[], ocrResult: any): any[]
 
   // 添加OCR独有的组件（如果大模型没有识别到）
   ocrResult.extractedComponents.forEach((ocrComp: any) => {
-    const existsInVision = visionComponents.some(vc =>
-      vc.id === ocrComp.id || vc.id.toLowerCase() === ocrComp.id.toLowerCase()
-    )
+    const existsInVision = visionComponents.some((vc: any) => {
+      const vid = (vc && typeof vc.id === 'string') ? vc.id : ''
+      const oid = (ocrComp && typeof ocrComp.id === 'string') ? ocrComp.id : ''
+      if (!vid && !oid) return false
+      if (vid && oid && vid === oid) return true
+      return (vid && oid) ? vid.toLowerCase() === oid.toLowerCase() : false
+    })
 
     if (!existsInVision && ocrComp.confidence > 0.5) {
       // 标记为OCR发现的组件
@@ -2640,24 +2629,73 @@ async function fetchAndSaveDatasheetsForICComponents(components: any[], topN: nu
         let confidence = 0.6
         if (first && first.url) {
           try {
+            // 记录下载尝试开始
+            logInfo('vision.datasheets.download.started', { component: id, url: first.url })
             const r = await fetch(first.url, { timeout: 30000 })
-            if (r && r.ok) {
-              const ct = (r.headers && r.headers.get ? (r.headers.get('content-type') || '') : '')
-              const ext = ct.includes('pdf') ? 'pdf' : (ct.includes('html') ? 'html' : 'bin')
-              const h = crypto.createHash('sha1').update(first.url).digest('hex').slice(0, 8)
-              const safeName = `${String(id || 'C').replace(/[^A-Za-z0-9_-]/g, '')}_${tsName}_${h}.${ext}`
-              const filePath = path.join(datasheetsDir, safeName)
-              const buf = Buffer.from(await r.arrayBuffer())
-              fs.writeFileSync(filePath, buf)
-              savedPath = filePath
-              // 简单来源类型推断
-              const uhost = (() => { try { return new URL(first.url).hostname.toLowerCase() } catch { return '' } })()
-              if (/st(\.|-)com|texas|ti\.com|analog\.com|microchip|nxp|infineon|renesas|onsemi|skyworks|nvidia|intel|amd|silabs/.test(uhost)) sourceType = 'manufacturer'
-              if (/digikey|mouser|arrow|element14|farnell|rs-online|lcsc/.test(uhost)) sourceType = 'distributor'
-              confidence = ct.includes('pdf') ? 0.9 : 0.7
+            if (r) {
+              const status = typeof r.status === 'number' ? r.status : undefined
+              if (r.ok) {
+                const ct = (r.headers && r.headers.get ? (r.headers.get('content-type') || '') : '')
+                const ext = ct.includes('pdf') ? 'pdf' : (ct.includes('html') ? 'html' : 'bin')
+                const h = crypto.createHash('sha1').update(first.url).digest('hex').slice(0, 8)
+                const safeName = `${String(id || 'C').replace(/[^A-Za-z0-9_-]/g, '')}_${tsName}_${h}.${ext}`
+                const filePath = path.join(datasheetsDir, safeName)
+                const buf = Buffer.from(await r.arrayBuffer())
+                fs.writeFileSync(filePath, buf)
+                savedPath = filePath
+                // 简单来源类型推断
+                const uhost = (() => { try { return new URL(first.url).hostname.toLowerCase() } catch { return '' } })()
+                if (/st(\.|-)com|texas|ti\.com|analog\.com|microchip|nxp|infineon|renesas|onsemi|skyworks|nvidia|intel|amd|silabs/.test(uhost)) sourceType = 'manufacturer'
+                if (/digikey|mouser|arrow|element14|farnell|rs-online|lcsc/.test(uhost)) sourceType = 'distributor'
+                confidence = ct.includes('pdf') ? 0.9 : 0.7
+                // 记录下载完成
+                logInfo('vision.datasheets.download.completed', { component: id, url: first.url, path: savedPath, content_type: ct, http_status: status })
+              } else {
+                // 响应非 2xx，记录状态和少量响应体摘要
+                let snippet = ''
+                try {
+                  const txt = await r.text()
+                  snippet = String(txt).slice(0, 1024)
+                } catch (e) {
+                  snippet = 'could not read response body'
+                }
+                const reason = `http ${r.status}`
+                logError('vision.datasheets.download.failed', { component: id, url: first.url, http_status: r.status, snippet })
+                // 在 meta 中记录错误信息
+                metaItems.push({
+                  component_name: id,
+                  query_string: q,
+                  retrieved_at: nowIso,
+                  source_url: first?.url || '',
+                  source_type: sourceType,
+                  document_title: docTitle,
+                  document_version_or_date: docDate,
+                  confidence,
+                  notes: `download failed: ${reason}`,
+                  http_status: r.status,
+                  error_reason: snippet,
+                  candidates: results.results || [],
+                })
+              }
             }
-          } catch (e) {
-            // 下载失败忽略
+          } catch (e: any) {
+            // 网络或其它异常，记录详细错误供诊断
+            const errMsg = e && e.message ? e.message : String(e)
+            const stack = e && e.stack ? e.stack : undefined
+            logError('vision.datasheets.download.exception', { component: id, url: first.url, error: errMsg, stack })
+            metaItems.push({
+              component_name: id,
+              query_string: q,
+              retrieved_at: nowIso,
+              source_url: first?.url || '',
+              source_type: sourceType,
+              document_title: docTitle,
+              document_version_or_date: docDate,
+              confidence,
+              notes: `download exception: ${errMsg}`,
+              error_reason: errMsg,
+              candidates: results.results || [],
+            })
           }
         }
 
