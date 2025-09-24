@@ -5,6 +5,7 @@ import https from 'https'
 import { webSearch } from './search'
 import crypto from 'crypto'
 import { logInfo, logError } from './logger'
+import promptLoader, { normalizeLang, renderTemplate } from './promptLoader'
 import { createWorker } from 'tesseract.js'
 import sharp from 'sharp'
 
@@ -27,7 +28,8 @@ export async function extractCircuitJsonFromImages(
     multiPassRecognition?: boolean;
     recognitionPasses?: number;
   },
-  timeline?: { step: string; ts: number; meta?: any }[]
+  timeline?: { step: string; ts: number; meta?: any }[],
+  lang?: string
 ): Promise<any> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for vision extraction')
@@ -75,10 +77,10 @@ export async function extractCircuitJsonFromImages(
 
       if (multiPassRecognition) {
         // 多轮识别模式
-        recognitionResults = await doMultiPassRecognition(img, apiUrl, model, authHeader, recognitionPasses, timeline)
+        recognitionResults = await doMultiPassRecognition(img, apiUrl, model, authHeader, recognitionPasses, timeline, lang)
       } else {
         // 单轮识别模式
-        const result = await recognizeSingleImage(img, apiUrl, model, authHeader)
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, undefined, undefined, lang)
         recognitionResults = [result]
       }
 
@@ -417,176 +419,56 @@ export async function extractCircuitJsonFromImages(
  * @param totalPasses 总识别轮次
  * @returns 专业的识别prompt
  */
-function generateSpecializedPrompt(passNumber: number, totalPasses: number): string {
+async function generateSpecializedPrompt(passNumber: number, totalPasses: number, lang?: string): Promise<string> {
+  const nl = normalizeLang(lang)
   // 第一轮：宏观识别，获取元件位置和基本类型
   if (passNumber === 1) {
-    return generateMacroRecognitionPrompt()
+    return await promptLoader.loadPrompt(nl, nl === 'zh' ? '宏观识别' : 'MacroRecognition')
   }
 
   // 第二轮：IC芯片专项识别，重点识别IC型号和引脚
   if (passNumber === 2 || (totalPasses >= 3 && passNumber === Math.ceil(totalPasses / 2))) {
-    return generateICSpecializedPrompt()
+    return await promptLoader.loadPrompt(nl, nl === 'zh' ? 'IC专项识别' : 'ICSpecialized')
   }
 
   // 第三轮：阻容元件专项识别，重点识别阻值和容值
   if (passNumber === 3 || (totalPasses >= 4 && passNumber === totalPasses - 1)) {
-    return generateResistorCapacitorSpecializedPrompt()
+    return await promptLoader.loadPrompt(nl, nl === 'zh' ? '阻容识别' : 'ResistorCapacitor')
   }
 
   // 最后一轮：精细化识别和验证
   if (passNumber === totalPasses) {
-    return generateDetailedVerificationPrompt()
+    return await promptLoader.loadPrompt(nl, nl === 'zh' ? '精细化验证' : 'DetailedVerification')
   }
 
   // 默认使用通用识别prompt
-  return generateGeneralRecognitionPrompt()
+  return await promptLoader.loadPrompt(nl, nl === 'zh' ? '通用识别' : 'GeneralRecognition')
 }
 
 /**
  * 宏观识别prompt：快速识别元件位置和基本类型
  */
-function generateMacroRecognitionPrompt(): string {
-  return `Analyze this circuit schematic image and identify all electronic components. Focus on:
-
-1. COMPONENT LOCATION AND BASIC TYPES:
-   - Resistors (R1, R2, etc.) - rectangular with value markings
-   - Capacitors (C1, C2, etc.) - various shapes with capacitance markings
-   - Inductors (L1, L2, etc.) - coil symbols
-   - ICs/Chips (U1, U2, etc.) - rectangular with many pins
-   - Transistors (Q1, Q2, etc.) - transistor symbols
-   - Diodes (D1, D2, etc.) - diode symbols
-   - Connectors (J1, J2, etc.) - connector symbols
-
-2. BASIC IDENTIFICATION:
-   - Reference designators (R1, C1, U1, etc.)
-   - Component shapes and symbols
-   - Approximate positions on the schematic
-
-3. CONNECTION PATTERNS:
-   - Wire connections between components
-   - Net names if visible
-   - Power and ground connections
-
-Return JSON with "components" and "connections" keys. For this first pass, focus on quantity and locations rather than exact values.`
-}
+// prompts migrated to files under schematic-ai-review-prompt; loader will provide them at runtime
 
 /**
  * IC芯片专项识别prompt：重点识别IC型号和引脚信息
  */
-function generateICSpecializedPrompt(): string {
-  return `SPECIALIZED IC CHIP RECOGNITION - Focus on Integrated Circuits:
-
-CRITICAL: IC model numbers are often small text near the chip. Look carefully for manufacturer prefixes and model numbers.
-
-1. IC IDENTIFICATION PATTERNS:
-   - Manufacturer Prefixes: STM32, ATMEGA, LM358, AD8xx, MAX4xx, PIC, AVR, MSP430, ESP32
-   - Common Formats: [PREFIX][NUMBER][SUFFIX] (e.g., STM32F407, AD8606, LM358N)
-   - Package Types: SOIC, DIP, QFN, BGA, TSSOP, etc.
-
-2. CHARACTER RECOGNITION CORRECTIONS:
-   - 1 ↔ I ↔ l (ones, capital I, lowercase L)
-   - 0 ↔ O ↔ o (zero, capital O, lowercase o)
-   - 5 ↔ S (five, capital S)
-   - 8 ↔ B (eight, capital B)
-   - Common mistakes: "1KO" should be "1KΩ", "AD8O6" should be "AD806"
-
-3. PIN INFORMATION:
-   - Pin count (8, 14, 16, 28, 32, 64, etc.)
-   - Pin numbering (1, 2, 3... usually starting from bottom-left)
-   - Pin functions if labeled (VCC, GND, IN+, IN-, etc.)
-
-4. VALIDATION RULES:
-   - IC reference designators typically start with U, IC, or sometimes Q for some chips
-   - Model numbers usually contain both letters and numbers
-   - Check for reasonable pin counts based on package type
-
-Focus on reading ALL small text labels around IC chips. Return JSON with precise IC model numbers.`
-}
+// prompts migrated to files under schematic-ai-review-prompt; loader will provide them at runtime
 
 /**
  * 阻容元件专项识别prompt：重点识别阻值和容值
  */
-function generateResistorCapacitorSpecializedPrompt(): string {
-  return `SPECIALIZED RESISTOR & CAPACITOR RECOGNITION - Focus on component values:
-
-CRITICAL: Component values are often small text markings. Pay special attention to units and multipliers.
-
-1. RESISTOR VALUE PATTERNS:
-   - Units: Ω (ohm), kΩ, MΩ, R (sometimes used for ohm)
-   - Common formats: "1k", "10k", "100", "1M", "470R", "2.2kΩ"
-   - Tolerance markings: ±5%, ±1%, F, G, J, K (sometimes after value)
-   - Color codes (if visible): bands indicating value and tolerance
-
-2. CAPACITOR VALUE PATTERNS:
-   - Units: pF, nF, µF, uF, mF
-   - Common formats: "10nF", "100uF", "0.1uF", "1uF", "10pF"
-   - Voltage ratings: sometimes marked (16V, 25V, 50V, etc.)
-   - Types: ceramic, electrolytic, tantalum (different symbols)
-
-3. CHARACTER RECOGNITION CORRECTIONS:
-   - Ω (omega) symbol vs "OHM" text
-   - µ (micro) vs "u" abbreviation
-   - k (kilo) vs "K" (watch for case)
-   - Decimal points: "2.2" vs "22" (context matters)
-   - Multipliers: "2k2" = 2.2kΩ, "4u7" = 4.7µF
-
-4. VALIDATION RULES:
-   - Resistor values: typically 1Ω to 10MΩ range
-   - Capacitor values: typically 1pF to 10000µF range
-   - Reference designators: R for resistors, C for capacitors
-
-Look for value markings near component symbols. Use engineering judgment for ambiguous readings.`
-}
+// prompts migrated to files under schematic-ai-review-prompt; loader will provide them at runtime
 
 /**
  * 精细化验证prompt：综合验证和完善信息
  */
-function generateDetailedVerificationPrompt(): string {
-  return `DETAILED VERIFICATION PASS - Cross-validate and complete component information:
-
-1. CROSS-VALIDATION:
-   - Check if component values are within reasonable ranges
-   - Verify IC model numbers against known manufacturers
-   - Ensure pin counts match package types
-   - Validate connection patterns make electrical sense
-
-2. MISSING INFORMATION COMPLETION:
-   - Fill in any missing component values or model numbers
-   - Add pin information for ICs if not already identified
-   - Complete connection information
-
-3. ERROR CORRECTION:
-   - Correct obvious OCR errors in model numbers
-   - Fix unit conversions (e.g., "1KO" → "1KΩ")
-   - Standardize value formats
-
-4. QUALITY ASSURANCE:
-   - Flag any components with suspicious values
-   - Mark uncertain identifications
-   - Ensure all components have valid reference designators
-
-Use all previous recognition passes as context. Focus on accuracy over speed.`
-}
+// prompts migrated to files under schematic-ai-review-prompt; loader will provide them at runtime
 
 /**
  * 通用识别prompt：适用于中间轮次或默认情况
  */
-function generateGeneralRecognitionPrompt(): string {
-  return `Analyze this circuit schematic image and return a JSON object with two keys: "components" and "connections".
-
-Each component should have:
-- id: reference designator (like "U1", "R1", "C1")
-- type: component type (like "op-amp", "resistor", "capacitor", "transistor")
-- label: part number or model name shown on the schematic (like "AD825", "LM358", "1kΩ", "10uF")
-- params: object with additional parameters
-- pins: array of pin names/numbers
-
-For connections, list nets with from/to pairs like: {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
-
-IMPORTANT: Read ALL text labels and part numbers visible on the schematic. Include the exact model numbers and values you see written next to each component.
-
-Return only valid JSON.`
-}
+// prompts migrated to files under schematic-ai-review-prompt; loader will provide them at runtime
 
 // ========================================
 // 后处理验证和校正系统
@@ -1687,7 +1569,8 @@ async function recognizeSingleImage(
   model: string,
   authHeader?: string,
   passNumber?: number,
-  recognitionPasses?: number
+  recognitionPasses?: number,
+  lang?: string
 ): Promise<any> {
   const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '1800000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
@@ -1725,23 +1608,18 @@ async function recognizeSingleImage(
   }
 
   // 根据识别阶段生成专业的电子元件识别prompt
-  const promptText = generateSpecializedPrompt(passNumber || 1, recognitionPasses || 1)
+  const promptText = await generateSpecializedPrompt(passNumber || 1, recognitionPasses || 1, lang)
 
   // 备用prompt（通用识别）
-  const fallbackPromptText = `Look at this circuit diagram. Find all electronic components and their connections.
-
-Return JSON like this:
-{
-  "components": [
-    {"id": "U1", "type": "op-amp", "label": "AD825"},
-    {"id": "R1", "type": "resistor", "label": "1kΩ"}
-  ],
-  "connections": [
-    {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
-  ]
-}
-
-Read the text on the schematic to get the correct labels and models.`
+  // 备用 prompt 从文件加载（如不存在则使用内置 fallback 文件）
+  let fallbackPromptText = ''
+  try {
+    const nl = normalizeLang(lang)
+    fallbackPromptText = await promptLoader.loadPrompt(nl, 'fallbacks/FallbackPrompt_en')
+  } catch (e) {
+    // 本地回退内容
+    fallbackPromptText = `Look at this circuit diagram. Find all electronic components and their connections.\n\nReturn JSON like this:\n{\n  \"components\": [\n    {\"id\": \"U1\", \"type\": \"op-amp\", \"label\": \"AD825\"},\n    {\"id\": \"R1\", \"type\": \"resistor\", \"label\": \"1kΩ\"}\n  ],\n  \"connections\": [\n    {\"from\": {\"componentId\": \"U1\", \"pin\": \"1\"}, \"to\": {\"componentId\": \"R1\", \"pin\": \"1\"}}\n  ]\n}\n\nRead the text on the schematic to get the correct labels and models.`
+  }
 
   // 构造尝试URL列表
   let tryUrls: string[] = []
@@ -1836,10 +1714,19 @@ async function performRecognitionAttempt(
         const buf = fileBuffer || fs.readFileSync(img.path)
         const dataUrl = `data:${mime};base64,${buf.toString('base64')}`
 
+        // 尝试从 prompt 文件加载 parser 的 system 提示（根据语言环境）
+        let parserSystem = ''
+        try {
+          const lang = normalizeLang(process.env.DEFAULT_PROMPT_LANG || 'zh')
+          parserSystem = await promptLoader.loadPrompt(lang, 'ParserSystem')
+        } catch (e) {
+          parserSystem = 'You are an expert circuit diagram parser. Return ONLY JSON with keys: components[], connections[]; no extra text.'
+        }
+
         const payload = {
           model,
           messages: [
-            { role: 'system', content: 'You are an expert circuit diagram parser. Return ONLY JSON with keys: components[], connections[]; no extra text.' },
+            { role: 'system', content: parserSystem },
             {
               role: 'user',
               content: [
@@ -1969,7 +1856,8 @@ async function doMultiPassRecognition(
   model: string,
   authHeader: string | undefined,
   passes: number,
-  timeline?: { step: string; ts: number; meta?: any }[]
+  timeline?: { step: string; ts: number; meta?: any }[],
+  lang?: string
 ): Promise<any[]> {
   const results: any[] = []
   const startTime = Date.now()
@@ -2019,7 +1907,7 @@ async function doMultiPassRecognition(
       })
 
       try {
-        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, passes)
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, passes, lang)
 
         // 为结果添加轮次标识
         if (result.components) {
@@ -2125,74 +2013,24 @@ async function consolidateRecognitionResults(
   // 分析各轮次的识别特点和权重
   const passAnalysis = analyzeRecognitionPasses(results)
 
-  // 构建智能整合prompt
-  const consolidationPrompt = `I have ${results.length} specialized circuit diagram recognition results from analyzing the same schematic image with different recognition strategies. Your task is to intelligently consolidate them into a single, most accurate result.
+  // 构建智能整合prompt（可从文件载入并以运行时数据渲染）
+  let consolidationTemplate = ''
+  try {
+    const lang = normalizeLang(process.env.DEFAULT_PROMPT_LANG || 'zh')
+    consolidationTemplate = await promptLoader.loadPrompt(lang, 'Consolidation')
+  } catch (e) {
+    consolidationTemplate = `I have {{RESULT_COUNT}} specialized circuit diagram recognition results from analyzing the same schematic image with different recognition strategies. Your task is to intelligently consolidate them into a single, most accurate result.\n\nRECOGNITION PASS ANALYSIS:\n{{PASS_SUMMARY}}\n\nPass Details:\n{{PASS_DETAILS}}\n\nRECOGNITION RESULTS:\n{{RESULTS_BLOCK}}\n\nSPECIALIZED CONSOLIDATION INSTRUCTIONS:\n1. IC Component Priority ...` // truncated fallback
+  }
 
-RECOGNITION PASS ANALYSIS:
-${passAnalysis.summary}
-
-Pass Details:
-${passAnalysis.passes.map((p: any, idx: number) => `Pass ${idx + 1}: ${p.specialization} (${p.weight} priority) - ${p.strategy}`).join('\n')}
-
-RECOGNITION RESULTS:
-${results.map((result, idx) => {
-  const passInfo = passAnalysis.passes[idx]
-  return `
-=== Recognition Pass ${idx + 1} (${passInfo.specialization}) ===
-Strategy: ${passInfo.strategy}
-Focus: ${passInfo.focus}
-Weight: ${passInfo.weight}
-Component Count: ${(result.components || []).length}
-Connection Count: ${(result.connections || []).length}
-Components: ${JSON.stringify(result.components || [], null, 2)}
-Connections: ${JSON.stringify(result.connections || [], null, 2)}`
-}).join('\n')}
-
-SPECIALIZED CONSOLIDATION INSTRUCTIONS:
-
-1. **IC Component Priority** (Highest Priority - Use IC-specialized passes):
-   - IC model numbers and manufacturer prefixes are CRITICAL
-   - Prefer IC identification from passes 2+ (IC-specialized recognition)
-   - Cross-validate IC models against known manufacturers (STM, AD, MAX, TI, etc.)
-   - Correct common OCR errors: 1↔I↔l, 0↔O↔o, 5↔S, 8↔B
-   - Validate pin counts match package types (DIP8=8 pins, SOIC14=14 pins, etc.)
-
-2. **Resistor/Capacitor Value Priority** (High Priority - Use RC-specialized passes):
-   - Component values from passes 3+ are most reliable for R/C components
-   - Correct unit interpretations: Ω vs OHM, µ vs u, k vs K
-   - Validate value ranges: resistors (1Ω-10MΩ), capacitors (1pF-10000µF)
-   - Handle multipliers correctly: "2k2" = 2.2kΩ, "4u7" = 4.7µF
-
-3. **Component Type and Position** (Medium Priority - Use macro passes):
-   - Use pass 1 (macro recognition) for component locations and basic types
-   - Validate component reference designators (R1, C1, U1, etc.)
-   - Ensure component types are consistent across passes
-
-4. **Connection Analysis** (Consistent across all passes):
-   - Combine connections from all passes, removing duplicates
-   - Prioritize connections that appear in multiple specialized passes
-   - Validate connections reference existing components
-
-5. **Quality Validation Rules**:
-   - IC models should contain manufacturer prefix + numbers (e.g., "STM32F407", "AD8606")
-   - Component values should be within reasonable engineering ranges
-   - Reference designators should follow standard conventions (R/C/U/Q/D/L)
-   - Pin counts should match component types and packages
-
-6. **Error Correction**:
-   - Fix obvious OCR errors in model numbers and values
-   - Standardize units and formats
-   - Remove components that appear to be false positives
-
-OUTPUT FORMAT:
-Return only a valid JSON object with exactly two keys:
-- "components": array of consolidated component objects
-- "connections": array of consolidated connection objects
-
-Each component must have: id, type, and optionally: label, params, pins
-Each connection must have: from (with componentId, pin), to (with componentId, pin)
-
-Focus on accuracy for IC models and component values - these are critical for circuit analysis.`
+  const consolidationPrompt = renderTemplate(consolidationTemplate, {
+    RESULT_COUNT: results.length,
+    PASS_SUMMARY: passAnalysis.summary,
+    PASS_DETAILS: passAnalysis.passes.map((p: any, idx: number) => `Pass ${idx + 1}: ${p.specialization} (${p.weight} priority) - ${p.strategy}`).join('\n'),
+    RESULTS_BLOCK: results.map((result, idx) => {
+      const passInfo = passAnalysis.passes[idx]
+      return `=== Recognition Pass ${idx + 1} (${passInfo.specialization}) ===\nStrategy: ${passInfo.strategy}\nFocus: ${passInfo.focus}\nWeight: ${passInfo.weight}\nComponent Count: ${(result.components || []).length}\nConnection Count: ${(result.connections || []).length}\nComponents: ${JSON.stringify(result.components || [], null, 2)}\nConnections: ${JSON.stringify(result.connections || [], null, 2)}`
+    }).join('\n')
+  })
 
   // 整合超时控制：根据输入结果数量动态调整
   const consolidationTimeout = Math.max(30000, Math.min(120000, results.length * 15000)) // 30秒到2分钟，根据结果数量调整

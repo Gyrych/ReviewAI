@@ -5,12 +5,25 @@ import { logInfo, logError } from './logger'
 
 const COMMON_PATHS = ['/chat', '/chat/completions', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function deepseekTextDialog(apiUrl: string, message: string, model?: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[]): Promise<string> {
+export async function deepseekTextDialog(apiUrl: string, message: string, model?: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], lang?: string): Promise<string> {
   if (!apiUrl) throw new Error('apiUrl missing for deepseek')
   const useModel = model && String(model).trim().length > 0 ? model : 'deepseek-chat'
   // build messages: optional system prompt, optional history, then user message
   const msgs: any[] = []
-  if (systemPrompt && String(systemPrompt).trim().length > 0) msgs.push({ role: 'system', content: systemPrompt })
+  // 优先使用传入的 systemPrompt；否则尝试从文件中加载对应语言的 SystemPrompt
+  if (systemPrompt && String(systemPrompt).trim().length > 0) {
+    msgs.push({ role: 'system', content: systemPrompt })
+  } else {
+    try {
+      const promptLoader = require('./promptLoader').default
+      const normalizeLang = require('./promptLoader').normalizeLang
+      const nl = normalizeLang(lang)
+      const sp = await promptLoader.loadPrompt(nl, 'SystemPrompt')
+      if (sp && String(sp).trim()) msgs.push({ role: 'system', content: sp })
+    } catch (e) {
+      // ignore and proceed without system prompt
+    }
+  }
   if (Array.isArray(history) && history.length > 0) {
     for (const h of history) msgs.push({ role: h.role, content: h.content })
   }

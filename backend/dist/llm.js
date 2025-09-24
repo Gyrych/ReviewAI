@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -8,16 +41,33 @@ const node_fetch_1 = __importDefault(require("node-fetch"));
 const url_1 = require("url");
 const https_1 = __importDefault(require("https"));
 const logger_1 = require("./logger");
+const promptLoader_1 = __importStar(require("./promptLoader"));
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions'];
-async function generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta) {
+async function generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta, lang) {
     if (!apiUrl) {
         throw new Error('apiUrl missing for LLM call');
     }
-    // 构建 prompt
-    const systemBase = `You are an expert circuit design reviewer. Given a JSON describing components and their connections, produce a Markdown review containing: Summary, Issues found, Suggestions, and a final verdict.`;
-    // Extend system prompt to mention enrichment field if present
-    const enrichmentNote = `If the supplied JSON includes an \`enrichment\` field on components, these contain web search candidate sources for ambiguous parameter values. For each such parameter, evaluate the candidate sources, state which candidate appears most credible (with brief justification), and explicitly list any parameters that still require manual verification along with their candidate source URLs.`;
-    const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}\n\n${enrichmentNote}` : `${systemBase}\n\n${enrichmentNote}`;
+    // 构建 prompt：优先从外部传入 systemPrompt；否则从文件加载器读取对应语言的 SystemPrompt
+    const normalizedLang = (0, promptLoader_1.normalizeLang)(lang);
+    let fileSystemPrompt = '';
+    try {
+        fileSystemPrompt = await promptLoader_1.default.loadPrompt(normalizedLang, 'SystemPrompt');
+    }
+    catch (e) {
+        // 若加载失败，继续使用空字符串作为回退
+        fileSystemPrompt = '';
+    }
+    // 如果调用方传入了 systemPrompt，则以其为准；否则使用文件中的 system prompt
+    const llmEnrichment = await (async () => {
+        try {
+            const nl = (0, promptLoader_1.normalizeLang)(normalizedLang);
+            return await promptLoader_1.default.loadPrompt(nl, nl === 'zh' ? 'parts/llm_enrichment_zh' : 'parts/llm_enrichment_en');
+        }
+        catch {
+            return '';
+        }
+    })();
+    const finalSystemPrompt = (systemPrompt && String(systemPrompt).trim()) ? systemPrompt : fileSystemPrompt;
     // 阶段判定：若尚未确认问题（或确认后未见用户逐条回复），仅输出“【Clarifying Question】”清单；
     // 若已确认且用户回复过，则仅输出“【Review Report】”。
     function determinePhase(h) {
@@ -41,21 +91,36 @@ async function generateMarkdownReview(circuitJson, requirements, specs, apiUrl, 
         }
     }
     const phase = determinePhase(history);
-    // 语言/前缀选择：若 systemPrompt 包含中文标记，则使用中文前缀；否则使用英文
-    function chooseLocalePrefixes(sp) {
+    // 语言/前缀选择：根据最终系统提示或传入 lang 决定
+    function chooseLocalePrefixes(sp, lg) {
         try {
             const txt = (sp || '').toString();
-            const hasZh = /【问题确认】|【评审报告】/.test(txt) || /[\u4e00-\u9fa5]/.test(txt);
+            const hasZh = /【问题确认】|【评审报告】/.test(txt) || /[\u4e00-\u9fa5]/.test(txt) || (lg === 'zh');
             if (hasZh)
                 return { clarify: '【问题确认】', report: '【评审报告】', locale: 'zh' };
         }
         catch { }
         return { clarify: '【Clarifying Question】', report: '【Review Report】', locale: 'en' };
     }
-    const prefixes = chooseLocalePrefixes(systemPrompt);
-    const phaseGuard = phase === 'clarify'
-        ? `Output only a numbered list of clarifying questions. Each item MUST start with "${prefixes.clarify}" and be specific to the input. Do NOT include the full review or "${prefixes.report}". Avoid decorative brackets inside the body except the mandated prefix.`
-        : `Output the formal review only. Start with "${prefixes.report}" line, then sections in Markdown starting from ## as required by the template. Do NOT include any clarifying questions or "${prefixes.clarify}" in this stage.`;
+    const prefixes = chooseLocalePrefixes(finalSystemPrompt, normalizedLang);
+    // 尝试从提示词目录读取 phase 模板
+    let phaseClarify = '';
+    let phaseReport = '';
+    try {
+        const nl = (0, promptLoader_1.normalizeLang)(normalizedLang);
+        phaseClarify = await promptLoader_1.default.loadPrompt(nl, nl === 'zh' ? 'PhaseClarify_zh' : 'PhaseClarify_en');
+    }
+    catch (e) {
+        phaseClarify = `Output only a numbered list of clarifying questions. Each item MUST start with "${prefixes.clarify}" and be specific to the input. Do NOT include the full review or "${prefixes.report}". Avoid decorative brackets inside the body except the mandated prefix.`;
+    }
+    try {
+        const nl = (0, promptLoader_1.normalizeLang)(normalizedLang);
+        phaseReport = await promptLoader_1.default.loadPrompt(nl, nl === 'zh' ? 'PhaseReport_zh' : 'PhaseReport_en');
+    }
+    catch (e) {
+        phaseReport = `Output the formal review only. Start with "${prefixes.report}" line, then sections in Markdown starting from ## as required by the template. Do NOT include any clarifying questions or "${prefixes.clarify}" in this stage.`;
+    }
+    const phaseGuard = phase === 'clarify' ? phaseClarify : phaseReport;
     // include history as additional context
     let historyText = '';
     if (history && Array.isArray(history) && history.length > 0) {
@@ -75,10 +140,26 @@ async function generateMarkdownReview(circuitJson, requirements, specs, apiUrl, 
         }
         datasheetInfo += '\nPlease consider these datasheets when analyzing the circuit design.';
     }
-    const userPrompt = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${datasheetInfo}${historyText}\n\nPlease output only Markdown.`;
+    // 用户 prompt 现在从文件加载并通过 renderTemplate 注入运行时变量
+    let userPromptTemplate = '';
+    try {
+        const nl = (0, promptLoader_1.normalizeLang)(normalizedLang);
+        userPromptTemplate = await promptLoader_1.default.loadPrompt(nl, nl === 'zh' ? 'UserPrompt_zh' : 'UserPrompt_en');
+    }
+    catch (e) {
+        userPromptTemplate = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${datasheetInfo}${historyText}\n\nPlease output only Markdown.`;
+    }
+    const userPrompt = promptLoader_1.default.renderTemplate(userPromptTemplate, {
+        PHASE_GUARD: phaseGuard,
+        CIRCUIT_JSON: JSON.stringify(circuitJson, null, 2),
+        REQUIREMENTS: requirements,
+        SPECS: specs,
+        DATASHEET_INFO: datasheetInfo,
+        HISTORY_TEXT: historyText
+    });
     // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
-    const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false };
-    const payload2 = { model, prompt: `${system}\n\n${userPrompt}` };
+    const payload1 = { model, messages: [{ role: 'system', content: finalSystemPrompt }, { role: 'user', content: userPrompt }], stream: false };
+    const payload2 = { model, prompt: `${finalSystemPrompt}\n\n${userPrompt}` };
     const headers = { 'Content-Type': 'application/json' };
     if (authHeader)
         headers['Authorization'] = authHeader;

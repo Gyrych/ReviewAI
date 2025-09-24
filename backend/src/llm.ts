@@ -2,18 +2,33 @@ import fetch from 'node-fetch'
 import { URL } from 'url'
 import https from 'https'
 import { logInfo, logError } from './logger'
+import promptLoader, { normalizeLang } from './promptLoader'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], datasheetMeta?: any[]): Promise<string> {
+export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], datasheetMeta?: any[], lang?: string): Promise<string> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for LLM call')
   }
-  // 构建 prompt
-  const systemBase = `You are an expert circuit design reviewer. Given a JSON describing components and their connections, produce a Markdown review containing: Summary, Issues found, Suggestions, and a final verdict.`
-  // Extend system prompt to mention enrichment field if present
-  const enrichmentNote = `If the supplied JSON includes an \`enrichment\` field on components, these contain web search candidate sources for ambiguous parameter values. For each such parameter, evaluate the candidate sources, state which candidate appears most credible (with brief justification), and explicitly list any parameters that still require manual verification along with their candidate source URLs.`
-  const system = systemPrompt && systemPrompt.trim() ? `${systemPrompt}\n\n${systemBase}\n\n${enrichmentNote}` : `${systemBase}\n\n${enrichmentNote}`
+  // 构建 prompt：优先从外部传入 systemPrompt；否则从文件加载器读取对应语言的 SystemPrompt
+  const normalizedLang = normalizeLang(lang)
+  let fileSystemPrompt = ''
+  try {
+    fileSystemPrompt = await promptLoader.loadPrompt(normalizedLang, 'SystemPrompt')
+  } catch (e) {
+    // 若加载失败，继续使用空字符串作为回退
+    fileSystemPrompt = ''
+  }
+
+  // 如果调用方传入了 systemPrompt，则以其为准；否则使用文件中的 system prompt
+  const llmEnrichment = await (async () => {
+    try {
+      const nl = normalizeLang(normalizedLang)
+      return await promptLoader.loadPrompt(nl, nl === 'zh' ? 'parts/llm_enrichment_zh' : 'parts/llm_enrichment_en')
+    } catch { return '' }
+  })()
+
+  const finalSystemPrompt = (systemPrompt && String(systemPrompt).trim()) ? systemPrompt : fileSystemPrompt
 
   // 阶段判定：若尚未确认问题（或确认后未见用户逐条回复），仅输出“【Clarifying Question】”清单；
   // 若已确认且用户回复过，则仅输出“【Review Report】”。
@@ -37,20 +52,34 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   }
   const phase = determinePhase(history)
 
-  // 语言/前缀选择：若 systemPrompt 包含中文标记，则使用中文前缀；否则使用英文
-  function chooseLocalePrefixes(sp?: string): { clarify: string; report: string; locale: 'zh'|'en' } {
+  // 语言/前缀选择：根据最终系统提示或传入 lang 决定
+  function chooseLocalePrefixes(sp?: string, lg?: string): { clarify: string; report: string; locale: 'zh'|'en' } {
     try {
       const txt = (sp || '').toString()
-      const hasZh = /【问题确认】|【评审报告】/.test(txt) || /[\u4e00-\u9fa5]/.test(txt)
+      const hasZh = /【问题确认】|【评审报告】/.test(txt) || /[\u4e00-\u9fa5]/.test(txt) || (lg === 'zh')
       if (hasZh) return { clarify: '【问题确认】', report: '【评审报告】', locale: 'zh' }
     } catch {}
     return { clarify: '【Clarifying Question】', report: '【Review Report】', locale: 'en' }
   }
-  const prefixes = chooseLocalePrefixes(systemPrompt)
+  const prefixes = chooseLocalePrefixes(finalSystemPrompt, normalizedLang)
 
-  const phaseGuard = phase === 'clarify'
-    ? `Output only a numbered list of clarifying questions. Each item MUST start with "${prefixes.clarify}" and be specific to the input. Do NOT include the full review or "${prefixes.report}". Avoid decorative brackets inside the body except the mandated prefix.`
-    : `Output the formal review only. Start with "${prefixes.report}" line, then sections in Markdown starting from ## as required by the template. Do NOT include any clarifying questions or "${prefixes.clarify}" in this stage.`
+  // 尝试从提示词目录读取 phase 模板
+  let phaseClarify = ''
+  let phaseReport = ''
+  try {
+    const nl = normalizeLang(normalizedLang)
+    phaseClarify = await promptLoader.loadPrompt(nl, nl === 'zh' ? 'PhaseClarify_zh' : 'PhaseClarify_en')
+  } catch (e) {
+    phaseClarify = `Output only a numbered list of clarifying questions. Each item MUST start with "${prefixes.clarify}" and be specific to the input. Do NOT include the full review or "${prefixes.report}". Avoid decorative brackets inside the body except the mandated prefix.`
+  }
+  try {
+    const nl = normalizeLang(normalizedLang)
+    phaseReport = await promptLoader.loadPrompt(nl, nl === 'zh' ? 'PhaseReport_zh' : 'PhaseReport_en')
+  } catch (e) {
+    phaseReport = `Output the formal review only. Start with "${prefixes.report}" line, then sections in Markdown starting from ## as required by the template. Do NOT include any clarifying questions or "${prefixes.clarify}" in this stage.`
+  }
+
+  const phaseGuard = phase === 'clarify' ? phaseClarify : phaseReport
   // include history as additional context
   let historyText = ''
   if (history && Array.isArray(history) && history.length > 0) {
@@ -71,11 +100,27 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
     datasheetInfo += '\nPlease consider these datasheets when analyzing the circuit design.'
   }
 
-  const userPrompt = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${datasheetInfo}${historyText}\n\nPlease output only Markdown.`
+  // 用户 prompt 现在从文件加载并通过 renderTemplate 注入运行时变量
+  let userPromptTemplate = ''
+  try {
+    const nl = normalizeLang(normalizedLang)
+    userPromptTemplate = await promptLoader.loadPrompt(nl, nl === 'zh' ? 'UserPrompt_zh' : 'UserPrompt_en')
+  } catch (e) {
+    userPromptTemplate = `${phaseGuard}\n\nCircuit JSON:\n${JSON.stringify(circuitJson, null, 2)}\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}${datasheetInfo}${historyText}\n\nPlease output only Markdown.`
+  }
+
+  const userPrompt = promptLoader.renderTemplate(userPromptTemplate, {
+    PHASE_GUARD: phaseGuard,
+    CIRCUIT_JSON: JSON.stringify(circuitJson, null, 2),
+    REQUIREMENTS: requirements,
+    SPECS: specs,
+    DATASHEET_INFO: datasheetInfo,
+    HISTORY_TEXT: historyText
+  })
 
   // 兼容常见的简单 HTTP API：发送 JSON {model, prompt/system/user} 或 {model, messages}
-  const payload1 = { model, messages: [{ role: 'system', content: system }, { role: 'user', content: userPrompt }], stream: false }
-  const payload2 = { model, prompt: `${system}\n\n${userPrompt}` }
+  const payload1 = { model, messages: [{ role: 'system', content: finalSystemPrompt }, { role: 'user', content: userPrompt }], stream: false }
+  const payload2 = { model, prompt: `${finalSystemPrompt}\n\n${userPrompt}` }
 
   const headers: any = { 'Content-Type': 'application/json' }
   if (authHeader) headers['Authorization'] = authHeader

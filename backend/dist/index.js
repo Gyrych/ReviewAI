@@ -59,6 +59,11 @@ app.post('/api/review', upload.any(), async (req, res) => {
     try {
         const body = req.body || {};
         const model = body.model || null;
+        // 语言优先级：Header X-User-Lang > query.lang > body.lang > 默认 zh
+        const headerLang = (req.header('x-user-lang') || '');
+        const qLangRaw = req.query.lang || '';
+        const bodyLang = body.lang || '';
+        const lang = (headerLang === 'en' || headerLang === 'zh') ? headerLang : (qLangRaw === 'en' || qLangRaw === 'zh') ? qLangRaw : (bodyLang === 'en' || bodyLang === 'zh') ? bodyLang : 'zh';
         // Accept either individual fields or a combined systemPrompts JSON
         let requirements = body.requirements || '';
         let specs = body.specs || '';
@@ -133,7 +138,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
                 catch (e) {
                     return apiUrl;
                 } })() });
-            const reply = await (0, deepseek_1.deepseekTextDialog)(apiUrl, message, model, authHeader, systemPrompt, history);
+            const reply = await (0, deepseek_1.deepseekTextDialog)(apiUrl, message, model, authHeader, systemPrompt, history, lang);
             return res.json({ markdown: reply });
         }
         // 简单日志（不包含敏感信息）
@@ -160,9 +165,24 @@ app.post('/api/review', upload.any(), async (req, res) => {
         if (!body.enrichedJson && files.length > 0) {
             timeline.push({ step: 'images_processing_start', ts: Date.now() });
             const imgs = files.map((f) => ({ path: f.path, originalname: f.originalname }));
-            const enableSearch = body.enableSearch === undefined ? true : (body.enableSearch === 'false' ? false : Boolean(body.enableSearch));
+            // 统一解析布尔/选项字段，记录原始值以便诊断前端传参问题
+            function parseBooleanField(value, defaultVal) {
+                if (value === undefined)
+                    return defaultVal;
+                if (typeof value === 'boolean')
+                    return value;
+                const s = String(value).trim().toLowerCase();
+                if (s === 'false' || s === '0' || s === 'no')
+                    return false;
+                if (s === 'true' || s === '1' || s === 'yes')
+                    return true;
+                // 无法识别时返回默认值并记录警告
+                (0, logger_1.logError)('vision.options.parse_warning', { fieldValue: value, defaultVal });
+                return defaultVal;
+            }
+            const enableSearch = parseBooleanField(body.enableSearch, true);
             const topN = body.searchTopN ? Number(body.searchTopN) : undefined;
-            const saveEnriched = body.saveEnriched === undefined ? true : (body.saveEnriched === 'false' ? false : Boolean(body.saveEnriched));
+            const saveEnriched = parseBooleanField(body.saveEnriched, true);
             const multiPassRecognition = body.multiPassRecognition === 'true' ? true : false;
             const recognitionPasses = body.recognitionPasses ? Number(body.recognitionPasses) : 5;
             // 记录解析到的选项，便于诊断（包含是否启用多轮识别与轮数）
@@ -173,7 +193,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
                 multiPassRecognition,
                 recognitionPasses
             });
-            circuitJson = await (0, vision_1.extractCircuitJsonFromImages)(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline);
+            circuitJson = await (0, vision_1.extractCircuitJsonFromImages)(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline, lang);
             // 记录图片解析结果摘要到 timeline
             const processingMeta = {
                 componentsCount: Array.isArray(circuitJson?.components) ? circuitJson.components.length : 0,
@@ -210,7 +230,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
             timeline.push({ step: 'images_processing_skipped', ts: Date.now() });
         }
         timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() });
-        const markdown = await (0, llm_1.generateMarkdownReview)(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta);
+        const markdown = await (0, llm_1.generateMarkdownReview)(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta, lang);
         timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() });
         // 返回结果（包含 enrichedJson 与 overlay/metadata）
         // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson

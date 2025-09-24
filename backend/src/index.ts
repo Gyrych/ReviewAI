@@ -60,6 +60,11 @@ app.post('/api/review', upload.any(), async (req, res) => {
   try {
     const body = req.body || {}
     const model = body.model || null
+    // 语言优先级：Header X-User-Lang > query.lang > body.lang > 默认 zh
+    const headerLang = (req.header('x-user-lang') || '') as string
+    const qLangRaw = (req.query.lang as string) || ''
+    const bodyLang = (body.lang as string) || ''
+    const lang = (headerLang === 'en' || headerLang === 'zh') ? headerLang : (qLangRaw === 'en' || qLangRaw === 'zh') ? qLangRaw : (bodyLang === 'en' || bodyLang === 'zh') ? bodyLang : 'zh'
     // Accept either individual fields or a combined systemPrompts JSON
     let requirements = body.requirements || ''
     let specs = body.specs || ''
@@ -127,7 +132,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
       // 如果用户提供的是 base URL（例如 https://api.deepseek.com/v1），deepseekTextDialog 会尝试直接调用该 URL；
       // 我们希望记录尝试的 origin 以便排查，但不要记录敏感头部。
       logInfo('api/review forwarding to deepseek', { apiHost: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })() })
-      const reply = await deepseekTextDialog(apiUrl, message, model, authHeader, systemPrompt, history)
+      const reply = await deepseekTextDialog(apiUrl, message, model, authHeader, systemPrompt, history, lang)
       return res.json({ markdown: reply })
     }
 
@@ -183,7 +188,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
         multiPassRecognition,
         recognitionPasses
       })
-      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline)
+      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline, lang)
 
       // 记录图片解析结果摘要到 timeline
       const processingMeta: any = {
@@ -222,7 +227,7 @@ app.post('/api/review', upload.any(), async (req, res) => {
     }
 
     timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() })
-    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta)
+    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta, lang)
     timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() })
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
