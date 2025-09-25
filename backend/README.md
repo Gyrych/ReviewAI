@@ -6,12 +6,12 @@ For Chinese documentation, see `backend/README.zh.md`.
 
 ## Critical requirement
 
-Provide system prompts in the `schematic-ai-review-prompt/` directory (preferred) or at the repository root for compatibility:
+Provide system prompts in the `ReviewAIPrompt/` directory (preferred) or at the repository root for compatibility:
 
-- **Preferred**: `./schematic-ai-review-prompt/系统提示词.md` (Chinese) and `./schematic-ai-review-prompt/SystemPrompt.md` (English)
+- **Preferred**: `./ReviewAIPrompt/系统提示词.md` (Chinese) and `./ReviewAIPrompt/SystemPrompt.md` (English)
 - **Fallback (backward compatible)**: `./系统提示词.md` and `./SystemPrompt.md` at repository root
 
-The endpoint `GET /api/system-prompt?lang=zh|en` reads the requested language file. The backend will first attempt to read from `schematic-ai-review-prompt/` and fall back to the repository root. If the target language file is missing in both locations, the endpoint returns 404. The frontend will surface a non-blocking warning and still allow normal conversation.
+The endpoint `GET /api/system-prompt?lang=zh|en` reads the requested language file. The backend will first attempt to read from `ReviewAIPrompt/` and fall back to the repository root. If the target language file is missing in both locations, the endpoint returns 404. The frontend will surface a non-blocking warning and still allow normal conversation.
 
 Need a ready-to-use system prompt? Contact the author for a paid copy: gyrych@gmail.com
 

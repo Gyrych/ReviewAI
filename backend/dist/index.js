@@ -31,8 +31,8 @@ app.get('/api/system-prompt', (req, res) => {
         const qLangRaw = req.query.lang || '';
         const qLang = (qLangRaw === 'en' || qLangRaw === 'zh') ? qLangRaw : 'zh';
         const filename = qLang === 'en' ? 'SystemPrompt.md' : '系统提示词.md';
-        // 优先从 schematic-ai-review-prompt 目录读取（首选），若不存在则回退到仓库根目录
-        const preferredDir = path_1.default.resolve(__dirname, '..', '..', 'schematic-ai-review-prompt');
+        // 优先从 ReviewAIPrompt 目录读取（首选），若不存在则回退到仓库根目录
+        const preferredDir = path_1.default.resolve(__dirname, '..', '..', 'ReviewAIPrompt');
         const preferredPath = path_1.default.join(preferredDir, filename);
         const fallbackPath = path_1.default.resolve(__dirname, '..', '..', filename);
         let p = preferredPath;

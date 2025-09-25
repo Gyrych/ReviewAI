@@ -203,7 +203,7 @@ const dictZh: Record<string, string> = {
   'overlay.enrichedJson.title': '结构化描述（enrichedJson）',
 
   // 通用/告警
-  'warning.noSystemPrompt': '当前运行在无系统提示词环境下，输出质量与一致性无法保证。请在 `./schematic-ai-review-prompt/` 子目录或仓库根目录添加或完善系统提示词文件。',
+  'warning.noSystemPrompt': '当前运行在无系统提示词环境下，输出质量与一致性无法保证。请在 `./ReviewAIPrompt/` 子目录或仓库根目录添加或完善系统提示词文件。',
   'common.close': '关闭',
   'common.none': '无',
 }
