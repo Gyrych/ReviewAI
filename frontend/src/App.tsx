@@ -47,6 +47,8 @@ export default function App() {
   const [sessionsVisible, setSessionsVisible] = useState<boolean>(false)
   const [sessionList, setSessionList] = useState<SessionListItem[]>([])
   const [sessionSeed, setSessionSeed] = useState<SessionSeed | null>(null)
+  // 新增：实时 timeline 状态，用于 ResultView 在没有 sessionSeed 时展示最近一次的 timeline
+  const [liveTimeline, setLiveTimeline] = useState<{ step: string; ts?: number; meta?: any }[] | undefined>(undefined)
 
   // 根据选中的 API 自动切换可选模型列表（OpenRouter 使用特定候选）
   useEffect(() => {
@@ -353,6 +355,8 @@ export default function App() {
                   onSavePair={handleSavePair}
                   markdown={markdown}
                   sessionSeed={sessionSeed || undefined}
+                  // 传入回调以接收 ReviewForm 合并后的 timeline
+                  onTimeline={(tl) => setLiveTimeline(Array.isArray(tl) ? tl : undefined)}
                 />
               )}
               {activeTab === 'code' && (
@@ -369,7 +373,7 @@ export default function App() {
         </div>
         <div className="col-span-7">
           <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
-          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined} />
+          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={(sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined) || liveTimeline} />
         </div>
       </div>
     </div>

@@ -1886,6 +1886,28 @@ async function performRecognitionAttempt(
 
       if (parsed && (Array.isArray(parsed.components) || Array.isArray(parsed.connections))) {
         logInfo('vision.attempt_success', { tryUrl, filename: img.originalname })
+        // 中文注释：将视觉模型的单次返回记录到 timeline，便于前端按序展示模型返回内容
+        try {
+          if (timeline) {
+            const summary = {
+              components: Array.isArray(parsed.components) ? parsed.components.length : undefined,
+              connections: Array.isArray(parsed.connections) ? parsed.connections.length : undefined
+            }
+            timeline.push({
+              step: 'vision_model_response',
+              ts: Date.now(),
+              meta: {
+                type: 'vision',
+                tryUrl,
+                filename: img.originalname,
+                summary,
+                // 为避免 timeline 体积过大，仅保存短的文本片段（如存在）
+                // 若需要完整返回，可查看 enrichedJson 或保存的 enriched 文件
+                note: 'vision model returned structured JSON result'
+              }
+            })
+          }
+        } catch (e) { /* 忽略 timeline 推送错误，避免影响主流程 */ }
         return parsed
       }
 

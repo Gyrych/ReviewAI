@@ -6,6 +6,8 @@ import { useI18n } from '../i18n'
 
 export default function ReviewForm({
   onResult,
+  // 新增：当后端返回 timeline 时，回调父组件以便统一展示
+  onTimeline,
   setEnrichedJson,
   setOverlay,
   overlay,
@@ -21,6 +23,7 @@ export default function ReviewForm({
   sessionSeed,
 }: {
   onResult: (markdown: string) => void
+  onTimeline?: (timeline: { step: string; ts?: number; meta?: any }[]) => void
   setEnrichedJson?: (j: any) => void
   setOverlay?: (o: any) => void
   overlay?: any
@@ -107,7 +110,7 @@ export default function ReviewForm({
         setSpecs(seed.specs || '无')
         setQuestionConfirm(seed.questionConfirm || '')
         setDialog(seed.dialog || '')
-        // 将保存的 questionConfirm 作为兜底补齐到 history（若历史中缺少“问题确认/Clarifying Question”项）
+        // 将保存的 questionConfirm 作为兜底补齐到 history（若历史中缺少"问题确认/Clarifying Question"项）
         try {
           const qcText = (seed.questionConfirm || '').trim()
           const baseHistory = Array.isArray(seed.history) ? [...seed.history] : []
@@ -171,7 +174,7 @@ export default function ReviewForm({
         } else {
           setFiles([])
         }
-        // 加载历史会话后，默认视为“无未保存更改”
+        // 加载历史会话后，默认视为"无未保存更改"
         setHasUnsavedChanges(false)
       } catch (e) {
         // 忽略种子异常
@@ -183,7 +186,7 @@ export default function ReviewForm({
     // 仅在 sessionSeed 变化时回填
   }, [sessionSeed])
 
-  // 中文注释：监听关键字段变化，标记为“有未保存更改”（在加载期不触发）
+  // 中文注释：监听关键字段变化，标记为"有未保存更改"（在加载期不触发）
   useEffect(() => {
     if (isHydratingRef.current) return
     setHasUnsavedChanges(true)
@@ -201,7 +204,7 @@ export default function ReviewForm({
     try {
       // 在提交流程开始时记录 timeline 条目
       setTimeline((t) => t.concat([{ step: 'preparing', ts: Date.now() }]))
-      // 中文注释：在发送前仅创建“提交快照”，不立即改动界面；等待上游返回后再入历史与翻页
+      // 中文注释：在发送前仅创建"提交快照"，不立即改动界面；等待上游返回后再入历史与翻页
       const dialogTrimmed = (dialog || '').trim()
       const submittedDialog = dialogTrimmed
       const historySnapshot = submittedDialog ? history.concat([{ role: 'user' as const, content: submittedDialog }]) : history
@@ -358,7 +361,10 @@ export default function ReviewForm({
           try {
             const remote: any[] = peek.timeline || []
             const normalized = remote.map((x) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
+            // 先合并到本地视图
             setTimeline((t) => t.concat(normalized))
+            // 再通过回调通知父组件（例如 App）以更新全局/结果区 timeline
+            try { if (typeof onTimeline === 'function') onTimeline(normalized) } catch (e) { /* ignore parent callback errors */ }
           } catch {}
         }
       }
@@ -375,6 +381,8 @@ export default function ReviewForm({
         md = j.markdown || j.result || ''
         qFromJson = j.questions || j.issues || j.model_feedback || j.model_questions || j.questions_text || ''
         if (!md) md = JSON.stringify(j)
+        // 大模型返回内容会在后续的 analysis_result / clarifying_question 条目中包含 fullResponse，
+        // 因此此处无需额外插入独立的 llm_response 步骤，避免重复展示。
         // UI 侧：根据时间线提示多阶段进度（若可用）
         try {
           // 若后端返回 timeline，将其合并并尝试映射用户可读进度
@@ -395,9 +403,9 @@ export default function ReviewForm({
       }
 
       // 显示逻辑容错：
-      // 1) 若包含中英文“评审报告/Review Report”标记，按原逻辑分割展示
-      // 2) 若不包含且文本以中英文“问题确认/Clarifying Question”为主，则仅展示到“问题确认”区
-      // 3) 若不包含且非“问题确认”文本，则将全文作为评审结果展示
+      // 1) 若包含中英文"评审报告/Review Report"标记，按原逻辑分割展示
+      // 2) 若不包含且文本以中英文"问题确认/Clarifying Question"为主，则仅展示到"问题确认"区
+      // 3) 若不包含且非"问题确认"文本，则将全文作为评审结果展示
       const markersReport = ['【评审报告】', '【Review Report】']
       const marker = markersReport.find(m => md.includes(m)) || '【评审报告】'
       const idx = md.indexOf(marker)
@@ -498,6 +506,15 @@ export default function ReviewForm({
     }
   }
 
+  // 当本地 timeline 发生变化时，推送给父组件用于全局结果区展示
+  useEffect(() => {
+    try {
+      if (typeof onTimeline === 'function') onTimeline(Array.isArray(timeline) ? [...timeline] : [])
+    } catch (e) {
+      // 忽略父组件回调异常
+    }
+  }, [timeline])
+
   // 中文注释：中止当前与大模型的对话请求
   function handleAbort() {
     try {
@@ -583,12 +600,12 @@ export default function ReviewForm({
     }
   }
 
-  // 中文注释：按“页”同步展示问题确认与对话：
+  // 中文注释：按"页"同步展示问题确认与对话：
   // 第 1 页：问题确认为空，对话为第 1 条用户消息或当前输入
   // 第 n 页 (n>=2)：问题确认为第 n-1 条 assistant 问题确认，对话为第 n 条用户消息（或当前输入）
   // 额外产品规则：
-  // - “【阶段性评审】”只展示在右侧评审结果，不应在左侧“问题确认”中显示
-  // - 因此在此处对 assistant 消息做过滤：排除包含“【评审报告】”与“【阶段性评审】”的内容
+  // - "【阶段性评审】"只展示在右侧评审结果，不应在左侧"问题确认"中显示
+  // - 因此在此处对 assistant 消息做过滤：排除包含"【评审报告】"与"【阶段性评审】"的内容
   const assistantQCItems = history
     .filter((h) => h.role === 'assistant' && !/【评审报告】/.test(h.content) && !/【阶段性评审】/.test(h.content) && !/【Review Report】/.test(h.content) && !/【Interim Review】/.test(h.content))
     .map((h) => h.content)
