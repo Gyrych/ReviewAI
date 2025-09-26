@@ -35,6 +35,15 @@ export function logError(message: string, meta?: Record<string, unknown>) {
   }
 }
 
+export function logWarn(message: string, meta?: Record<string, unknown>) {
+  const entry = { ts: timestamp(), level: 'warn', message, meta }
+  try {
+    fs.appendFileSync(logFile, JSON.stringify(entry) + '\n')
+  } catch (e) {
+    console.warn('[logger-fallback]', entry)
+  }
+}
+
 export function readRecentLines(maxLines = 200): string[] {
   try {
     if (!fs.existsSync(logFile)) return []

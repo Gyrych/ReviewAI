@@ -4,7 +4,7 @@ import path from 'path'
 import https from 'https'
 import { webSearch } from './search'
 import crypto from 'crypto'
-import { logInfo, logError } from './logger'
+import { logInfo, logError, logWarn } from './logger'
 import { createWorker } from 'tesseract.js'
 import sharp from 'sharp'
 
@@ -22,6 +22,7 @@ export async function extractCircuitJsonFromImages(
   authHeader?: string,
   options?: {
     enableSearch?: boolean;
+    enableParamEnrich?: boolean;
     topN?: number;
     saveEnriched?: boolean;
     multiPassRecognition?: boolean;
@@ -34,6 +35,8 @@ export async function extractCircuitJsonFromImages(
   }
 
   const enableSearch = options?.enableSearch !== false
+  // 控制是否对每个参数逐项进行联网补充（默认关闭）
+  const enableParamEnrich = options?.enableParamEnrich === true || (process.env.ENABLE_PARAM_ENRICH === 'true')
   const topN = options?.topN || Number(process.env.SEARCH_TOPN) || 5
   const saveEnriched = options?.saveEnriched !== false
   const multiPassRecognition = options?.multiPassRecognition === true;
@@ -123,8 +126,8 @@ export async function extractCircuitJsonFromImages(
     }
   }
 
-  // If search enrichment is enabled, detect ambiguous params and enrich
-  if (enableSearch && Array.isArray(combined.components)) {
+  // If search enrichment is enabled and param-level enrichment is enabled, detect ambiguous params and enrich
+  if (enableSearch && enableParamEnrich && Array.isArray(combined.components)) {
     // Record enrichment start in timeline
     if (timeline) {
       timeline.push({
@@ -188,6 +191,42 @@ export async function extractCircuitJsonFromImages(
           type: 'vision_enrichment',
           enrichedParametersCount: enrichmentCount,
           description: `组件参数补充完成，共补充${enrichmentCount}个参数`
+        }
+      })
+    }
+  } else if (enableSearch && !enableParamEnrich) {
+    // 参数级别的联网补充被禁用：记录跳过信息到 timeline，便于审计
+    let totalComponents = Array.isArray(combined.components) ? combined.components.length : 0
+    // 快速估算被跳过的参数个数（不进行网络调用）
+    let skippedParams = 0
+    if (Array.isArray(combined.components)) {
+      for (const comp of combined.components) {
+        try {
+          const params = comp?.params || {}
+          const entries = Array.isArray(params) ? params : Object.values(params)
+          for (const p of entries) {
+            if (p === undefined || p === null) skippedParams++
+            else if (typeof p === 'string') {
+              const v = p.trim().toLowerCase()
+              if (v === '' || v === 'unknown' || v === 'n/a' || v === '?' || v === '—') skippedParams++
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+
+    logWarn('vision.enrichment.skipped', { totalComponents, skippedParams })
+    if (timeline) {
+      timeline.push({
+        step: 'component_enrichment_skipped',
+        ts: Date.now(),
+        meta: {
+          type: 'vision_enrichment',
+          totalComponents,
+          skippedParams,
+          description: '已禁用参数级别的联网补充，保留仅IC datasheet检索'
         }
       })
     }
@@ -363,6 +402,13 @@ export async function extractCircuitJsonFromImages(
 
   // 将资料元数据添加到 normalized 对象中，以便返回给前端
   normalized.datasheetMeta = datasheetMeta
+
+  // 将当前的 enrichment 策略写入 normalized，以便前端/审计了解哪些策略被应用
+  normalized.enrichmentPolicy = {
+    enableSearch: !!enableSearch,
+    enableParamEnrich: !!enableParamEnrich,
+    saveEnriched: !!saveEnriched
+  }
 
   // Optionally save enriched JSON to uploads for auditing（命名与路径统一）
   if (saveEnriched) {
@@ -1687,7 +1733,8 @@ async function recognizeSingleImage(
   model: string,
   authHeader?: string,
   passNumber?: number,
-  recognitionPasses?: number
+  recognitionPasses?: number,
+  timeline?: { step: string; ts?: number; meta?: any }[]
 ): Promise<any> {
   const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '7200000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
@@ -1888,12 +1935,15 @@ async function performRecognitionAttempt(
         logInfo('vision.attempt_success', { tryUrl, filename: img.originalname })
         // 中文注释：将视觉模型的单次返回记录到 timeline，便于前端按序展示模型返回内容
         try {
-          if (timeline) {
+          // timeline 可能作为可选参数传入；为避免 lint 报错（在某些环境 timeline 未显示声明），
+          // 通过 arguments 检查最后一个参数是否为 timeline 数组
+          const _timeline = (typeof arguments !== 'undefined' && arguments.length > 0 && Array.isArray(arguments[arguments.length - 1])) ? arguments[arguments.length - 1] : undefined
+          if (_timeline) {
             const summary = {
               components: Array.isArray(parsed.components) ? parsed.components.length : undefined,
               connections: Array.isArray(parsed.connections) ? parsed.connections.length : undefined
             }
-            timeline.push({
+            _timeline.push({
               step: 'vision_model_response',
               ts: Date.now(),
               meta: {
@@ -2216,12 +2266,14 @@ Each connection must have: from (with componentId, pin), to (with componentId, p
 
 Focus on accuracy for IC models and component values - these are critical for circuit analysis.`
 
-  // 整合超时控制：根据输入结果数量动态调整
-  const consolidationTimeout = Math.max(30000, Math.min(120000, results.length * 15000)) // 30秒到2分钟，根据结果数量调整
+  // 整合超时控制：默认 30 分钟（可通过环境变量 CONSOLIDATION_TIMEOUT_MS 覆盖）
+  const defaultTimeoutMs = process.env.CONSOLIDATION_TIMEOUT_MS ? parseInt(process.env.CONSOLIDATION_TIMEOUT_MS, 10) : 1800000
+  const consolidationTimeout = defaultTimeoutMs
 
   logInfo('vision.consolidation.timeout_config', {
     resultCount: results.length,
-    timeoutMs: consolidationTimeout
+    timeoutMs: consolidationTimeout,
+    source: process.env.CONSOLIDATION_TIMEOUT_MS ? 'env' : 'default'
   })
 
   try {
@@ -2242,8 +2294,19 @@ Focus on accuracy for IC models and component values - these are critical for ci
       signal: AbortSignal.timeout(consolidationTimeout)
     })
 
+    // 尝试读取响应文本以便更详尽地记录非 2xx 响应或用于解析
+    const responseText = await consolidationResponse.text()
+
+    if (!consolidationResponse.ok) {
+      // 记录非 2xx 响应摘要，限制长度以避免日志过大
+      logError('vision.consolidation.non_ok', {
+        status: consolidationResponse.status,
+        statusText: consolidationResponse.statusText,
+        responseSnippet: responseText ? responseText.substring(0, 1000) : ''
+      })
+    }
+
     if (consolidationResponse.ok) {
-      const responseText = await consolidationResponse.text()
       const parsed = parseVisionResponse(responseText)
 
       if (parsed && (Array.isArray(parsed.components) || Array.isArray(parsed.connections))) {

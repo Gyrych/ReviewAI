@@ -4,11 +4,10 @@
 
 ## 重要必读（强提醒）
 
- - **首选位置**：将系统提示词放在 `./ReviewAIPrompt/` 子目录：`ReviewAIPrompt/系统提示词.md`（中文）和 `ReviewAIPrompt/SystemPrompt.md`（英文）。
- - **兼容回退**：为兼容历史布局，若子目录中找不到对应文件，后端将回退读取仓库根目录下的 `系统提示词.md` / `SystemPrompt.md`。
- - 若在两处均未找到目标语言文件，接口返回 404；前端会显示非阻断警示“无系统提示词环境”，但仍允许与模型对话。
-- 前端会在缺失情况下显示“无系统提示词环境”的非阻断警示，但仍允许与大模型正常对话（输出质量与一致性无法保证）。
-- 如需可直接使用的系统提示词内容，可联系作者付费索取：gyrych@gmail.com
+- **首选位置**：将系统提示词放在 `./ReviewAIPrompt/` 子目录：`ReviewAIPrompt/系统提示词.md`（中文）和 `ReviewAIPrompt/SystemPrompt.md`（英文）。
+- **兼容回退**：为兼容历史布局，若子目录中找不到对应文件，后端将回退读取仓库根目录下的 `系统提示词.md` / `SystemPrompt.md`。
+- 若在两处均未找到目标语言文件，接口返回 404；前端会显示非阻断警示“无系统提示词环境”，但仍允许与模型对话。
+- 如需可直接使用的系统提示词内容，可联系作者付费索取：`gyrych@gmail.com`
 
 ## 特性
 
@@ -45,16 +44,18 @@ npm install
 npm run dev
 ```
 
-访问 `http://localhost:3000`。开发服务器将把 `/api` 代理到 `http://localhost:3001`。
+访问 [http://localhost:3000](http://localhost:3000)（开发环境）。开发服务器将把 `/api` 代理到 [http://localhost:3001](http://localhost:3001)。
 
 Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.js`）。
 
 ## 配置
 
-- 系统提示词：根目录 `系统提示词.md`（必需）。如需现成内容，发邮件至：gyrych@gmail.com（付费）
+- 系统提示词：根目录 `系统提示词.md`（必需）。如需现成内容，发邮件至：`gyrych@gmail.com`（付费）
 - 上游模型：支持 DeepSeek、OpenRouter 或自定义 API。在前端选择或手动填写 API/模型名，后端会根据 `provider` 路由到文本/多模态解析。
 - 可选环境变量（后端）：
   - `LLM_TIMEOUT_MS`、`VISION_TIMEOUT_MS`、`DEEPSEEK_TIMEOUT_MS`
+  - `CONSOLIDATION_TIMEOUT_MS`：整合多轮识别结果的超时时间，单位为毫秒，默认 1800000（30 分钟）。在资源受限或高并发环境请谨慎增大。
+  - `ENABLE_PARAM_ENRICH`：是否对每个组件参数逐项进行网络补充（默认 false）。推荐仅在必要时开启；一般场景可关闭以节省网络和降低噪声。
   - `FETCH_RETRIES`、`KEEP_ALIVE_MSECS`
   - `SEARCH_PROVIDER`（`duckduckgo` | `bing`）、`BING_API_KEY`（启用 Bing 时）
   - `OPENROUTER_HTTP_REFERER`、`OPENROUTER_X_TITLE`（用于 OpenRouter）
@@ -76,8 +77,8 @@ Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.
 
 ## 安全与隐私
 
-会话保存会显式剔除敏感授权字段，日志不记录机密信息。本项目主要用于本地开发与验证。
+- 会话保存会显式剔除敏感授权字段，日志不记录机密信息。本项目主要用于本地开发与验证。
 
 ## 许可
 
-如需对外分发或开源，请补充合适的许可证（LICENSE）。
+- 如需对外分发或开源，请补充合适的许可证（LICENSE）。

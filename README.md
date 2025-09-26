@@ -15,7 +15,7 @@ The backend serves them via `GET /api/system-prompt?lang=zh|en`. It will first a
 
 - If neither location contains the requested language file, the endpoint returns 404. The frontend will display a non-blocking warning (“running without a system prompt”) but still allows normal conversation with the model.
 
-If you prefer a ready-to-use version of this system prompt, contact the author for a paid copy: gyrych@gmail.com
+If you prefer a ready-to-use version of this system prompt, contact the author for a paid copy: `gyrych@gmail.com`
 
 ## Features
 
@@ -35,7 +35,7 @@ If you prefer a ready-to-use version of this system prompt, contact the author f
 
 Prerequisites: Node.js >= 18
 
-1) Backend
+1. Backend
 
 ```bash
 cd backend
@@ -44,7 +44,7 @@ npm install
 npm run dev
 ```
 
-2) Frontend (separate terminal)
+1. Frontend (separate terminal)
 
 ```bash
 cd frontend
@@ -52,16 +52,18 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000`. The dev server proxies `/api` to `http://localhost:3001`.
+Visit [http://localhost:3000](http://localhost:3000) (development). The dev server proxies `/api` to [http://localhost:3001](http://localhost:3001).
 
 Windows one-click: run `start-all.bat` at repo root (or `node start-all.js`).
 
 ## Configuration
 
-- System prompt: root-level `系统提示词.md` (required). For a paid, prewritten copy email: gyrych@gmail.com
+- System prompt: root-level `系统提示词.md` (required). For a paid, prewritten copy email: `gyrych@gmail.com`
 - Upstream models: DeepSeek, OpenRouter, or custom API endpoints. Choose in the UI or input custom API/model; the backend routes accordingly.
 - Environment variables (optional):
   - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `DEEPSEEK_TIMEOUT_MS`
+  - `CONSOLIDATION_TIMEOUT_MS`（可选）：整合多轮识别结果的超时时间，单位为毫秒，默认 1800000（30 分钟）。在资源受限或高并发环境请谨慎增大。
+  - `ENABLE_PARAM_ENRICH`（可选）：是否对每个组件参数逐项进行网络补充（默认 false）。推荐仅在必要时开启；一般场景可关闭以节省网络和降低噪声。
   - `FETCH_RETRIES`, `KEEP_ALIVE_MSECS`
   - `SEARCH_PROVIDER` (`duckduckgo` | `bing`), `BING_API_KEY` (when using Bing)
   - `OPENROUTER_HTTP_REFERER`, `OPENROUTER_X_TITLE` (for OpenRouter best practices)
