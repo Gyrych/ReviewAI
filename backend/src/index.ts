@@ -23,6 +23,10 @@ ensureSessionsDir()
 // 简单 healthcheck
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
+// 提供项目根目录下 logo 静态文件（用于前端通过 /api 路径获取 logo）
+// 这样在开发模式下，前端可通过代理将请求转发到后端（例如 /api/logo/logo.png）以获取仓库根目录的图片文件
+app.use('/api/logo', express.static(path.resolve(__dirname, '..', '..', 'logo')))
+
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from backend' })
 })

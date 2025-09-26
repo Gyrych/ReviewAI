@@ -197,28 +197,40 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-cursorBlack p-6">
-      {/* 顶部全宽页眉：右侧放置语言与主题按钮，避免与标题遮挡 */}
+      {/* 顶部全宽页眉：左侧放置 logo 与双行标题（英/中），右侧放置语言与主题按钮 */}
       <div className="w-full mb-4 border-b dark:border-cursorBorder bg-white dark:bg-cursorPanel">
         <div className="max-w-6xl mx-auto p-2">
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-              className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {t('app.lang.toggle')}
-            </button>
-            <button
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-              className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {theme === 'light' ? t('app.theme.toDark') : t('app.theme.toLight')}
-            </button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {/* 内联 SVG Logo（可替换为真实图片） */}
+              <div className="w-10 h-10 rounded overflow-hidden bg-white flex items-center justify-center">
+                {/* 尝试通过后端静态代理获取 logo，兼容 dev proxy 配置 */}
+                <img src="/api/logo/logo.png" alt="Review AI logo" className="w-10 h-10 object-cover" />
+              </div>
+              <div className="leading-tight">
+                <div className="text-xl font-semibold text-gray-400">{t('app.brand.title_en')}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">{t('app.brand.title_cn')}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+                className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {t('app.lang.toggle')}
+              </button>
+              <button
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {theme === 'light' ? t('app.theme.toDark') : t('app.theme.toLight')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
       <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
         <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow">
-          <h2 className="text-3xl font-bold mb-4 text-center dark:text-cursorText">{t('app.title')}</h2>
 
           {/* 全局配置区域：模型 API 地址、模型名称、API Key 等 */}
           <div className="mb-4">

@@ -782,7 +782,7 @@ export default function ReviewForm({
             ref={questionRef}
             readOnly
             value={getQcTextForPage(page)}
-            className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText min-h-[120px]"
+            className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText thin-gray-scroll resize-none overflow-hidden"
             placeholder={t('form.qc.placeholder')}
           />
         </div>
@@ -837,7 +837,7 @@ export default function ReviewForm({
       {/* 将时间线放到按钮下方 */}
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
         <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
-        <div className="mt-1 space-y-2 max-h-64 overflow-auto">
+        <div className="mt-1 space-y-2">
           {(() => {
             // 显示所有步骤，包括前端和后端步骤
             const allTimeline = timeline || []
@@ -1203,7 +1203,7 @@ export default function ReviewForm({
                                     <summary className="cursor-pointer p-2 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300">
                                       📚 {t('timeline.allDatasheetInfo')} ({it.meta.datasheets.length})
                                     </summary>
-                                    <div className="p-2 border-t border-gray-200 dark:border-gray-600 space-y-3 max-h-64 overflow-y-auto">
+                                    <div className="p-2 border-t border-gray-200 dark:border-gray-600 space-y-3 max-h-64 overflow-y-auto thin-gray-scroll">
                                       {it.meta.datasheets.map((sheet: any, idx: number) => (
                                         <div key={idx} className="border rounded border-gray-100 dark:border-gray-700 p-2 bg-white dark:bg-gray-800">
                                           <div className="font-medium text-gray-800 dark:text-gray-200 mb-1">
