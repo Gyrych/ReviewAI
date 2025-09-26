@@ -298,9 +298,9 @@ export default function ReviewForm({
       const controller = new AbortController()
       // 保存 controller 以便外部中止
       controllerRef.current = controller
-      // 客户端等待后端响应的超时（毫秒），可通过 Vite 环境变量 VITE_CLIENT_TIMEOUT_MS 配置，默认 1800000（30 分钟）
+      // 客户端等待后端响应的超时（毫秒），可通过 Vite 环境变量 VITE_CLIENT_TIMEOUT_MS 配置，默认 7200000（2 小时）
       // 在浏览器中不可直接访问 process.env，使用 import.meta.env（由 Vite 在构建时注入）
-      const timeoutMs = Number((import.meta as any).env.VITE_CLIENT_TIMEOUT_MS || 1800000)
+      const timeoutMs = Number((import.meta as any).env.VITE_CLIENT_TIMEOUT_MS || 7200000)
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {

@@ -58,7 +58,7 @@ npm run dev
 
 ## Configuration
 
-- `VITE_CLIENT_TIMEOUT_MS` (optional): frontend request timeout to the backend (default 1800000 ms).
+- `VITE_CLIENT_TIMEOUT_MS` (optional): frontend request timeout to the backend (default 7200000 ms).
 
 ## Troubleshooting
 

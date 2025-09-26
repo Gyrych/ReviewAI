@@ -54,8 +54,8 @@ export async function deepseekTextDialog(apiUrl: string, message: string, model?
   }
 
   let lastErr: any = null
-  // Deepseek 请求超时（毫秒），可通过环境变量 DEEPSEEK_TIMEOUT_MS 覆盖，默认 1800000（30 分钟）
-  const deepseekTimeout = Number(process.env.DEEPSEEK_TIMEOUT_MS || '1800000')
+  // Deepseek 请求超时（毫秒），可通过环境变量 DEEPSEEK_TIMEOUT_MS 覆盖，默认 7200000（2 小时）
+  const deepseekTimeout = Number(process.env.DEEPSEEK_TIMEOUT_MS || '7200000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
   const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
 

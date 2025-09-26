@@ -1689,7 +1689,7 @@ async function recognizeSingleImage(
   passNumber?: number,
   recognitionPasses?: number
 ): Promise<any> {
-  const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '1800000')
+  const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '7200000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
   const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
 

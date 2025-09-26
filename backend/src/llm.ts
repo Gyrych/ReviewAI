@@ -117,7 +117,7 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   }
 
   // keep-alive agent 与重试策略
-  const llmTimeout = Number(process.env.LLM_TIMEOUT_MS || '1800000')
+  const llmTimeout = Number(process.env.LLM_TIMEOUT_MS || '7200000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
   const keepAliveAgent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || '60000') })
 
