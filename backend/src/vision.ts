@@ -378,149 +378,60 @@ function generateSpecializedPrompt(passNumber: number, totalPasses: number): str
  * 宏观识别prompt：快速识别元件位置和基本类型
  */
 function generateMacroRecognitionPrompt(): string {
-  return `Analyze this circuit schematic image and identify all electronic components. Focus on:
-
-1. COMPONENT LOCATION AND BASIC TYPES:
-   - Resistors (R1, R2, etc.) - rectangular with value markings
-   - Capacitors (C1, C2, etc.) - various shapes with capacitance markings
-   - Inductors (L1, L2, etc.) - coil symbols
-   - ICs/Chips (U1, U2, etc.) - rectangular with many pins
-   - Transistors (Q1, Q2, etc.) - transistor symbols
-   - Diodes (D1, D2, etc.) - diode symbols
-   - Connectors (J1, J2, etc.) - connector symbols
-
-2. BASIC IDENTIFICATION:
-   - Reference designators (R1, C1, U1, etc.)
-   - Component shapes and symbols
-   - Approximate positions on the schematic
-
-3. CONNECTION PATTERNS:
-   - Wire connections between components
-   - Net names if visible
-   - Power and ground connections
-
-Return JSON with "components" and "connections" keys. For this first pass, focus on quantity and locations rather than exact values.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'macro_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 /**
  * IC芯片专项识别prompt：重点识别IC型号和引脚信息
  */
 function generateICSpecializedPrompt(): string {
-  return `SPECIALIZED IC CHIP RECOGNITION - Focus on Integrated Circuits:
-
-CRITICAL: IC model numbers are often small text near the chip. Look carefully for manufacturer prefixes and model numbers.
-
-1. IC IDENTIFICATION PATTERNS:
-   - Manufacturer Prefixes: STM32, ATMEGA, LM358, AD8xx, MAX4xx, PIC, AVR, MSP430, ESP32
-   - Common Formats: [PREFIX][NUMBER][SUFFIX] (e.g., STM32F407, AD8606, LM358N)
-   - Package Types: SOIC, DIP, QFN, BGA, TSSOP, etc.
-
-2. CHARACTER RECOGNITION CORRECTIONS:
-   - 1 ↔ I ↔ l (ones, capital I, lowercase L)
-   - 0 ↔ O ↔ o (zero, capital O, lowercase o)
-   - 5 ↔ S (five, capital S)
-   - 8 ↔ B (eight, capital B)
-   - Common mistakes: "1KO" should be "1KΩ", "AD8O6" should be "AD806"
-
-3. PIN INFORMATION:
-   - Pin count (8, 14, 16, 28, 32, 64, etc.)
-   - Pin numbering (1, 2, 3... usually starting from bottom-left)
-   - Pin functions if labeled (VCC, GND, IN+, IN-, etc.)
-
-4. VALIDATION RULES:
-   - IC reference designators typically start with U, IC, or sometimes Q for some chips
-   - Model numbers usually contain both letters and numbers
-   - Check for reasonable pin counts based on package type
-
-Focus on reading ALL small text labels around IC chips. Return JSON with precise IC model numbers.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'ic_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 /**
  * 阻容元件专项识别prompt：重点识别阻值和容值
  */
 function generateResistorCapacitorSpecializedPrompt(): string {
-  return `SPECIALIZED RESISTOR & CAPACITOR RECOGNITION - Focus on component values:
-
-CRITICAL: Component values are often small text markings. Pay special attention to units and multipliers.
-
-1. RESISTOR VALUE PATTERNS:
-   - Units: Ω (ohm), kΩ, MΩ, R (sometimes used for ohm)
-   - Common formats: "1k", "10k", "100", "1M", "470R", "2.2kΩ"
-   - Tolerance markings: ±5%, ±1%, F, G, J, K (sometimes after value)
-   - Color codes (if visible): bands indicating value and tolerance
-
-2. CAPACITOR VALUE PATTERNS:
-   - Units: pF, nF, µF, uF, mF
-   - Common formats: "10nF", "100uF", "0.1uF", "1uF", "10pF"
-   - Voltage ratings: sometimes marked (16V, 25V, 50V, etc.)
-   - Types: ceramic, electrolytic, tantalum (different symbols)
-
-3. CHARACTER RECOGNITION CORRECTIONS:
-   - Ω (omega) symbol vs "OHM" text
-   - µ (micro) vs "u" abbreviation
-   - k (kilo) vs "K" (watch for case)
-   - Decimal points: "2.2" vs "22" (context matters)
-   - Multipliers: "2k2" = 2.2kΩ, "4u7" = 4.7µF
-
-4. VALIDATION RULES:
-   - Resistor values: typically 1Ω to 10MΩ range
-   - Capacitor values: typically 1pF to 10000µF range
-   - Reference designators: R for resistors, C for capacitors
-
-Look for value markings near component symbols. Use engineering judgment for ambiguous readings.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'rc_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 /**
  * 精细化验证prompt：综合验证和完善信息
  */
 function generateDetailedVerificationPrompt(): string {
-  return `DETAILED VERIFICATION PASS - Validation + Explanation (final pass):
-
-This pass MUST act as a validator and explain the reasoning for each change or decision.
-
-1. FOR EACH COMPONENT AND CONNECTION, OUTPUT A DECISION ENTRY WITH:
-   - entityId: component id or connection id
-   - entityType: "component" | "connection"
-   - field: the field being decided (e.g., "label", "pins", "connection")
-   - originalValue: value as seen in previous passes (if any)
-   - finalValue: value after this pass (may be same as original)
-   - sourcePasses: array of pass numbers used as evidence (e.g., [2,3])
-   - decisionReason: short explanation why this value was accepted/changed
-   - confidence: 0.0 - 1.0
-   - action: one of ["accept", "modify", "remove", "defer_to_human"]
-
-2. CONFLICTS & UNCERTAINTIES:
-   - For any conflicting observations across passes, include a 'conflicts[]' entry describing the conflict, involved passes, and a recommended action (e.g., "choose_most_common", "human_review").
-
-3. VERIFICATION RULES (apply strict engineering checks):
-   - Verify IC models against known patterns and common manufacturers
-   - Ensure numeric values fall within reasonable engineering ranges
-   - Validate pin counts vs package types
-  - For any automated correction, include 'originalValue' and 'decisionReason'
-
-4. OUTPUT FORMAT (MANDATORY):
-Return a single JSON object with these keys:
-  - "components": array
-  - "connections": array
-  - "decisions": array of decision entries (see above)
-  - "conflicts": array of conflict descriptors
-  - "uncertainties": array (items requiring human review)
-  - "metadata": object (include model_version, inference_time_ms)
-
-Example decision item:
-{
-  "entityId": "R1",
-  "entityType": "component",
-  "field": "label",
-  "originalValue": "1KO",
-  "finalValue": "1kΩ",
-  "sourcePasses": [3],
-  "decisionReason": "unit normalization and common OCR error 0->O",
-  "confidence": 0.92,
-  "action": "modify"
-}
-
-Use previous passes as evidence. Focus on producing a machine-readable audit trail (decisions) that explains every modification.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'verify_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 /**
@@ -528,34 +439,15 @@ Use previous passes as evidence. Focus on producing a machine-readable audit tra
  * 要求模型列出每个 net 的候选路径、可能的歧义以及每条连接的置信度
  */
 function generateNetTracingPrompt(): string {
-  return `NET-TRACING AND CONNECTION DISAMBIGUATION PASS - Analyze wiring and nets in detail:
-
-1. FOR EACH NET (group of connected pins), LIST:
-   - net_id (if available) or generate temporary id
-   - connected_pins: list of { componentId, pin }
-   - candidate_paths: array of candidate trace descriptions when ambiguous
-   - confidence: 0.0 - 1.0
-
-2. CONNECTION DISAMBIGUATION:
-   - Where multiple possible connections exist, list all candidates with short justification and confidence
-   - Indicate overlapping wires, vias, or ambiguous junctions and explain why ambiguous
-
-3. PRIORITY RULES:
-   - Prefer connections that appear in multiple previous passes
-   - Prefer direct wire continuity over inferred connections via labels unless strongly supported
-   - Mark power and ground nets explicitly when identified
-
-4. OUTPUT FORMAT:
-Return JSON with keys: components (optional updates), connections, nets, ambiguities.
-Each net should include candidate_paths and confidence. Each ambiguity should include a short reason and recommended action (e.g., 'human_review', 'choose_most_common').
-
-Example:
-{
-  "nets": [{ "net_id": "N1", "connected_pins": ["U1.1","R1.1"], "candidate_paths": [{"path":"direct","confidence":0.9}], "confidence":0.9}],
-  "ambiguities": [{"net_id":"N2","reason":"overlapping traces at junction","candidates":[...],"recommendation":"human_review"}]
-}
-
-Focus on enumerating ambiguous cases clearly so the final consolidation can make informed decisions.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'net_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 /**
@@ -2093,83 +1985,15 @@ async function consolidateRecognitionResults(
   // 分析各轮次的识别特点和权重
   const passAnalysis = analyzeRecognitionPasses(results)
 
-  // 构建智能整合prompt
-  const consolidationPrompt = `I have ${results.length} specialized circuit diagram recognition results from analyzing the same schematic image with different recognition strategies. Your task is to intelligently consolidate them into a single, most accurate result.
-
-RECOGNITION PASS ANALYSIS:
-${passAnalysis.summary}
-
-Pass Details:
-${passAnalysis.passes.map((p: any, idx: number) => `Pass ${idx + 1}: ${p.specialization} (${p.weight} priority) - ${p.strategy}`).join('\n')}
-
-RECOGNITION RESULTS:
-${results.map((result, idx) => {
-  const passInfo = passAnalysis.passes[idx]
-  return `
-=== Recognition Pass ${idx + 1} (${passInfo.specialization}) ===
-Strategy: ${passInfo.strategy}
-Focus: ${passInfo.focus}
-Weight: ${passInfo.weight}
-Component Count: ${(result.components || []).length}
-Connection Count: ${(result.connections || []).length}
-Components: ${JSON.stringify(result.components || [], null, 2)}
-Connections: ${JSON.stringify(result.connections || [], null, 2)}`
-}).join('\n')}
-
-SPECIALIZED CONSOLIDATION INSTRUCTIONS:
-
-1. **IC Component Priority** (Highest Priority - Use IC-specialized passes):
-   - IC model numbers and manufacturer prefixes are CRITICAL
-   - Prefer IC identification from passes 2+ (IC-specialized recognition)
-   - Cross-validate IC models against known manufacturers (STM, AD, MAX, TI, etc.)
-   - Correct common OCR errors: 1↔I↔l, 0↔O↔o, 5↔S, 8↔B
-   - Validate pin counts match package types (DIP8=8 pins, SOIC14=14 pins, etc.)
-
-2. **Resistor/Capacitor Value Priority** (High Priority - Use RC-specialized passes):
-   - Component values from passes 3+ are most reliable for R/C components
-   - Correct unit interpretations: Ω vs OHM, µ vs u, k vs K
-   - Validate value ranges: resistors (1Ω-10MΩ), capacitors (1pF-10000µF)
-   - Handle multipliers correctly: "2k2" = 2.2kΩ, "4u7" = 4.7µF
-
-3. **Component Type and Position** (Medium Priority - Use macro passes):
-   - Use pass 1 (macro recognition) for component locations and basic types
-   - Validate component reference designators (R1, C1, U1, etc.)
-   - Ensure component types are consistent across passes
-
-4. **Connection Analysis** (Consistent across all passes):
-   - Combine connections from all passes, removing duplicates
-   - Prioritize connections that appear in multiple specialized passes
-   - Validate connections reference existing components
-
-5. **Quality Validation Rules**:
-   - IC models should contain manufacturer prefix + numbers (e.g., "STM32F407", "AD8606")
-   - Component values should be within reasonable engineering ranges
-   - Reference designators should follow standard conventions (R/C/U/Q/D/L)
-   - Pin counts should match component types and packages
-
-6. **Error Correction**:
-   - Fix obvious OCR errors in model numbers and values
-   - Standardize units and formats
-   - Remove components that appear to be false positives
-
-OUTPUT FORMAT:
-Return a single valid JSON object with keys:
-  - "components": array of consolidated component objects
-  - "connections": array of consolidated connection objects
-  - "decisions": array of decision entries produced by the final validation pass (see schema below)
-  - "conflicts": array of conflict descriptors
-  - "uncertainties": array of entries that require human review
-
-Each component must have: id, type, and optionally: label, params, pins, sourcePasses
-Each connection must have: from (with componentId, pin), to (with componentId, pin), confidence, sourcePasses
-
-Decision entry schema (from final verification pass):
-  - entityId, entityType, field, originalValue, finalValue, sourcePasses, decisionReason, confidence, action
-
-If unable to decide on an item, include it in "uncertainties" with a recommended action (e.g., "human_review").
-
-Focus on accuracy and provide a machine-readable audit trail (decisions) explaining key merges and corrections.`
-
+  // 从文件严格加载 consolidation 提示词（如果缺失或为空则报错，行为与单轮 prompt 一致）
+  const consolidationPromptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'consolidation_prompt.md')
+  if (!fs.existsSync(consolidationPromptPath)) {
+    throw new Error(`Required prompt file missing: ${consolidationPromptPath}`)
+  }
+  const consolidationPrompt = fs.readFileSync(consolidationPromptPath, { encoding: 'utf8' })
+  if (!consolidationPrompt || !consolidationPrompt.trim()) {
+    throw new Error(`Required prompt file is empty: ${consolidationPromptPath}`)
+  }
   // 整合超时控制：默认 30 分钟（可通过环境变量 CONSOLIDATION_TIMEOUT_MS 覆盖）
   const defaultTimeoutMs = process.env.CONSOLIDATION_TIMEOUT_MS ? parseInt(process.env.CONSOLIDATION_TIMEOUT_MS, 10) : 1800000
   const consolidationTimeout = defaultTimeoutMs

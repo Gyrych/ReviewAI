@@ -4,10 +4,23 @@
 
 ## 重要必读（强提醒）
 
-- **首选位置**：将系统提示词放在 `./ReviewAIPrompt/` 子目录：`ReviewAIPrompt/系统提示词.md`（中文）和 `ReviewAIPrompt/SystemPrompt.md`（英文）。
-- **兼容回退**：为兼容历史布局，若子目录中找不到对应文件，后端将回退读取仓库根目录下的 `系统提示词.md` / `SystemPrompt.md`。
-- 若在两处均未找到目标语言文件，接口返回 404；前端会显示非阻断警示“无系统提示词环境”，但仍允许与模型对话。
-- 如需可直接使用的系统提示词内容，可联系作者付费索取：`gyrych@gmail.com`
+请将系统提示词和每轮视觉识别的专用提示词放入 `ReviewAIPrompt/` 目录（首选）。这些提示词文件在运行时为必需且不得为空；若任一必需提示词文件缺失或为空，后端将抛出 Error 并快速失败（fail fast）。
+
+必需文件（必须存在且非空）：
+
+- `ReviewAIPrompt/系统提示词.md`（中文） — 系统级提示词（系统提示词接口支持回退到仓库根目录）
+- `ReviewAIPrompt/SystemPrompt.md`（英文） — 系统级提示词（系统提示词接口支持回退到仓库根目录）
+- `ReviewAIPrompt/single_pass_vision_prompt.md` — 单轮通用视觉提示词
+- `ReviewAIPrompt/macro_prompt.md` — 宏观识别（pass=1）
+- `ReviewAIPrompt/ic_prompt.md` — IC 专项识别（pass=2）
+- `ReviewAIPrompt/rc_prompt.md` — 阻容识别（pass=3）
+- `ReviewAIPrompt/net_prompt.md` — 网路追踪（pass=4）
+- `ReviewAIPrompt/verify_prompt.md` — 验证/整合（pass=5）
+- `ReviewAIPrompt/consolidation_prompt.md` — 整合提示词（由后端合并器使用）
+
+向后兼容：仅系统提示词接口在 `ReviewAIPrompt/` 缺失时会回退到根目录 `系统提示词.md` / `SystemPrompt.md`；但专用视觉提示词必须位于 `ReviewAIPrompt/`。
+
+如需可直接使用的系统提示词，请联系作者付费获取：`gyrych@gmail.com`
 
 ## 特性
 
@@ -50,15 +63,15 @@ Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.
 
 ## 配置
 
-- 系统提示词：根目录 `系统提示词.md`（必需）。如需现成内容，发邮件至：`gyrych@gmail.com`（付费）
-- 上游模型：支持 DeepSeek、OpenRouter 或自定义 API。在前端选择或手动填写 API/模型名，后端会根据 `provider` 路由到文本/多模态解析。
-- 可选环境变量（后端）：
+- 系统提示词与每轮视觉提示词：请将必需文件放置于 `ReviewAIPrompt/`（参见上方“必需文件”）。仅当系统提示词缺失时，后端可能回退到仓库根目录的文件；但专用视觉提示词必须存在于 `ReviewAIPrompt/`，否则会导致运行时错误。
+- 上游模型：支持 DeepSeek、OpenRouter 或自定义 API。可在前端 UI 中选择，或手动填写自定义的 API/模型名；后端将根据 `provider` 字段进行路由。
+- 可选环境变量：
   - `LLM_TIMEOUT_MS`、`VISION_TIMEOUT_MS`、`DEEPSEEK_TIMEOUT_MS`
-  - `CONSOLIDATION_TIMEOUT_MS`：整合多轮识别结果的超时时间，单位为毫秒，默认 1800000（30 分钟）。在资源受限或高并发环境请谨慎增大。
-  - `ENABLE_PARAM_ENRICH`：是否对每个组件参数逐项进行网络补充（默认 false）。推荐仅在必要时开启；一般场景可关闭以节省网络和降低噪声。
+  - `CONSOLIDATION_TIMEOUT_MS`（可选）：整合多轮识别结果的超时时间（毫秒）；默认 1800000（30 分钟）。在资源受限或高并发场景请谨慎增大。
+  - `ENABLE_PARAM_ENRICH`（可选）：是否对每个参数进行网页补充（默认 false）。通常建议关闭以减少噪声与网络开销。
   - `FETCH_RETRIES`、`KEEP_ALIVE_MSECS`
-  - `SEARCH_PROVIDER`（`duckduckgo` | `bing`）、`BING_API_KEY`（启用 Bing 时）
-  - `OPENROUTER_HTTP_REFERER`、`OPENROUTER_X_TITLE`（用于 OpenRouter）
+  - `SEARCH_PROVIDER`（`duckduckgo` | `bing`），使用 Bing 时需设置 `BING_API_KEY`
+  - `OPENROUTER_HTTP_REFERER`、`OPENROUTER_X_TITLE`（针对 OpenRouter 的优化项）
 
 ## API 概要
 

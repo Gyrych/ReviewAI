@@ -6,12 +6,21 @@ For Chinese documentation, see `backend/README.zh.md`.
 
 ## Critical requirement
 
-Provide system prompts in the `ReviewAIPrompt/` directory (preferred) or at the repository root for compatibility:
+The backend requires system prompts and per-pass vision prompts to exist in `ReviewAIPrompt/`. These files must be present and non-empty; the backend will throw an Error and fail fast if any required prompt file is missing or empty.
 
-- **Preferred**: `./ReviewAIPrompt/系统提示词.md` (Chinese) and `./ReviewAIPrompt/SystemPrompt.md` (English)
-- **Fallback (backward compatible)**: `./系统提示词.md` and `./SystemPrompt.md` at repository root
+Required files (must exist and be non-empty):
 
-The endpoint `GET /api/system-prompt?lang=zh|en` reads the requested language file. The backend will first attempt to read from `ReviewAIPrompt/` and fall back to the repository root. If the target language file is missing in both locations, the endpoint returns 404. The frontend will surface a non-blocking warning and still allow normal conversation.
+- `ReviewAIPrompt/系统提示词.md` (Chinese) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/SystemPrompt.md` (English) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/single_pass_vision_prompt.md` — general single-pass vision prompt
+- `ReviewAIPrompt/macro_prompt.md` — macro pass (pass=1)
+- `ReviewAIPrompt/ic_prompt.md` — IC specialized pass (pass=2)
+- `ReviewAIPrompt/rc_prompt.md` — Resistor & Capacitor pass (pass=3)
+- `ReviewAIPrompt/net_prompt.md` — Net-tracing pass (pass=4)
+- `ReviewAIPrompt/verify_prompt.md` — Verification pass (pass=5)
+- `ReviewAIPrompt/consolidation_prompt.md` — Consolidation prompt used by the backend merger
+
+Backward compatibility: for system prompt endpoints, the backend will fall back to root-level `系统提示词.md` / `SystemPrompt.md` if the `ReviewAIPrompt/` files are not present; specialized vision prompts must be in `ReviewAIPrompt/`.
 
 Need a ready-to-use system prompt? Contact the author for a paid copy: gyrych@gmail.com
 

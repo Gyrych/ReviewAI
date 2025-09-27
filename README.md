@@ -6,16 +6,23 @@ For Chinese documentation, see `README.zh.md`.
 
 ## Critical requirement
 
-Provide system prompts in the `ReviewAIPrompt/` directory (preferred) or at the repository root for compatibility:
+Provide system prompts and per-pass vision prompts in the `ReviewAIPrompt/` directory (preferred). These prompt files are required at runtime; the backend will throw an Error and fail fast if any required file is missing or empty.
 
-- **Preferred**: `./ReviewAIPrompt/系统提示词.md` (Chinese) and `./ReviewAIPrompt/SystemPrompt.md` (English)
-- **Fallback (backward compatible)**: `./系统提示词.md` and `./SystemPrompt.md` at repository root
+Required files (must exist and be non-empty):
 
-The backend serves them via `GET /api/system-prompt?lang=zh|en`. It will first attempt to read from `ReviewAIPrompt/` and fall back to the repository root for compatibility.
+- `ReviewAIPrompt/系统提示词.md` (Chinese) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/SystemPrompt.md` (English) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/single_pass_vision_prompt.md` — general single-pass vision prompt
+- `ReviewAIPrompt/macro_prompt.md` — macro pass (pass=1)
+- `ReviewAIPrompt/ic_prompt.md` — IC specialized pass (pass=2)
+- `ReviewAIPrompt/rc_prompt.md` — Resistor & Capacitor pass (pass=3)
+- `ReviewAIPrompt/net_prompt.md` — Net-tracing pass (pass=4)
+- `ReviewAIPrompt/verify_prompt.md` — Verification pass (pass=5)
+- `ReviewAIPrompt/consolidation_prompt.md` — Consolidation prompt used by the backend merger
 
-- If neither location contains the requested language file, the endpoint returns 404. The frontend will display a non-blocking warning (“running without a system prompt”) but still allows normal conversation with the model.
+Backward compatibility: the backend will still fall back to root-level `系统提示词.md` / `SystemPrompt.md` only for the system prompt endpoints; specialized vision prompts must be present in `ReviewAIPrompt/`.
 
-If you prefer a ready-to-use version of this system prompt, contact the author for a paid copy: `gyrych@gmail.com`
+If you prefer a ready-to-use system prompt, contact the author for a paid copy: `gyrych@gmail.com`
 
 ## Features
 
@@ -60,10 +67,10 @@ Windows one-click: run `start-all.bat` at repo root (or `node start-all.js`).
 
 - System prompt: root-level `系统提示词.md` (required). For a paid, prewritten copy email: `gyrych@gmail.com`
 - Upstream models: DeepSeek, OpenRouter, or custom API endpoints. Choose in the UI or input custom API/model; the backend routes accordingly.
-- Environment variables (optional):
+ - Environment variables (optional):
   - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `DEEPSEEK_TIMEOUT_MS`
-  - `CONSOLIDATION_TIMEOUT_MS`（可选）：整合多轮识别结果的超时时间，单位为毫秒，默认 1800000（30 分钟）。在资源受限或高并发环境请谨慎增大。
-  - `ENABLE_PARAM_ENRICH`（可选）：是否对每个组件参数逐项进行网络补充（默认 false）。推荐仅在必要时开启；一般场景可关闭以节省网络和降低噪声。
+  - `CONSOLIDATION_TIMEOUT_MS` (optional): timeout for consolidating multi-pass recognition results, in milliseconds; default 1800000 (30 minutes). Be cautious increasing in resource-constrained or high-concurrency environments.
+  - `ENABLE_PARAM_ENRICH` (optional): whether to perform per-parameter web enrichment (default false). Recommended to keep off in common scenarios to reduce noise and network usage.
   - `FETCH_RETRIES`, `KEEP_ALIVE_MSECS`
   - `SEARCH_PROVIDER` (`duckduckgo` | `bing`), `BING_API_KEY` (when using Bing)
   - `OPENROUTER_HTTP_REFERER`, `OPENROUTER_X_TITLE` (for OpenRouter best practices)
