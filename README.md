@@ -72,6 +72,8 @@ Windows one-click: run `start-all.bat` at repo root (or `node start-all.js`).
 
 - `GET /api/system-prompt?lang=zh|en` — returns the content of the root system prompt file for the requested language. 404 if that language file is missing.
 - `POST /api/review` — accepts images (multipart) or `enrichedJson`, plus `model`, `apiUrl`, optional `systemPrompts` JSON `{ systemPrompt, requirements, specs }`, and `history`. Returns `{ markdown, enrichedJson, overlay, metadata, timeline }`. If low-confidence nets are detected, responds with HTTP 422 but still includes the payload for manual verification.
+
+Note: OCR functionality (previously provided via tesseract.js) has been removed from this project. The visual pipeline no longer performs OCR-based text extraction. If your workflows rely on OCR text (e.g., labeled components in images), consider adding an external OCR step before submitting images to the `/api/review` endpoint or re-integrating an OCR service.
 - Sessions: `POST /api/sessions/save`, `GET /api/sessions/list`, `GET /api/sessions/:id`, `DELETE /api/sessions/:id`
 - Logs (local dev): `GET /api/logs`
 - DeepSeek test: `POST /api/deepseek`

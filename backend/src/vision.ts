@@ -7,7 +7,6 @@ import crypto from 'crypto'
 import { logInfo, logError, logWarn } from './logger'
 import { pushProgress } from './progress'
 import { makeTimelineItem } from './timeline'
-import { createWorker } from 'tesseract.js'
 import sharp from 'sharp'
 
 // 中文注释：多轮视觉识别和结果整合系统
@@ -130,90 +129,9 @@ export async function extractCircuitJsonFromImages(
     }
   }
 
-  // If search enrichment is enabled and param-level enrichment is enabled, detect ambiguous params and enrich
-  if (enableSearch && enableParamEnrich && Array.isArray(combined.components)) {
-    // Record enrichment start in timeline
-    if (timeline) {
-      const it = makeTimelineItem('vision.enrichment_start', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', description: '开始对不明确组件参数进行网络搜索补充' } })
-      timeline.push(it)
-    }
-
-    let enrichmentCount = 0
-    for (const comp of combined.components) {
-      try {
-        if (!comp) continue
-        const params = comp.params || {}
-        // Normalize params iteration for both object and array forms
-        const entries: Array<[string, any]> = Array.isArray(params) ? params.map((p: any, i: number) => [String(i), p]) : Object.entries(params)
-        for (const [pname, pval] of entries) {
-          let ambiguous = false
-          if (pval === undefined || pval === null) ambiguous = true
-          else if (typeof pval === 'string') {
-            const v = pval.trim().toLowerCase()
-            if (v === '' || v === 'unknown' || v === 'n/a' || v === '?' || v === '—') ambiguous = true
-          }
-          // numeric-looking but not numeric: consider ambiguous if it's NaN when numeric expected is unclear
-          if (!ambiguous) {
-            // if value is a string that contains non-digit chars but expected numeric, we skip heuristic for now
-          }
-
-          if (ambiguous) {
-            const qparts = []
-            if (comp.type) qparts.push(comp.type)
-            if (comp.label) qparts.push(comp.label)
-            qparts.push(pname)
-            qparts.push('datasheet')
-            const query = qparts.filter(Boolean).join(' ')
-            try {
-              const results = await webSearch(query, { topN })
-              comp.enrichment = comp.enrichment || {}
-              comp.enrichment[pname] = { candidates: (results.results || []).map(r => ({ title: r.title, url: r.url, snippet: r.snippet })), queriedAt: results.fetchedAt, provider: results.provider }
-              logInfo('vision.enrichment', { compId: comp.id || comp.label, param: pname, query, provider: results.provider })
-              enrichmentCount++
-            } catch (e) {
-              logError('vision.enrichment.error', { error: String(e), compId: comp.id || comp.label, param: pname })
-            }
-          }
-        }
-      } catch (e) {
-        logError('vision.enrichment.loop.error', { error: String(e), comp: comp })
-      }
-    }
-
-    // Record enrichment completion in timeline
-    if (timeline) {
-      const it = makeTimelineItem('vision.enrichment_done', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', enrichedParametersCount: enrichmentCount, description: `组件参数补充完成，共补充${enrichmentCount}个参数` } })
-      timeline.push(it)
-    }
-  } else if (enableSearch && !enableParamEnrich) {
-    // 参数级别的联网补充被禁用：记录跳过信息到 timeline，便于审计
-    let totalComponents = Array.isArray(combined.components) ? combined.components.length : 0
-    // 快速估算被跳过的参数个数（不进行网络调用）
-    let skippedParams = 0
-    if (Array.isArray(combined.components)) {
-      for (const comp of combined.components) {
-        try {
-          const params = comp?.params || {}
-          const entries = Array.isArray(params) ? params : Object.values(params)
-          for (const p of entries) {
-            if (p === undefined || p === null) skippedParams++
-            else if (typeof p === 'string') {
-              const v = p.trim().toLowerCase()
-              if (v === '' || v === 'unknown' || v === 'n/a' || v === '?' || v === '—') skippedParams++
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
-      }
-    }
-
-    logWarn('vision.enrichment.skipped', { totalComponents, skippedParams })
-    if (timeline) {
-      const it = makeTimelineItem('vision.enrichment_skipped', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', totalComponents, skippedParams, description: '已禁用参数级别的联网补充，保留仅IC datasheet检索' } })
-      timeline.push(it)
-    }
-  }
+  // 参数级别的联网补充（parameter enrichment）已从项目中移除。
+  // 为保持接口兼容性，不再对组件参数进行网络补充，也不会将相关 enrichment 的 timeline 条目写入历史。
+  // 任何原有的 enrichment 逻辑已被移除以简化流程并降低外部依赖。
 
   // 集成OCR辅助识别
   let ocrResults: any[] = []
@@ -383,11 +301,11 @@ export async function extractCircuitJsonFromImages(
   // 将资料元数据添加到 normalized 对象中，以便返回给前端
   normalized.datasheetMeta = datasheetMeta
 
-  // 将当前的 enrichment 策略写入 normalized，以便前端/审计了解哪些策略被应用
+  // 移除参数补充策略：为兼容保留字段但写入默认已禁用状态
   normalized.enrichmentPolicy = {
     enableSearch: !!enableSearch,
-    enableParamEnrich: !!enableParamEnrich,
-    saveEnriched: !!saveEnriched
+    enableParamEnrich: false,
+    saveEnriched: false
   }
 
   // Optionally save enriched JSON to uploads for auditing（命名与路径统一）
@@ -1252,139 +1170,23 @@ function applyPostProcessingCorrection(components: any[], connections?: any[]): 
 }
 
 // ========================================
-// OCR辅助识别系统
+// OCR辅助识别系统（已移除）
 // ========================================
 
 /**
- * 使用OCR识别图片中的文本，作为大模型识别的补充
+ * OCR 功能已从项目中移除。为了保持与上层调用的兼容性，这里返回一个空的 OCR 结果结构。
  * @param imagePath 图片路径
- * @returns OCR识别结果
+ * @returns 空的 OCR 识别结果
  */
 async function performOCRRecognition(imagePath: string): Promise<any> {
-  let worker: any = null
-  let processedImagePath = imagePath
-
   try {
-    logInfo('ocr.start', { imagePath })
-
-    // 图像预处理：提高识别质量
-    try {
-      processedImagePath = await preprocessImageForOCR(imagePath)
-      logInfo('ocr.preprocessing_completed', { originalPath: imagePath, processedPath: processedImagePath })
-      // 在预处理完成后，记录到 timeline 并落盘预处理图像副本与参数
-      try {
-        const { saveArtifactFromPath, saveArtifact } = require('./artifacts')
-        const preImgA = await saveArtifactFromPath(processedImagePath, `ocr_preprocessed_${path.basename(imagePath)}`)
-        const paramsA = await saveArtifact(JSON.stringify({ method: 'greyscale+linear+sharpen+normalise', note: 'auto-resize if low/high resolution' }, null, 2), `ocr_preprocess_params_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
-        // timeline 推送在调用方（extractCircuitJsonFromImages）级别更合适，这里仅返回以便汇总
-        ;(preImgA as any).paramsArtifact = paramsA
-        ;(global as any).__ocr_preprocess_last__ = preImgA
-      } catch {}
-    } catch (preprocessError) {
-      logError('ocr.preprocessing_failed', { error: String(preprocessError) })
-      // 如果预处理失败，使用原始图像
-      processedImagePath = imagePath
-    }
-
-    // 创建Tesseract worker并加载多语言支持
-    worker = await createWorker()
-
-    // 配置OCR参数以提高识别精度
-    await worker.setParameters({
-      tessedit_pageseg_mode: '6', // 统一文本块
-      tessedit_ocr_engine_mode: '2', // 使用LSTM OCR引擎
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789Ωµμ°±×÷=+-()[]{}.,;:\'"|&@#$%^&*!?<>~/\\` 欧姆微法纳皮千兆赫赫兹伏安瓦瓦特法拉千瓦时分贝摄氏华氏节拍每分钟每秒每米立方米升毫升立方厘米立方毫米立方微米立方纳米立方皮米立方飞米立方仄米立方幺米', // 扩展字符白名单，包含电路常用符号
-      tessedit_char_blacklist: '', // 不设置黑名单
-      textord_min_linesize: 2.5, // 最小线条大小
-    })
-
-    // 多语言支持：尝试加载简体中文、繁体中文和英文的组合
-    let loadedLanguages: string[] = []
-    const languageOptions = [
-      'chi_sim+chi_tra+eng',  // 简体+繁体+英文
-      'chi_sim+eng',          // 简体+英文
-      'chi_tra+eng',          // 繁体+英文
-      'chi_sim+chi_tra',      // 简体+繁体
-      'chi_sim',              // 仅简体中文
-      'chi_tra',              // 仅繁体中文
-      'eng'                   // 仅英文
-    ]
-
-    for (const langOption of languageOptions) {
-      try {
-        await worker.loadLanguage(langOption)
-        await worker.initialize(langOption)
-        loadedLanguages = langOption.split('+')
-        logInfo('ocr.language_loaded', { language: langOption, languages: loadedLanguages })
-        break // 成功加载，跳出循环
-      } catch (langError) {
-        logError('ocr.language_load_failed', { language: langOption, error: String(langError) })
-        continue // 尝试下一个语言选项
-      }
-    }
-
-    if (loadedLanguages.length === 0) {
-      throw new Error('Failed to load any language pack for OCR')
-    }
-
-    // 进行OCR识别，使用更高的精度设置
-    const { data: { text, words, confidence } } = await worker.recognize(processedImagePath, {
-      rotateAuto: true, // 自动旋转检测
-    })
-
-    logInfo('ocr.completed', {
-      imagePath,
-      processedPath: processedImagePath,
-      textLength: text.length,
-      wordCount: words.length,
-      confidence: confidence.toFixed(2),
-      languages: loadedLanguages.join('+')
-    })
-
-    // 解析识别结果，提取可能的元件标记
-    const ocrResults = parseOCRText(text, words)
-
-    return {
-      success: true,
-      confidence,
-      text,
-      words,
-      languages: loadedLanguages,
-      extractedComponents: ocrResults.components,
-      extractedValues: ocrResults.values
-    }
-
-  } catch (error) {
-    logError('ocr.failed', {
-      imagePath,
-      error: String(error)
-    })
-
+    logInfo('ocr.disabled', { imagePath, reason: 'OCR functionality removed' })
+  } catch (e) {}
     return {
       success: false,
-      error: String(error),
+    error: 'ocr_disabled',
       extractedComponents: [],
       extractedValues: []
-    }
-  } finally {
-    // 清理worker
-    if (worker) {
-      try {
-        await worker.terminate()
-      } catch (e) {
-        // 忽略清理错误
-      }
-    }
-
-    // 清理预处理图像（如果与原始图像不同）
-    if (processedImagePath !== imagePath && fs.existsSync(processedImagePath)) {
-      try {
-        fs.unlinkSync(processedImagePath)
-        logInfo('ocr.cleanup_processed_image', { processedPath: processedImagePath })
-      } catch (e) {
-        // 忽略清理错误
-      }
-    }
   }
 }
 

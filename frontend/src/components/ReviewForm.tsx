@@ -84,11 +84,13 @@ export default function ReviewForm({
         'vision.response': '视觉识别响应',
         'vision.processing_done': '视觉识别完成',
         'vision.processing_skipped': '视觉处理已跳过',
-        'vision.ocr_start': 'OCR 开始',
-        'vision.ocr_done': 'OCR 完成',
-        'vision.enrichment_start': '参数补充开始',
-        'vision.enrichment_done': '参数补充完成',
-        'vision.enrichment_skipped': '参数补充已跳过',
+        // OCR 功能已移除，保留 timeline key 兼容性
+        'vision.ocr_start': 'OCR（已移除）',
+        'vision.ocr_done': 'OCR（已移除）',
+        // 参数补充功能已移除，保留 keys 以免旧数据报错
+        'vision.enrichment_start': '参数补充（已移除）',
+        'vision.enrichment_done': '参数补充（已移除）',
+        'vision.enrichment_skipped': '参数补充（已移除）',
         'llm.analysis_start': '开始二次分析',
         'llm.analysis_done': '二次分析完成',
         'llm.request': 'LLM 请求',
@@ -1039,12 +1041,21 @@ export default function ReviewForm({
         <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
         <div className="mt-1 space-y-2">
             {(() => {
-            // 显示所有步骤，包括前端和后端步骤
+            // 显示所有步骤，包括前端和后端步骤，但过滤掉已移除的功能步骤（如 OCR）
             const allTimeline = timeline || []
-            if (!allTimeline || allTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
+            function isRemovedStep(step?: string) {
+              try {
+                if (!step) return false
+                // 隐藏已移除的功能步骤（OCR 与 参数补充）
+                return /\bocr\b|ocr_|ocr\.|enrich|enrichment|param_enrich|paramenrich|enrichment_skipped|enrichment_done|enrichment_start/i.test(step)
+              } catch (e) { return false }
+            }
+
+            const visibleTimeline = allTimeline.filter((it) => !isRemovedStep(it.step))
+            if (!visibleTimeline || visibleTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
 
             // 为前端步骤添加更详细的元数据
-            const enhancedTimeline = allTimeline.map((item, index) => {
+            const enhancedTimeline = visibleTimeline.map((item, index) => {
               const enhancedItem: any = { ...item }
 
               // 分类步骤类型
@@ -1462,9 +1473,9 @@ export default function ReviewForm({
                             {it.artifacts.overlay && (<ArtifactInline label="Overlay" art={it.artifacts.overlay} />)}
                             {it.artifacts.metadata && (<ArtifactInline label="Metadata" art={it.artifacts.metadata} />)}
                             {it.artifacts.datasheetsMetadata && (<ArtifactInline label="Datasheets Metadata" art={it.artifacts.datasheetsMetadata} />)}
-                            {it.artifacts.preprocessedImage && (<ArtifactInline label="OCR Preprocessed Image" art={it.artifacts.preprocessedImage} />)}
-                            {it.artifacts.ocrText && (<ArtifactInline label="OCR Text" art={it.artifacts.ocrText} />)}
-                            {it.artifacts.ocrWords && (<ArtifactInline label="OCR Words" art={it.artifacts.ocrWords} />)}
+                            {it.artifacts.preprocessedImage && (<ArtifactInline label="预处理图像" art={it.artifacts.preprocessedImage} />)}
+                            {it.artifacts.ocrText && (<ArtifactInline label="文本（OCR 已移除，如需恢复请使用外部 OCR）" art={it.artifacts.ocrText} />)}
+                            {it.artifacts.ocrWords && (<ArtifactInline label="词级信息（OCR 已移除）" art={it.artifacts.ocrWords} />)}
                             {it.artifacts.result && (<ArtifactInline label="Review Report" art={it.artifacts.result} />)}
                           </div>
                         )}

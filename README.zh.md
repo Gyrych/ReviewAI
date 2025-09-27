@@ -64,6 +64,8 @@ Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.
 
 - `GET /api/system-prompt?lang=zh|en`：返回根目录对应语言的系统提示词文件内容；若该语言文件缺失则 404。
 - `POST /api/review`：支持图片（multipart）或 `enrichedJson`；字段包括 `model`、`apiUrl`、可选 `systemPrompts`（JSON：`{ systemPrompt, requirements, specs }`）与 `history`。响应包含 `{ markdown, enrichedJson, overlay, metadata, timeline }`。若检测到低置信冲突，会返回 422 且仍附带结果以便人工复核。
+
+注意：项目中先前使用的 OCR 功能（基于 tesseract.js）已被移除。视觉处理流程不再执行 OCR 文本提取。如果你的工作流依赖图像内的文字标签（例如元件标注），请在将图片提交到 `/api/review` 之前，先使用外部 OCR 服务预处理图片，或者与我沟通以重新集成 OCR 功能。
 - 会话：`POST /api/sessions/save`、`GET /api/sessions/list`、`GET /api/sessions/:id`、`DELETE /api/sessions/:id`
 - 日志（本地调试）：`GET /api/logs`
 - DeepSeek 测试：`POST /api/deepseek`
