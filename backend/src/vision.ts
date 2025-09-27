@@ -562,20 +562,15 @@ Focus on enumerating ambiguous cases clearly so the final consolidation can make
  * 通用识别prompt：适用于中间轮次或默认情况
  */
 function generateGeneralRecognitionPrompt(): string {
-  return `Analyze this circuit schematic image and return a JSON object with two keys: "components" and "connections".
-
-Each component should have:
-- id: reference designator (like "U1", "R1", "C1")
-- type: component type (like "op-amp", "resistor", "capacitor", "transistor")
-- label: part number or model name shown on the schematic (like "AD825", "LM358", "1kΩ", "10uF")
-- params: object with additional parameters
-- pins: array of pin names/numbers
-
-For connections, list nets with from/to pairs like: {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
-
-IMPORTANT: Read ALL text labels and part numbers visible on the schematic. Include the exact model numbers and values you see written next to each component.
-
-Return only valid JSON.`
+  const promptPath = path.join(__dirname, '..', '..', 'ReviewAIPrompt', 'single_pass_vision_prompt.md')
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`Required prompt file missing: ${promptPath}`)
+  }
+  const txt = fs.readFileSync(promptPath, { encoding: 'utf8' })
+  if (!txt || !txt.trim()) {
+    throw new Error(`Required prompt file is empty: ${promptPath}`)
+  }
+  return txt
 }
 
 // ========================================
@@ -1622,20 +1617,16 @@ async function recognizeSingleImage(
   }
 
   // 备用prompt（通用识别）
-  const fallbackPromptText = `Look at this circuit diagram. Find all electronic components and their connections.
+  const fallbackPromptText = `You are an expert circuit schematic parser. If the primary prompt fails, attempt to return a single valid JSON object with keys: components, connections, metadata.
 
-Return JSON like this:
+Return a minimal example following the same schema as the primary prompt. Do NOT include any explanatory text.
+
+Example:
 {
-  "components": [
-    {"id": "U1", "type": "op-amp", "label": "AD825"},
-    {"id": "R1", "type": "resistor", "label": "1kΩ"}
-  ],
-  "connections": [
-    {"from": {"componentId": "U1", "pin": "1"}, "to": {"componentId": "R1", "pin": "1"}}
-  ]
-}
-
-Read the text on the schematic to get the correct labels and models.`
+  "components": [{"id":"U1","type":"ic","label":"AD825","params":{"manufacturer_part":"AD825"},"confidence":0.9}],
+  "connections": [{"from":{"componentId":"U1","pin":"1"},"to":{"componentId":"R1","pin":"1"},"confidence":0.9}],
+  "metadata": {"source_type":"image","timestamp":"2025-01-01T00:00:00Z","overall_confidence":0.9,"inference_time_ms":100}
+}`
 
   // 构造尝试URL列表
   let tryUrls: string[] = []

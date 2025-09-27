@@ -507,10 +507,20 @@ export default function ReviewForm({
         // 请求结束后清理 controllerRef
         controllerRef.current = null
       }
+
+      // 为避免多次消费 Response body（导致 "Response body is already used"），
+      // 统一读取一次文本并根据 content-type 解析为 JSON 以复用。
+      const contentType = res.headers.get('content-type') || ''
+      let bodyText = ''
+      try { bodyText = await res.text() } catch (e) { bodyText = '' }
+      let bodyJson: any = null
+      if (contentType.includes('application/json')) {
+        try { bodyJson = JSON.parse(bodyText) } catch (e) { bodyJson = null }
+      }
+
       if (!res.ok) {
-        const contentType = res.headers.get('content-type') || ''
-        if (res.status === 422 && contentType.includes('application/json')) {
-          const j = await res.json()
+        if (res.status === 422 && bodyJson) {
+          const j = bodyJson
           // 中文注释：低置信/冲突场景——仍然消费 enrichedJson/overlay 并提示人工复核
           try {
             if (j.enrichedJson) {
@@ -525,10 +535,10 @@ export default function ReviewForm({
           } catch (e) {}
           // 继续向下走 Markdown 展示逻辑（若包含）
         } else {
-          const txt = await res.text()
-          throw new Error(txt || `Status ${res.status}`)
+          throw new Error(bodyText || `Status ${res.status}`)
         }
       }
+
       // 若请求成功且使用了自定义 api/model 配对，则通知父组件保存该配对以便加入下拉
       try {
         if (res.ok) {
@@ -539,12 +549,11 @@ export default function ReviewForm({
           }
         }
       } catch (e) {}
-      const contentType = res.headers.get('content-type') || ''
       let md = ''
       let qFromJson: any = ''
       // 如果后端返回包含 timeline，则使用该信息更新进度与计时显示
       if (contentType.includes('application/json')) {
-        const peek = await res.clone().json().catch(() => null)
+        const peek = bodyJson
         if (peek && peek.timeline && Array.isArray(peek.timeline)) {
           // 仅用于计算耗时，不在此处合并 timeline，避免重复合并
           try {
@@ -558,7 +567,7 @@ export default function ReviewForm({
       }
 
       if (contentType.includes('application/json')) {
-        const j = await res.json()
+        const j = bodyJson || {}
         // 存储后端返回的 enrichedJson 以便后续提交复用（避免二次上传图片）
         if (j.enrichedJson) {
           const parsed = (typeof j.enrichedJson === 'string') ? JSON.parse(j.enrichedJson) : j.enrichedJson
@@ -599,7 +608,7 @@ export default function ReviewForm({
           if (steps.includes('second_stage_analysis_done')) setProgressStep('second_stage_analysis_done')
         } catch {}
       } else {
-        md = await res.text()
+        md = bodyText
       }
 
       // 显示逻辑容错：
