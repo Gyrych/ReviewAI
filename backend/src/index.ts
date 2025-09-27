@@ -8,6 +8,9 @@ import { generateMarkdownReview } from './llm'
 import { deepseekTextDialog } from './deepseek'
 import { logInfo, logError, readRecentLines } from './logger'
 import { ensureSessionsDir, saveSession, listSessions, loadSession, deleteSession, SessionFileV1, sanitizeId } from './sessions'
+import { initProgress, pushProgress, getProgress, clearProgress } from './progress'
+import { artifactsDir, computeSha1, saveArtifact } from './artifacts'
+import { makeTimelineItem, makeRequestSignature } from './timeline'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
@@ -26,6 +29,24 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 // 提供项目根目录下 logo 静态文件（用于前端通过 /api 路径获取 logo）
 // 这样在开发模式下，前端可通过代理将请求转发到后端（例如 /api/logo/logo.png）以获取仓库根目录的图片文件
 app.use('/api/logo', express.static(path.resolve(__dirname, '..', '..', 'logo')))
+
+// 提供 artifacts 静态文件访问
+try {
+  const dir = artifactsDir()
+  app.use('/api/artifacts', express.static(dir))
+} catch (e) {
+  logError('artifacts.static.mount.failed', { error: String(e) })
+}
+
+// 提供 datasheets 静态文件访问（便于直接打开已下载的 PDF/HTML）
+try {
+  const dsDir = path.resolve(__dirname, '..', 'uploads', 'datasheets')
+  if (fs.existsSync(dsDir)) {
+    app.use('/api/datasheets', express.static(dsDir))
+  }
+} catch (e) {
+  logError('datasheets.static.mount.failed', { error: String(e) })
+}
 
 app.get('/api/hello', (req, res) => {
   res.json({ message: 'Hello from backend' })
@@ -124,15 +145,64 @@ app.post('/api/review', upload.any(), async (req, res) => {
     const apiUrl = body.apiUrl || null
 
     // provider 路由选择：支持 'deepseek' (文本对话) 与 'gpt5'（图像识别 + 评审）
+    // 为 deepseek 分支创建独立的 timeline 与 progressId，避免变量提升错误
     if (provider === 'deepseek') {
+      const progressId = (body.progressId || '').toString().trim()
+      if (progressId) { try { initProgress(progressId) } catch {} }
+      const timeline: { step: string; ts: number; meta?: any }[] = []
       if (!apiUrl) return res.status(400).json({ error: 'apiUrl missing: please specify API URL for deepseek' })
       if (files.length > 0) return res.status(400).json({ error: 'deepseek provider does not support images; use gpt5 provider' })
       const message = `Please review the following design requirements and return a Markdown review.\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}`
       // 如果用户提供的是 base URL（例如 https://api.deepseek.com/v1），deepseekTextDialog 会尝试直接调用该 URL；
       // 我们希望记录尝试的 origin 以便排查，但不要记录敏感头部。
       logInfo('api/review forwarding to deepseek', { apiHost: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })() })
+
+      // 实时进度：记录二次分析开始
+      timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() })
+      if (progressId) pushProgress(progressId, { step: 'second_stage_analysis_start', ts: Date.now() })
+
+      // 保存 LLM 请求 artifact（不含敏感头）
+      let requestArtifact: any = null
+      try {
+        const { saveArtifact } = require('./artifacts')
+        const payloadPreview = {
+          provider: 'deepseek',
+          apiHost: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })(),
+          model,
+          systemPrompt: systemPrompt || '',
+          message,
+          history: Array.isArray(history) ? history : []
+        }
+        requestArtifact = await saveArtifact(JSON.stringify(payloadPreview, null, 2), `llm_request_deepseek_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+      } catch {}
+
       const reply = await deepseekTextDialog(apiUrl, message, model, authHeader, systemPrompt, history)
-      return res.json({ markdown: reply })
+
+      // 保存 LLM 响应 artifact
+      let responseArtifact: any = null
+      try {
+        const { saveArtifact } = require('./artifacts')
+        responseArtifact = await saveArtifact(String(reply || ''), `llm_response_deepseek_${Date.now()}`, { ext: '.md', contentType: 'text/markdown' })
+      } catch {}
+
+      // 记录分析完成
+      timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() })
+      if (progressId) pushProgress(progressId, { step: 'second_stage_analysis_done', ts: Date.now() })
+
+      // 增加结果节点，携带 llmResponse 与 artifacts
+      const resultItem = {
+        step: 'analysis_result',
+        ts: Date.now(),
+        meta: {
+          llmResponse: { fullResponse: String(reply || '') },
+          requestArtifact,
+          responseArtifact
+        }
+      }
+      timeline.push(resultItem)
+      if (progressId) pushProgress(progressId, resultItem as any)
+
+      return res.json({ markdown: reply, timeline })
     }
 
     // 简单日志（不包含敏感信息）
@@ -150,17 +220,63 @@ app.post('/api/review', upload.any(), async (req, res) => {
       }
     }
 
+  // 实时进度：若存在 progressId，将 timeline 每步同步到内存 store，供前端轮询实时查看
+  const progressId = (body.progressId || '').toString().trim()
+  if (progressId) { try { initProgress(progressId) } catch {} }
+
   // 调用 LLM，已移除 reviewGuidelines 参数
   // 记录后端各阶段时间戳以便前端展示详细的会话进度与耗时
   const timeline: { step: string; ts: number; meta?: any }[] = []
-  timeline.push({ step: 'request_received', ts: Date.now() })
+  const tReq = Date.now()
+  const reqReceived = makeTimelineItem('backend.request_received', { ts: tReq, origin: 'backend', category: 'state', meta: { description: '请求已接收' } })
+  timeline.push(reqReceived)
+  if (progressId) pushProgress(progressId, reqReceived)
+
+  // 记录请求快照（脱敏）到 artifact，并推送 request_payload_received
+  try {
+    const filesPreview = files.map((f: any) => ({ name: f.originalname, mimetype: f.mimetype, size: f.size }))
+    const snapshot = {
+      provider,
+      apiUrlOrigin: (() => { try { return new URL(apiUrl).origin } catch(e){ return apiUrl } })(),
+      model,
+      options: {
+        enableSearch: body.enableSearch,
+        searchTopN: body.searchTopN,
+        saveEnriched: body.saveEnriched,
+        multiPassRecognition: body.multiPassRecognition,
+        recognitionPasses: body.recognitionPasses
+      },
+      files: filesPreview,
+      enrichedJsonProvided: !!body.enrichedJson
+    }
+    const a = await saveArtifact(JSON.stringify(snapshot, null, 2), `request_snapshot_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+    const it = makeTimelineItem('backend.request_payload_received', { ts: Date.now(), origin: 'backend', category: 'io', meta: { description: '请求载荷已接收并保存快照' }, artifacts: { request: a } })
+    timeline.push(it)
+    if (progressId) pushProgress(progressId, it)
+  } catch {}
 
   // 初始化IC器件资料元数据
   let datasheetMeta: any[] = []
 
   // 如果需要识别图片，标记并记录阶段时间点；在此处创建必要的局部变量以避免作用域问题
   if (!body.enrichedJson && files.length > 0) {
-      timeline.push({ step: 'images_processing_start', ts: Date.now() })
+    const tImgStart = Date.now()
+    const imgStart = makeTimelineItem('vision.processing_start', { ts: tImgStart, origin: 'backend', category: 'vision', meta: { modelType: 'vision', description: '开始进行视觉识别与解析' } })
+    timeline.push(imgStart)
+    if (progressId) pushProgress(progressId, imgStart)
+      // 记录批处理视觉请求（脱敏）
+      try {
+        const filesPreview2 = files.map((f: any) => {
+          const info = { name: f.originalname, mimetype: f.mimetype, size: f.size }
+          try { const buf = fs.existsSync(f.path) ? fs.readFileSync(f.path) : null; if (buf) (info as any).sha1 = computeSha1(buf) } catch {}
+          return info
+        })
+        const visionReq = { apiUrlOrigin: (() => { try { return new URL(apiUrl).origin } catch(e){return apiUrl} })(), model, files: filesPreview2 }
+        const a = await saveArtifact(JSON.stringify(visionReq, null, 2), `vision_batch_request_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+        const it = makeTimelineItem('vision.request', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { description: '视觉批处理请求已生成', modelType: 'vision' }, artifacts: { request: a } })
+        timeline.push(it)
+        if (progressId) pushProgress(progressId, it)
+      } catch {}
       const imgs = files.map((f: any) => ({ path: f.path, originalname: f.originalname }))
       // 统一解析布尔/选项字段，记录原始值以便诊断前端传参问题
       function parseBooleanField(value: any, defaultVal: boolean): boolean {
@@ -187,7 +303,14 @@ app.post('/api/review', upload.any(), async (req, res) => {
         multiPassRecognition,
         recognitionPasses
       })
-      circuitJson = await extractCircuitJsonFromImages(imgs, apiUrl, model, authHeader, { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses }, timeline)
+      circuitJson = await extractCircuitJsonFromImages(
+        imgs,
+        apiUrl,
+        model,
+        authHeader,
+        { enableSearch, topN, saveEnriched, multiPassRecognition, recognitionPasses, progressId },
+        timeline
+      )
 
       // 记录图片解析结果摘要到 timeline
       const processingMeta: any = {
@@ -198,49 +321,97 @@ app.post('/api/review', upload.any(), async (req, res) => {
         hasMetadata: !!(circuitJson as any)?.metadata,
         enrichedComponentsCount: Array.isArray(circuitJson?.components) ? circuitJson.components.filter((c: any) => c.enrichment).length : 0
       }
-      timeline.push({
+      const imgDone = {
         step: 'images_processing_done',
         ts: Date.now(),
         meta: {
           type: 'vision_result',
+          modelType: 'vision',
           visionResult: processingMeta,
+          description: `视觉识别解析完成，识别出 ${processingMeta.componentsCount} 个器件，${processingMeta.connectionsCount} 条连接` ,
           summary: `识别出 ${processingMeta.componentsCount} 个器件，${processingMeta.connectionsCount} 条连接，${processingMeta.netsCount} 个网络${processingMeta.hasOverlay ? '，包含可视化覆盖层' : ''}${processingMeta.enrichedComponentsCount > 0 ? `，${processingMeta.enrichedComponentsCount} 个器件有参数补充` : ''}`
         }
-      })
+      }
+      timeline.push(imgDone)
+      if (progressId) pushProgress(progressId, imgDone)
+
+      // 将最终结构化描述与可选 overlay/metadata 作为 artifacts 引用到时间线
+      try {
+        const finalA = await saveArtifact(JSON.stringify(circuitJson, null, 2), `final_circuit_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+        ;(imgDone.meta as any).finalCircuitArtifact = finalA
+      } catch {}
+      try {
+        if ((circuitJson as any)?.overlay) {
+          const overlayA = await saveArtifact(JSON.stringify((circuitJson as any).overlay, null, 2), `overlay_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+          ;(imgDone.meta as any).overlayArtifact = overlayA
+        }
+      } catch {}
+      try {
+        if ((circuitJson as any)?.metadata) {
+          const metadataA = await saveArtifact(JSON.stringify((circuitJson as any).metadata, null, 2), `metadata_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+          ;(imgDone.meta as any).metadataArtifact = metadataA
+        }
+      } catch {}
 
       // 视觉阶段内部已完成 datasheets 下载与元数据落盘，此处补记时间线
       const datasheetCount = (circuitJson as any)?.datasheetMeta?.length || 0
       const downloadedCount = (circuitJson as any)?.datasheetMeta?.filter((item: any) => item.notes && item.notes.includes('saved:'))?.length || 0
-      timeline.push({
-        step: 'datasheets_fetch_done',
-        ts: Date.now(),
-        meta: {
-          type: 'backend',
-          datasheetCount,
-          downloadedCount,
-          datasheets: (circuitJson as any)?.datasheetMeta || []
-        }
-      })
+      const dsDone = makeTimelineItem('backend.datasheets_fetch_done', { ts: Date.now(), origin: 'backend', category: 'io', meta: { datasheetCount, downloadedCount, datasheets: (circuitJson as any)?.datasheetMeta || [], description: '器件资料下载完成' } })
+      timeline.push(dsDone)
+      if (progressId) pushProgress(progressId, dsDone)
+      // 将 datasheets 集中元数据复制为 artifact，并生成每个文件的可访问 URL
+      try {
+        const items = (circuitJson as any)?.datasheetMeta || []
+        const normalized = items.map((it: any) => {
+          const p = (it && typeof it.notes === 'string' && it.notes.startsWith('saved: ')) ? it.notes.slice(7) : ''
+          const url = p ? `/api/datasheets/${path.basename(p)}` : (it.source_url || '')
+          return Object.assign({}, it, { fileUrl: url })
+        })
+        const a = await saveArtifact(JSON.stringify({ items: normalized }, null, 2), `datasheets_metadata_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+        ;(dsDone.meta as any).datasheetsMetadataArtifact = a
+      } catch {}
     } else {
-      timeline.push({ step: 'images_processing_skipped', ts: Date.now() })
+    const skipped = makeTimelineItem('vision.processing_skipped', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { description: '图片处理被跳过' } })
+    timeline.push(skipped)
+    if (progressId) pushProgress(progressId, skipped)
     }
 
-    timeline.push({ step: 'second_stage_analysis_start', ts: Date.now() })
-    const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta)
-    timeline.push({ step: 'second_stage_analysis_done', ts: Date.now() })
+  const tLlmStart = Date.now()
+  const llmStart = makeTimelineItem('llm.analysis_start', { ts: tLlmStart, origin: 'backend', category: 'llm', meta: { modelType: 'llm', description: '开始二次分析（调用大语言模型）' } })
+  timeline.push(llmStart)
+  if (progressId) pushProgress(progressId, llmStart)
+  const markdown = await generateMarkdownReview(circuitJson, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, datasheetMeta, timeline, progressId)
+    const llmDone = makeTimelineItem('llm.analysis_done', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { modelType: 'llm', description: '二次分析完成' } })
+    timeline.push(llmDone)
+    if (progressId) pushProgress(progressId, llmDone)
+
+  // 将评审报告落盘并在 analysis_result 中引用
+  try {
+    const reportA = await saveArtifact(String(markdown || ''), `review_report_${Date.now()}`, { ext: '.md', contentType: 'text/markdown' })
+    const it = makeTimelineItem('analysis.result', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { description: '分析结果已生成' }, artifacts: { result: reportA } })
+    timeline.push(it)
+    if (progressId) pushProgress(progressId, it)
+  } catch {}
 
     // 返回结果（包含 enrichedJson 与 overlay/metadata）
     // 如果 circuitJson 包含 overlay/metadata，则直接返回；否则仅返回 markdown 与 enrichedJson
     const responseBody: any = { markdown }
-    // 将 timeline 作为非敏感的元数据随响应返回，便于前端计算每一步耗时（仅包含时间戳和步骤标识）
+    // 将 timeline 作为非敏感的元数据随响应返回（包含 artifact 引用），便于前端计算每一步耗时与查看完整请求/响应
     try { responseBody.timeline = timeline } catch (e) {}
     responseBody.enrichedJson = circuitJson
     if ((circuitJson as any).overlay) responseBody.overlay = (circuitJson as any).overlay
     if ((circuitJson as any).metadata) responseBody.metadata = (circuitJson as any).metadata
 
-    // 在发送响应前记录 response_sent，以便排查客户端与服务端时间线
+    // 在发送响应前记录 response_sent，并输出 timeline 摘要以便排查客户端与服务端时间线
     try {
       logInfo('api/review response_sent', { hasOverlay: !!responseBody.overlay, hasMetadata: !!responseBody.metadata, imageCount: files.length })
+    } catch (e) { /* ignore logging errors */ }
+    try {
+      // 打印 timeline 长度与近期条目元数据键，便于调试前端未展示问题
+      if (Array.isArray(timeline)) {
+        const sample = timeline.slice(-5).map((it: any) => ({ step: it.step, metaKeys: it.meta ? Object.keys(it.meta) : [] }))
+        logInfo('api/review timeline.summary', { length: timeline.length, sample })
+      }
     } catch (e) { /* ignore logging errors */ }
 
     // 若存在需要人工确认的 low confidence 或冲突，返回 422 并在 body 中包含相关信息（但仍返回 JSON）
@@ -289,6 +460,17 @@ app.post('/api/review', upload.any(), async (req, res) => {
     } catch (e) {
       // 忽略清理错误
     }
+  }
+})
+
+// 实时进度轮询接口（内存存储）：仅用于开发/调试
+app.get('/api/progress/:id', (req, res) => {
+  try {
+    const id = String(req.params.id || '')
+    const tl = getProgress(id)
+    res.json({ timeline: tl })
+  } catch (e: any) {
+    res.status(500).json({ error: 'failed to read progress' })
   }
 })
 

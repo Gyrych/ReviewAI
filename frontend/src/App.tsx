@@ -373,7 +373,7 @@ export default function App() {
         </div>
         <div className="col-span-7">
           <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
-          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={(sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined) || liveTimeline} />
+          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={liveTimeline || (sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined)} />
         </div>
       </div>
     </div>

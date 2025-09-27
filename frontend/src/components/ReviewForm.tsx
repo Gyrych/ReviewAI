@@ -53,16 +53,67 @@ export default function ReviewForm({
   const timerRef = useRef<number | null>(null)
   // 用于中止当前正在进行的 fetch 请求
   const controllerRef = useRef<AbortController | null>(null)
-  // 中文注释：通过 t() 获取步骤名称，避免硬编码
+  // 中文注释：通过 t() 获取步骤名称，避免硬编码；若缺少翻译，使用本地覆盖映射或友好回退
   function stepLabel(code: string): string {
-    return t(`step_${code}`)
+    try {
+      if (!code) return ''
+      // 优先尝试 i18n key: step_<code>
+      const key = `step_${code}`
+      const val = t(key)
+      if (val && val !== key) return val
+
+      // 尝试替代 key（点换下划线）
+      const altKey = `step_${code.replace(/\./g, '_')}`
+      const altVal = t(altKey)
+      if (altVal && altVal !== altKey) return altVal
+
+      // 覆盖映射：对常见步骤提供中文友好名称，避免界面出现未翻译的步名
+      const OVERRIDES: Record<string, string> = {
+        'preparing': '准备中',
+        'frontend.preparing': '准备中',
+        'uploading_files': '上传文件',
+        'frontend.uploading_files': '上传文件',
+        'using_cached_enriched_json': '使用本地解析结果',
+        'frontend.using_cached_enriched_json': '使用本地解析结果',
+        'sending_request': '发送请求',
+        'frontend.sending_request': '发送请求',
+        'backend.request_received': '请求已接收',
+        'backend.request_payload_received': '请求载荷已接收',
+        'vision.processing_start': '视觉识别开始',
+        'vision.request': '视觉识别请求',
+        'vision.response': '视觉识别响应',
+        'vision.processing_done': '视觉识别完成',
+        'vision.processing_skipped': '视觉处理已跳过',
+        'vision.ocr_start': 'OCR 开始',
+        'vision.ocr_done': 'OCR 完成',
+        'vision.enrichment_start': '参数补充开始',
+        'vision.enrichment_done': '参数补充完成',
+        'vision.enrichment_skipped': '参数补充已跳过',
+        'llm.analysis_start': '开始二次分析',
+        'llm.analysis_done': '二次分析完成',
+        'llm.request': 'LLM 请求',
+        'llm.response': 'LLM 响应',
+        'analysis.result': '分析结果',
+        'clarifying_question': '问题确认',
+        'analysis_result': '分析结果',
+        'done': '完成',
+        'aborted': '已中止'
+      }
+      if (OVERRIDES[code]) return OVERRIDES[code]
+
+      // 最后回退：将 code 的点号替换为空格并首字母大写简化显示
+      const human = code.replace(/\./g, ' ')
+      return human.charAt(0).toUpperCase() + human.slice(1)
+    } catch (e) {
+      return code || ''
+    }
   }
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState('')
   const [questionConfirm, setQuestionConfirm] = useState('')
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   // 中文注释：记录与大模型交互的步骤时间线（用于展示历史步骤）
-  const [timeline, setTimeline] = useState<{ step: string; ts?: number; meta?: any }[]>([])
+  const [timeline, setTimeline] = useState<{ step: string; ts?: number; meta?: any; origin?: string; artifacts?: any; category?: string; tags?: string[] }[]>([])
   // 控制哪些后端 timeline 项被展开以显示详情
   const [expandedTimelineItems, setExpandedTimelineItems] = useState<Record<string, boolean>>({})
   const [localEnrichedJson, setLocalEnrichedJson] = useState<any | null>(null)
@@ -70,6 +121,98 @@ export default function ReviewForm({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
   const isHydratingRef = useRef<boolean>(false)
   const [noSystemPromptWarning, setNoSystemPromptWarning] = useState<boolean>(false)
+  // 进度轮询：使用 progressId 与后端同步实时 timeline
+  const [progressId, setProgressId] = useState<string | null>(null)
+  const progressPollRef = useRef<number | null>(null)
+  // 立即可用的 progressId（避免 useState 异步导致丢失）
+  const progressIdRef = useRef<string | null>(null)
+  // Artifact 内容缓存：按 URL 存储已拉取的文本内容
+  const [artifactCache, setArtifactCache] = useState<Record<string, { loading: boolean; error?: string; content?: string }>>({})
+
+  // 中文注释：判断是否为图片类资源
+  function isImageArtifact(art?: any): boolean {
+    try {
+      const name = (art?.filename || '').toLowerCase()
+      const ct = (art?.contentType || '').toLowerCase()
+      return /\.(png|jpg|jpeg|webp|gif)$/i.test(name) || /image\//.test(ct)
+    } catch { return false }
+  }
+
+  // 中文注释：判断是否可能是 JSON
+  function isJsonArtifact(art?: any): boolean {
+    try {
+      const name = (art?.filename || '').toLowerCase()
+      const ct = (art?.contentType || '').toLowerCase()
+      return name.endsWith('.json') || ct.includes('application/json')
+    } catch { return false }
+  }
+
+  // 中文注释：按需加载 artifact 文本内容（兼容 ArtifactRef 结构）
+  async function ensureLoadArtifact(art?: any) {
+    try {
+      if (!art) return
+      const url = String(art.url || art.fileUrl || '')
+      if (!url) return
+      const cached = artifactCache[url]
+      if (cached && (cached.loading || cached.content || cached.error)) return
+      setArtifactCache((m) => ({ ...m, [url]: { loading: true } }))
+      const r = await fetch(url)
+      if (!r.ok) throw new Error(`${r.status}`)
+      const txt = await r.text()
+      setArtifactCache((m) => ({ ...m, [url]: { loading: false, content: txt } }))
+    } catch (e: any) {
+      try {
+        const url = String(art?.url || art?.fileUrl || '')
+        setArtifactCache((m) => ({ ...m, [url]: { loading: false, error: e?.message || String(e) } }))
+      } catch {}
+    }
+  }
+
+  // 中文注释：渲染单个 artifact 的内联预览（JSON/文本；图片内联 <img>）
+  function ArtifactInline({ label, art }: { label: string; art?: any }) {
+    if (!art) return null
+    const url = String(art.url || '')
+    const cache = artifactCache[url]
+    const isImg = isImageArtifact(art)
+    const isJson = isJsonArtifact(art)
+
+    return (
+      <details className="border rounded border-gray-200 dark:border-gray-600">
+        <summary className="cursor-pointer p-2 text-xs font-medium bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+          {label}{art.filename ? ` - ${art.filename}` : ''}
+        </summary>
+        <div className="p-2 border-t border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900">
+          {isImg ? (
+            <div className="mt-1">
+              <img src={url} alt={art.filename || 'image'} className="max-h-64 object-contain border border-gray-100 dark:border-gray-700" />
+            </div>
+          ) : (
+            <div className="mt-1">
+              {!cache && (
+                <button type="button" className="text-xs px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder" onClick={() => ensureLoadArtifact(art)}>加载内容</button>
+              )}
+              {cache?.loading && (
+                <div className="text-[11px] text-gray-500">加载中...</div>
+              )}
+              {cache?.error && (
+                <div className="text-[11px] text-red-600">加载失败：{cache.error}</div>
+              )}
+              {cache?.content !== undefined && (
+                <pre className="text-[10px] overflow-auto max-h-64 bg-gray-50 dark:bg-gray-900 p-2 rounded whitespace-pre-wrap">
+                  {(() => {
+                    if (isJson) {
+                      try { return JSON.stringify(JSON.parse(cache.content || 'null'), null, 2) } catch { return cache.content }
+                    }
+                    return cache.content
+                  })()}
+                </pre>
+              )}
+            </div>
+          )}
+        </div>
+      </details>
+    )
+  }
   // 多轮识别和搜索配置
   const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(false)
   const [recognitionPasses, setRecognitionPasses] = useState<number>(5)
@@ -202,14 +345,51 @@ export default function ReviewForm({
     if (timerRef.current) window.clearInterval(timerRef.current)
     timerRef.current = window.setInterval(() => setElapsedMs((s) => s + 1000), 1000)
     try {
-      // 在提交流程开始时记录 timeline 条目
-      setTimeline((t) => t.concat([{ step: 'preparing', ts: Date.now() }]))
+      // 在提交流程开始时重置并记录第一条 timeline 条目（避免多次提交造成重复堆叠）
+      setTimeline([{ step: 'preparing', ts: Date.now() }])
+      // 生成 progressId，并启动轮询以从后端获取实时 timeline（若后端支持）
+      try {
+        const pid = `p_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        setProgressId(pid)
+        progressIdRef.current = pid
+        // 启动轮询
+        if (progressPollRef.current) window.clearInterval(progressPollRef.current)
+        progressPollRef.current = window.setInterval(async () => {
+          try {
+            const r = await fetch(`/api/progress/${encodeURIComponent(pid)}`)
+            if (!r.ok) return
+            const j = await r.json()
+            if (Array.isArray(j.timeline)) {
+              // 优先使用后端 timeline，保留本地仅以 'preparing/uploading_files/using_cached_enriched_json/sending_request' 前缀的前置步骤
+              setTimeline((t) => {
+                const localPrefix = (t || []).filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
+                const remote = j.timeline.map((it: any) => ({ step: it.step, ts: it.ts, origin: it.origin || 'backend', category: it.category || (it.meta && it.meta.modelType) || 'other', meta: it.meta || {}, artifacts: it.artifacts || {}, tags: it.tags || [] }))
+                // 按时间排序
+                const merged = localPrefix.concat(remote).sort((a: any, b: any) => (a.ts || 0) - (b.ts || 0))
+                // 去重策略：基于 step + (artifacts.request.id || artifacts.request.url) + meta.requestSignature
+                const seen = new Set<string>()
+                const uniq: any[] = []
+                for (const item of merged) {
+                  const keyParts = [item.step || '']
+                  if (item.artifacts && item.artifacts.request && (item.artifacts.request.id || item.artifacts.request.url)) keyParts.push(String(item.artifacts.request.id || item.artifacts.request.url))
+                  if (item.meta && item.meta.requestSignature) keyParts.push(String(item.meta.requestSignature))
+                  const key = keyParts.join('|')
+                  if (!seen.has(key)) { seen.add(key); uniq.push(item) }
+                }
+                return uniq
+              })
+            }
+          } catch {}
+        }, 1000)
+      } catch {}
       // 中文注释：在发送前仅创建"提交快照"，不立即改动界面；等待上游返回后再入历史与翻页
       const dialogTrimmed = (dialog || '').trim()
       const submittedDialog = dialogTrimmed
       const historySnapshot = submittedDialog ? history.concat([{ role: 'user' as const, content: submittedDialog }]) : history
 
       const fd = new FormData()
+      // 将 progressId 传给后端以关联进度（使用 ref 确保立即可用）
+      if (progressIdRef.current) fd.append('progressId', progressIdRef.current)
       // fetch latest system prompt from backend and prepend to prompts
       try {
         const spRes = await fetch(`/api/system-prompt?lang=${encodeURIComponent(lang)}`)
@@ -349,7 +529,7 @@ export default function ReviewForm({
       if (contentType.includes('application/json')) {
         const peek = await res.clone().json().catch(() => null)
         if (peek && peek.timeline && Array.isArray(peek.timeline)) {
-          // 计算后端最后一个时间戳并更新 elapsedMs
+          // 仅用于计算耗时，不在此处合并 timeline，避免重复合并
           try {
             const last = peek.timeline[peek.timeline.length - 1]
             if (last && last.ts) {
@@ -357,15 +537,6 @@ export default function ReviewForm({
               setElapsedMs(Math.max(0, now - peek.timeline[0].ts))
             }
           } catch (e) {}
-          // 合并后端返回的 timeline 到本地 timeline（保留本地已有条目）
-          try {
-            const remote: any[] = peek.timeline || []
-            const normalized = remote.map((x) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
-            // 先合并到本地视图
-            setTimeline((t) => t.concat(normalized))
-            // 再通过回调通知父组件（例如 App）以更新全局/结果区 timeline
-            try { if (typeof onTimeline === 'function') onTimeline(normalized) } catch (e) { /* ignore parent callback errors */ }
-          } catch {}
         }
       }
 
@@ -388,7 +559,11 @@ export default function ReviewForm({
           // 若后端返回 timeline，将其合并并尝试映射用户可读进度
           if (Array.isArray(j.timeline)) {
             const remote = j.timeline.map((x: any) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
-            setTimeline((t) => t.concat(remote))
+            setTimeline((t) => {
+              // 用最终完整的远端 timeline 覆盖合并，避免重复
+              const localPrefix = t.filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
+              return localPrefix.concat(remote)
+            })
           }
           const steps: string[] = (j.timeline || []).map((x: any) => x.step)
           // 尝试将阶段线性映射为用户可读标记
@@ -503,6 +678,14 @@ export default function ReviewForm({
         window.clearInterval(timerRef.current)
         timerRef.current = null
       }
+      // 停止进度轮询
+      if (progressPollRef.current) {
+        window.clearInterval(progressPollRef.current)
+        progressPollRef.current = null
+      }
+      // 清除 progressId
+      setProgressId(null)
+      progressIdRef.current = null
     }
   }
 
@@ -855,27 +1038,34 @@ export default function ReviewForm({
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
         <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
         <div className="mt-1 space-y-2">
-          {(() => {
+            {(() => {
             // 显示所有步骤，包括前端和后端步骤
             const allTimeline = timeline || []
             if (!allTimeline || allTimeline.length === 0) return <div className="text-xs text-gray-400">{t('step_idle')}</div>
 
             // 为前端步骤添加更详细的元数据
             const enhancedTimeline = allTimeline.map((item, index) => {
-              const enhancedItem = { ...item }
+              const enhancedItem: any = { ...item }
 
               // 分类步骤类型
               function getStepType(step: string): { type: string; modelType?: string; description: string } {
                 const aiSteps = {
-                  'images_processing_start': { type: 'ai_interaction', modelType: 'vision', description: '调用视觉模型解析图片' },
-                  'images_processing_done': { type: 'ai_interaction', modelType: 'vision', description: '视觉模型解析完成' },
-                  'multi_pass_recognition_start': { type: 'ai_interaction', modelType: 'vision', description: '开始多轮视觉识别' },
-                  'multi_pass_recognition_done': { type: 'ai_interaction', modelType: 'vision', description: '多轮视觉识别完成' },
-                  'recognition_consolidation_start': { type: 'ai_interaction', modelType: 'llm', description: '开始结果整合' },
-                  'recognition_consolidation_done': { type: 'ai_interaction', modelType: 'llm', description: '结果整合完成' },
-                  'recognition_consolidation_fallback': { type: 'ai_interaction', modelType: 'vision', description: '结果整合回退' },
-                  'second_stage_analysis_start': { type: 'ai_interaction', modelType: 'llm', description: '调用大语言模型分析' },
-                  'second_stage_analysis_done': { type: 'ai_interaction', modelType: 'llm', description: '大语言模型分析完成' }
+                  'images_processing_start': { type: 'ai_interaction', modelType: 'vision', description: '开始进行视觉识别与解析' },
+                  'images_processing_done': { type: 'ai_interaction', modelType: 'vision', description: '视觉识别解析完成，生成结构化结果' },
+                  'multi_pass_recognition_start': { type: 'ai_interaction', modelType: 'vision', description: '启动多轮视觉识别以提升准确性' },
+                  'multi_pass_recognition_done': { type: 'ai_interaction', modelType: 'vision', description: '多轮视觉识别结束，汇总各轮结果' },
+                  'recognition_consolidation_start': { type: 'ai_interaction', modelType: 'llm', description: '开始整合多轮识别结果' },
+                  'recognition_consolidation_done': { type: 'ai_interaction', modelType: 'llm', description: '完成识别结果整合并生成统一输出' },
+                  'recognition_consolidation_fallback': { type: 'ai_interaction', modelType: 'vision', description: '整合失败，回退到最佳单轮结果' },
+                  'vision_model_request': { type: 'ai_interaction', modelType: 'vision', description: '发送视觉识别请求（包含图像与提示）' },
+                  'vision_model_response': { type: 'ai_interaction', modelType: 'vision', description: '接收视觉识别响应（结构化 JSON）' },
+                  'ocr_recognition_start': { type: 'ai_interaction', modelType: 'vision', description: '开始 OCR 辅助识别与预处理' },
+                  'ocr_recognition_done': { type: 'ai_interaction', modelType: 'vision', description: '完成 OCR 识别并融合结果' },
+                  'ocr_recognition_failed': { type: 'ai_interaction', modelType: 'vision', description: 'OCR 识别失败，继续后续流程' },
+                  'llm_request': { type: 'ai_interaction', modelType: 'llm', description: '发送大语言模型请求（含上下文与JSON）' },
+                  'llm_response': { type: 'ai_interaction', modelType: 'llm', description: '接收大语言模型响应' },
+                  'second_stage_analysis_start': { type: 'ai_interaction', modelType: 'llm', description: '开始二次分析（评审生成）' },
+                  'second_stage_analysis_done': { type: 'ai_interaction', modelType: 'llm', description: '二次分析完成（产出评审报告）' }
                 }
 
                 if (aiSteps[step as keyof typeof aiSteps]) {
@@ -888,7 +1078,7 @@ export default function ReviewForm({
                 }
 
                 // 后端辅助步骤
-                if (['request_received', 'datasheets_fetch_done', 'images_processing_skipped'].includes(step)) {
+                if (['request_received', 'request_payload_received', 'vision_batch_request', 'datasheets_fetch_done', 'images_processing_skipped'].includes(step)) {
                   return { type: 'backend', description: '后端处理' }
                 }
 
@@ -902,29 +1092,29 @@ export default function ReviewForm({
 
               const stepInfo = getStepType(item.step)
 
-              // 为前端对话步骤添加内容
-              if (item.step === 'preparing') {
+              // 为前端对话步骤添加内容（兼容新命名空间）
+              if (item.step === 'preparing' || item.step === 'frontend.preparing') {
                 enhancedItem.meta = {
                   type: stepInfo.type,
                   action: t('step_preparing'),
                   description: stepInfo.description,
                   files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
                 }
-              } else if (item.step === 'uploading_files') {
+              } else if (item.step === 'uploading_files' || item.step === 'frontend.uploading_files') {
                 enhancedItem.meta = {
                   type: stepInfo.type,
                   action: t('step_uploading_files'),
                   description: stepInfo.description,
                   files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
                 }
-              } else if (item.step === 'using_cached_enriched_json') {
+              } else if (item.step === 'using_cached_enriched_json' || item.step === 'frontend.using_cached_enriched_json') {
                 enhancedItem.meta = {
                   type: stepInfo.type,
                   action: t('step_using_cached_enriched_json'),
                   description: stepInfo.description,
                   cachedData: localEnrichedJson ? '包含已解析的图片结构化数据' : '无缓存数据'
                 }
-              } else if (item.step === 'sending_request') {
+              } else if (item.step === 'sending_request' || item.step === 'frontend.sending_request') {
                 enhancedItem.meta = {
                   type: stepInfo.type,
                   action: t('step_sending_request'),
@@ -1088,14 +1278,14 @@ export default function ReviewForm({
 
             return enhancedTimeline.slice().reverse().map((it, idx) => {
               const step = it.step || ''
-              // 更新分组逻辑
-              let groupKey = 'timeline.group.other'
-              if (/images_processing/i.test(step)) groupKey = 'timeline.group.vision'
-              else if (/datasheets_fetch|search|fetch/i.test(step)) groupKey = 'timeline.group.search'
-              else if (/second_stage_analysis/i.test(step)) groupKey = 'timeline.group.llm'
-              else if (/request|sending|llm_request|request_received/i.test(step)) groupKey = 'timeline.group.request'
-              else if (/preparing|uploading|using_cached|aborted|done/i.test(step)) groupKey = 'timeline.group.frontend'
-              else if (/analysis|clarifying_question/i.test(step)) groupKey = 'timeline.group.response'
+              // 更新分组逻辑：统一为语义化类别键（frontend, vision, search, llm, request, response, other）
+              let groupKey = 'other'
+              if (/images_processing/i.test(step)) groupKey = 'vision'
+              else if (/datasheets_fetch|search|fetch/i.test(step)) groupKey = 'search'
+              else if (/second_stage_analysis/i.test(step)) groupKey = 'llm'
+              else if (/request|sending|llm_request|request_received/i.test(step)) groupKey = 'request'
+              else if (/preparing|uploading|using_cached|aborted|done/i.test(step)) groupKey = 'frontend'
+              else if (/analysis|clarifying_question/i.test(step)) groupKey = 'response'
 
               const isCurrent = progressStep && (step === progressStep || step.includes(progressStep))
               const isError = /aborted|error|fail/i.test(step)
@@ -1116,18 +1306,82 @@ export default function ReviewForm({
                           {isError ? '✖' : (isAIInteraction ? '🧠' : (isLLMResponse ? '🤖' : (isVisionResult ? '👁️' : (isCurrent ? '●' : '○'))))}
                         </span>
                         <div className="truncate">{stepLabel(it.step) || it.step}</div>
-                        {isAIInteraction && (
-                          <span className={`text-xs px-1 py-0.5 rounded text-white ${isVisionStep ? 'bg-green-600' : (isLLMStep ? 'bg-blue-600' : 'bg-purple-600')}`}>
-                            {isVisionStep ? '视觉' : (isLLMStep ? 'LLM' : 'AI')}
-                          </span>
-                        )}
+                        {/* 统一 badge 渲染：仅渲染一个统一样式的标识，颜色/文本根据元数据决定 */}
+                        {(() => {
+                          const meta = it.meta || {}
+                          const modelType = meta.modelType || ''
+                          let badgeLabel = ''
+                          let badgeBgClass = ''
+                          if (isError) {
+                            badgeLabel = 'ERR'
+                            badgeBgClass = 'bg-red-600'
+                          } else if (modelType === 'llm') {
+                            badgeLabel = 'LLM'
+                            badgeBgClass = 'bg-blue-600'
+                          } else if (modelType === 'vision') {
+                            badgeLabel = '视觉'
+                            badgeBgClass = 'bg-green-600'
+                          } else if (it.meta && it.meta.type === 'ai_interaction') {
+                            badgeLabel = 'AI'
+                            badgeBgClass = 'bg-purple-600'
+                          } else if (isCurrent) {
+                            badgeLabel = '●'
+                            badgeBgClass = 'bg-yellow-500'
+                          } else {
+                            badgeLabel = '○'
+                            badgeBgClass = 'bg-gray-300'
+                          }
+
+                          return (
+                            <span className={`ml-2 text-[10px] px-1 py-0.5 rounded text-white ${badgeBgClass}`} style={{ lineHeight: 1 }}>
+                              {badgeLabel}
+                            </span>
+                          )
+                        })()}
                       </div>
+                      {/* 小标题单独显示在大标题下方，避免与标题同行过长 */}
                       <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 truncate">
-                        {t(groupKey)}
-                        {it.meta && it.meta.action ? ` · ${it.meta.action}` : ''}
-                        {it.meta && it.meta.description ? ` · ${it.meta.description}` : ''}
-                        {it.meta && it.meta.content && !isAIInteraction ? ` · ${it.meta.content}` : ''}
-                    </div>
+                        {(() => {
+                          const meta = it.meta || {}
+                          const parts: string[] = []
+                          let rawGroup = ''
+                          try { rawGroup = t(`timeline.group.${groupKey}`) } catch { rawGroup = groupKey }
+
+                          // 规范化标签：去除常见后缀以避免重复（例如："前端步骤" 和 "前端"）
+                          function normalizeLabel(s: string) {
+                            if (!s) return ''
+                            return String(s).replace(/步骤|处理|阶段|操作/gi, '').trim()
+                          }
+
+                          const g = normalizeLabel(rawGroup)
+                          // primary label: 优先使用 action，否则使用 step label
+                          const primary = (meta.action && String(meta.action).trim()) ? String(meta.action).trim() : (stepLabel(it.step) || it.step)
+
+                          const originVal = it.origin || (it.meta && it.meta.origin) ? (it.origin || String(it.meta.origin)) : ((it.meta && it.meta.type === 'backend') ? 'backend' : 'frontend')
+                          const originRaw = originVal === 'backend' ? t('timeline.origin.backend') : t('timeline.origin.frontend')
+                          const originTag = normalizeLabel(originRaw)
+
+                          // 组装 parts：优先显示 group（简短），然后可能显示 origin（若与 group 不同且 primary 不包含它），最后显示 primary
+                          if (g) parts.push(g)
+                          if (originTag && originTag !== g && !(primary && String(primary).includes(originTag))) parts.push(originTag)
+                          if (primary && !parts.some(p => String(p).toLowerCase() === String(primary).toLowerCase())) parts.push(primary)
+
+                          // 附加描述/内容（避免重复），但限制副标题片段数量以防冗长
+                          const desc = (meta.description && String(meta.description).trim()) ? String(meta.description).trim() : ''
+                          const content = (meta.content && !meta.modelType && String(meta.content).trim()) ? String(meta.content).trim() : ''
+                          function isDup(a: string, b: string) {
+                            if (!a || !b) return false
+                            const la = a.toLowerCase()
+                            const lb = b.toLowerCase()
+                            return la === lb || la.includes(lb) || lb.includes(la)
+                          }
+                          if (desc && !parts.some(p => isDup(p, desc))) parts.push(desc)
+                          if (content && !parts.some(p => isDup(p, content)) && !isDup(content, desc)) parts.push(content)
+
+                          const MAX_PARTS = 2
+                          return parts.filter(Boolean).slice(0, MAX_PARTS).join(' · ')
+                        })()}
+                      </div>
                     </div>
                     <div className="text-[11px] text-gray-400 dark:text-gray-500 text-right flex-shrink-0">
                       {formatAbsolute(it.ts)}
@@ -1190,7 +1444,28 @@ export default function ReviewForm({
                                   <div><strong>{t('timeline.hasHistory')}：</strong>{it.meta.analysisRequest.hasHistory ? '是' : '否'}</div>
                                 </>
                               )}
+
+                              {/* 旧 meta 中的 artifact 渲染已迁移为使用 it.artifacts；此处由后面的通用区块统一渲染 */}
+
                             </div>
+                          </div>
+                        )}
+
+                        {/* 通用：若存在 artifact 引用，内嵌渲染（独立于 requestInfo），不跳新页 */}
+                        {(it.artifacts && (it.artifacts.request || it.artifacts.response || it.artifacts.parsed || it.artifacts.multiPassSummary || it.artifacts.finalCircuit || it.artifacts.overlay || it.artifacts.metadata || it.artifacts.datasheetsMetadata || it.artifacts.preprocessedImage || it.artifacts.ocrText || it.artifacts.ocrWords || it.artifacts.result)) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2 space-y-2">
+                            {it.artifacts.request && (<ArtifactInline label="Request" art={it.artifacts.request} />)}
+                            {it.artifacts.response && (<ArtifactInline label="Response" art={it.artifacts.response} />)}
+                            {it.artifacts.parsed && (<ArtifactInline label="Parsed JSON" art={it.artifacts.parsed} />)}
+                            {it.artifacts.multiPassSummary && (<ArtifactInline label="Multi-pass Summary" art={it.artifacts.multiPassSummary} />)}
+                            {it.artifacts.finalCircuit && (<ArtifactInline label="Final Circuit JSON" art={it.artifacts.finalCircuit} />)}
+                            {it.artifacts.overlay && (<ArtifactInline label="Overlay" art={it.artifacts.overlay} />)}
+                            {it.artifacts.metadata && (<ArtifactInline label="Metadata" art={it.artifacts.metadata} />)}
+                            {it.artifacts.datasheetsMetadata && (<ArtifactInline label="Datasheets Metadata" art={it.artifacts.datasheetsMetadata} />)}
+                            {it.artifacts.preprocessedImage && (<ArtifactInline label="OCR Preprocessed Image" art={it.artifacts.preprocessedImage} />)}
+                            {it.artifacts.ocrText && (<ArtifactInline label="OCR Text" art={it.artifacts.ocrText} />)}
+                            {it.artifacts.ocrWords && (<ArtifactInline label="OCR Words" art={it.artifacts.ocrWords} />)}
+                            {it.artifacts.result && (<ArtifactInline label="Review Report" art={it.artifacts.result} />)}
                           </div>
                         )}
 

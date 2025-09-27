@@ -5,6 +5,8 @@ import https from 'https'
 import { webSearch } from './search'
 import crypto from 'crypto'
 import { logInfo, logError, logWarn } from './logger'
+import { pushProgress } from './progress'
+import { makeTimelineItem } from './timeline'
 import { createWorker } from 'tesseract.js'
 import sharp from 'sharp'
 
@@ -27,6 +29,7 @@ export async function extractCircuitJsonFromImages(
     saveEnriched?: boolean;
     multiPassRecognition?: boolean;
     recognitionPasses?: number;
+    progressId?: string;
   },
   timeline?: { step: string; ts: number; meta?: any }[]
 ): Promise<any> {
@@ -41,6 +44,7 @@ export async function extractCircuitJsonFromImages(
   const saveEnriched = options?.saveEnriched !== false
   const multiPassRecognition = options?.multiPassRecognition === true;
   const recognitionPasses = Math.max(1, Math.min(options?.recognitionPasses || 5, 10)) // 限制在1-10次之间
+  const progressId = (options && (options as any).progressId) ? String((options as any).progressId) : ''
 
   logInfo('vision.extraction_start', {
     imageCount: images.length,
@@ -130,14 +134,8 @@ export async function extractCircuitJsonFromImages(
   if (enableSearch && enableParamEnrich && Array.isArray(combined.components)) {
     // Record enrichment start in timeline
     if (timeline) {
-      timeline.push({
-        step: 'component_enrichment_start',
-        ts: Date.now(),
-        meta: {
-          type: 'vision_enrichment',
-          description: '开始对不明确组件参数进行网络搜索补充'
-        }
-      })
+      const it = makeTimelineItem('vision.enrichment_start', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', description: '开始对不明确组件参数进行网络搜索补充' } })
+      timeline.push(it)
     }
 
     let enrichmentCount = 0
@@ -184,15 +182,8 @@ export async function extractCircuitJsonFromImages(
 
     // Record enrichment completion in timeline
     if (timeline) {
-      timeline.push({
-        step: 'component_enrichment_done',
-        ts: Date.now(),
-        meta: {
-          type: 'vision_enrichment',
-          enrichedParametersCount: enrichmentCount,
-          description: `组件参数补充完成，共补充${enrichmentCount}个参数`
-        }
-      })
+      const it = makeTimelineItem('vision.enrichment_done', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', enrichedParametersCount: enrichmentCount, description: `组件参数补充完成，共补充${enrichmentCount}个参数` } })
+      timeline.push(it)
     }
   } else if (enableSearch && !enableParamEnrich) {
     // 参数级别的联网补充被禁用：记录跳过信息到 timeline，便于审计
@@ -219,16 +210,8 @@ export async function extractCircuitJsonFromImages(
 
     logWarn('vision.enrichment.skipped', { totalComponents, skippedParams })
     if (timeline) {
-      timeline.push({
-        step: 'component_enrichment_skipped',
-        ts: Date.now(),
-        meta: {
-          type: 'vision_enrichment',
-          totalComponents,
-          skippedParams,
-          description: '已禁用参数级别的联网补充，保留仅IC datasheet检索'
-        }
-      })
+      const it = makeTimelineItem('vision.enrichment_skipped', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_enrichment', totalComponents, skippedParams, description: '已禁用参数级别的联网补充，保留仅IC datasheet检索' } })
+      timeline.push(it)
     }
   }
 
@@ -239,15 +222,9 @@ export async function extractCircuitJsonFromImages(
 
     // 记录OCR开始到timeline
     if (timeline) {
-      timeline.push({
-        step: 'ocr_recognition_start',
-        ts: Date.now(),
-        meta: {
-          type: 'vision_ocr',
-          imageCount: images.length,
-          description: `开始OCR辅助识别，共处理${images.length}张图片`
-        }
-      })
+      const it = makeTimelineItem('vision.ocr_start', { ts: Date.now(), origin: 'backend', category: 'vision', meta: { type: 'vision_ocr', imageCount: images.length, description: `开始OCR辅助识别，共处理${images.length}张图片` } })
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
     }
 
     // 对每张图片并行进行OCR识别
@@ -290,21 +267,18 @@ export async function extractCircuitJsonFromImages(
 
     logInfo('vision.ocr.fusion_completed', mergedOCRResult.ocrStats)
 
-    // 记录OCR融合完成到timeline
+    // 记录OCR融合完成到timeline（并尝试附上预处理图像与提取文本/词位 artifacts）
     if (timeline) {
-      timeline.push({
+      const it: any = {
         step: 'ocr_recognition_done',
         ts: Date.now(),
         meta: {
           type: 'vision_ocr',
           ...mergedOCRResult.ocrStats,
           description: `OCR辅助识别完成，提取${mergedOCRResult.ocrStats.totalExtractedComponents}个元件，${mergedOCRResult.ocrStats.totalExtractedValues}个数值`,
-          // 添加详细的OCR输出结果
           ocrDetails: {
-            // 汇总所有图片的OCR结果
             extractedComponents: mergedOCRResult.extractedComponents,
             extractedValues: mergedOCRResult.extractedValues,
-            // 包含每张图片的详细识别信息
             imageDetails: ocrResults.map((result, index) => ({
               imageIndex: index,
               filename: images[index]?.originalname || `image_${index + 1}`,
@@ -313,13 +287,40 @@ export async function extractCircuitJsonFromImages(
               textLength: result.text?.length || 0,
               extractedComponentsCount: result.extractedComponents?.length || 0,
               extractedValuesCount: result.extractedValues?.length || 0,
-              // 精简版识别文本（避免timeline过大）
               textPreview: result.text?.substring(0, 200) + (result.text?.length > 200 ? '...' : ''),
               languages: result.languages
             }))
           }
         }
-      })
+      }
+      try {
+        const { saveArtifact } = require('./artifacts')
+        const txtA = await saveArtifact((ocrResults.map(r => r.text || '').join('\n\n')).slice(0) || '', `ocr_text_${Date.now()}`, { ext: '.txt', contentType: 'text/plain' })
+        it.meta.ocrTextArtifact = txtA
+        try {
+          const wordsCombined = JSON.stringify(ocrResults.map(r => r.words || []), null, 2)
+          const wordsA = await saveArtifact(wordsCombined, `ocr_words_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+          it.meta.ocrWordsArtifact = wordsA
+        } catch {}
+        // 如果先前保存了预处理图像 artifact，将其附加
+        if ((global as any).__ocr_preprocess_last__) {
+          it.meta.preprocessedImageArtifact = (global as any).__ocr_preprocess_last__
+          delete (global as any).__ocr_preprocess_last__
+        }
+      } catch {}
+      // 将原有 it.meta 中的 artifact 字段移入 artifacts 以匹配统一 schema
+      try {
+        const artifacts: any = {}
+        if (it.meta && it.meta.ocrTextArtifact) { artifacts.ocrText = it.meta.ocrTextArtifact; delete it.meta.ocrTextArtifact }
+        if (it.meta && it.meta.ocrWordsArtifact) { artifacts.ocrWords = it.meta.ocrWordsArtifact; delete it.meta.ocrWordsArtifact }
+        if (it.meta && it.meta.preprocessedImageArtifact) { artifacts.preprocessedImage = it.meta.preprocessedImageArtifact; delete it.meta.preprocessedImageArtifact }
+        const newIt = makeTimelineItem('vision.ocr_done', { ts: it.ts || Date.now(), origin: 'backend', category: 'vision', meta: it.meta, artifacts })
+        timeline.push(newIt)
+        try { if (progressId) pushProgress(progressId, newIt) } catch {}
+      } catch {
+        timeline.push(it)
+        try { if (progressId) pushProgress(progressId, it) } catch {}
+      }
     }
 
     // 将OCR结果添加到metadata中
@@ -335,15 +336,9 @@ export async function extractCircuitJsonFromImages(
 
     // 记录OCR失败到timeline
     if (timeline) {
-      timeline.push({
-        step: 'ocr_recognition_failed',
-        ts: Date.now(),
-        meta: {
-          type: 'vision_ocr',
-          error: String(error),
-          description: 'OCR辅助识别失败，继续使用大模型识别结果'
-        }
-      })
+      const it = { step: 'ocr_recognition_failed', ts: Date.now(), meta: { type: 'vision_ocr', error: String(error), description: 'OCR辅助识别失败，继续使用大模型识别结果' } }
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
     }
 
     // OCR失败不影响主流程继续
@@ -362,14 +357,9 @@ export async function extractCircuitJsonFromImages(
 
   // 强制：对IC类器件进行资料检索并落盘（uploads/datasheets/）
   if (timeline) {
-    timeline.push({
-      step: 'ic_datasheet_fetch_start',
-      ts: Date.now(),
-      meta: {
-        type: 'backend',
-        description: '开始为IC器件下载datasheet资料'
-      }
-    })
+    const it = { step: 'ic_datasheet_fetch_start', ts: Date.now(), meta: { type: 'backend', description: '开始为IC器件下载datasheet资料' } }
+    timeline.push(it)
+    try { if (progressId) pushProgress(progressId, it) } catch {}
   }
 
   try {
@@ -385,19 +375,9 @@ export async function extractCircuitJsonFromImages(
       return t.includes('ic') || t.includes('chip') || t.includes('opamp') || t.includes('op-amp')
     }).length || 0
 
-    timeline.push({
-      step: 'ic_datasheet_fetch_done',
-      ts: Date.now(),
-      meta: {
-        type: 'backend',
-        icComponentsCount: icCount,
-        datasheetsDownloaded: datasheetMeta.length,
-        datasheetCount: datasheetMeta.length,
-        downloadedCount: datasheetMeta.filter((item: any) => item.notes && item.notes.includes('saved:')).length,
-        datasheets: datasheetMeta,
-        description: `IC器件资料下载完成，识别出${icCount}个IC器件，下载${datasheetMeta.length}份资料`
-      }
-    })
+    const it = { step: 'ic_datasheet_fetch_done', ts: Date.now(), meta: { type: 'backend', icComponentsCount: icCount, datasheetsDownloaded: datasheetMeta.length, datasheetCount: datasheetMeta.length, downloadedCount: datasheetMeta.filter((item: any) => item.notes && item.notes.includes('saved:')).length, datasheets: datasheetMeta, description: `IC器件资料下载完成，识别出${icCount}个IC器件，下载${datasheetMeta.length}份资料` } }
+    timeline.push(it)
+    try { if (progressId) pushProgress(progressId, it) } catch {}
   }
 
   // 将资料元数据添加到 normalized 对象中，以便返回给前端
@@ -1291,6 +1271,15 @@ async function performOCRRecognition(imagePath: string): Promise<any> {
     try {
       processedImagePath = await preprocessImageForOCR(imagePath)
       logInfo('ocr.preprocessing_completed', { originalPath: imagePath, processedPath: processedImagePath })
+      // 在预处理完成后，记录到 timeline 并落盘预处理图像副本与参数
+      try {
+        const { saveArtifactFromPath, saveArtifact } = require('./artifacts')
+        const preImgA = await saveArtifactFromPath(processedImagePath, `ocr_preprocessed_${path.basename(imagePath)}`)
+        const paramsA = await saveArtifact(JSON.stringify({ method: 'greyscale+linear+sharpen+normalise', note: 'auto-resize if low/high resolution' }, null, 2), `ocr_preprocess_params_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+        // timeline 推送在调用方（extractCircuitJsonFromImages）级别更合适，这里仅返回以便汇总
+        ;(preImgA as any).paramsArtifact = paramsA
+        ;(global as any).__ocr_preprocess_last__ = preImgA
+      } catch {}
     } catch (preprocessError) {
       logError('ocr.preprocessing_failed', { error: String(preprocessError) })
       // 如果预处理失败，使用原始图像
@@ -1734,7 +1723,8 @@ async function recognizeSingleImage(
   authHeader?: string,
   passNumber?: number,
   recognitionPasses?: number,
-  timeline?: { step: string; ts?: number; meta?: any }[]
+  timeline?: { step: string; ts?: number; meta?: any }[],
+  progressId?: string
 ): Promise<any> {
   const visionTimeout = Number(process.env.VISION_TIMEOUT_MS || '7200000')
   const fetchRetries = Number(process.env.FETCH_RETRIES || '1')
@@ -1830,12 +1820,12 @@ Read the text on the schematic to get the correct labels and models.`
   }
 
   // 主要识别尝试
-  let result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, promptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal)
+  let result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, promptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId)
 
   // 如果主要尝试失败，尝试备用prompt
   if (!result || (!Array.isArray(result.components) && !Array.isArray(result.connections))) {
     logInfo('vision.trying_fallback', { filename: img.originalname })
-    result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, fallbackPromptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal)
+    result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, fallbackPromptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId)
   }
 
   // 最终验证结果
@@ -1863,9 +1853,35 @@ async function performRecognitionAttempt(
   fileBuffer: Buffer | null,
   visionTimeout: number,
   fetchRetries: number,
-  fetchWithRetryLocal: any
+  fetchWithRetryLocal: any,
+  timeline?: { step: string; ts?: number; meta?: any }[],
+  progressId?: string
 ): Promise<any> {
   for (const tryUrl of tryUrls) {
+    // 在每次尝试前记录 vision_model_request（包含脱敏请求信息与输入图像副本）
+    try {
+      const { saveArtifact, saveArtifactFromPath, computeSha1 } = require('./artifacts')
+      const info: any = {
+        apiUrlOrigin: (() => { try { return new URL(tryUrl).origin } catch(e){ return tryUrl } })(),
+        model,
+        prompt: promptText,
+        headers: { hasAuth: !!authHeader, contentType: isOpenRouterHost ? 'application/json' : 'multipart/form-data' },
+        file: { name: img.originalname }
+      }
+      try {
+        const buf = fileBuffer || (fs.existsSync(img.path) ? fs.readFileSync(img.path) : null)
+        if (buf) info.file.sha1 = computeSha1(buf)
+        info.file.size = buf ? buf.length : (fs.existsSync(img.path) ? fs.statSync(img.path).size : 0)
+      } catch {}
+      const reqA = await saveArtifact(JSON.stringify(info, null, 2), `vision_request_payload_${img.originalname}`, { ext: '.json', contentType: 'application/json' })
+      let imgA: any = null
+      try { if (fs.existsSync(img.path)) imgA = await saveArtifactFromPath(img.path, `uploaded_image_${img.originalname}`) } catch {}
+      if (timeline) {
+        const it = { step: 'vision_model_request', ts: Date.now(), meta: { type: 'ai_interaction', modelType: 'vision', tryUrl, filename: img.originalname, requestArtifact: reqA, imageArtifact: imgA, description: '视觉模型请求（脱敏）' } }
+        timeline.push(it)
+        try { if (progressId) pushProgress(progressId, it) } catch {}
+      }
+    } catch {}
     let stream: any = null
     try {
       let resp: any = null
@@ -1935,27 +1951,51 @@ async function performRecognitionAttempt(
         logInfo('vision.attempt_success', { tryUrl, filename: img.originalname })
         // 中文注释：将视觉模型的单次返回记录到 timeline，便于前端按序展示模型返回内容
         try {
-          // timeline 可能作为可选参数传入；为避免 lint 报错（在某些环境 timeline 未显示声明），
-          // 通过 arguments 检查最后一个参数是否为 timeline 数组
-          const _timeline = (typeof arguments !== 'undefined' && arguments.length > 0 && Array.isArray(arguments[arguments.length - 1])) ? arguments[arguments.length - 1] : undefined
+          const _timeline = timeline
           if (_timeline) {
             const summary = {
               components: Array.isArray(parsed.components) ? parsed.components.length : undefined,
               connections: Array.isArray(parsed.connections) ? parsed.connections.length : undefined
             }
-            _timeline.push({
-              step: 'vision_model_response',
-              ts: Date.now(),
-              meta: {
-                type: 'vision',
-                tryUrl,
-                filename: img.originalname,
-                summary,
-                // 为避免 timeline 体积过大，仅保存短的文本片段（如存在）
-                // 若需要完整返回，可查看 enrichedJson 或保存的 enriched 文件
-                note: 'vision model returned structured JSON result'
+            // 保存 response 作为 artifact（文本/JSON），并在 timeline 中引用
+            try {
+              const { saveArtifact } = require('./artifacts')
+              const respStr = JSON.stringify(parsed, null, 2)
+              const a = await saveArtifact(respStr, `vision_response_${img.originalname}`)
+              const item = {
+                step: 'vision_model_response',
+                ts: Date.now(),
+                meta: {
+                  type: 'ai_interaction',
+                  modelType: 'vision',
+                  tryUrl,
+                  filename: img.originalname,
+                  summary,
+                  snippet: respStr.substring(0, 1024),
+                  responseArtifact: a,
+                  description: '视觉模型返回结构化JSON结果'
+                }
               }
-            })
+              _timeline.push(item)
+              try { if (progressId) pushProgress(progressId, item as any) } catch {}
+            } catch (e) {
+              // 如果 artifact 保存失败，退回到仅记录摘要
+              const item = {
+                step: 'vision_model_response',
+                ts: Date.now(),
+                meta: {
+                  type: 'ai_interaction',
+                  modelType: 'vision',
+                  tryUrl,
+                  filename: img.originalname,
+                  summary,
+                  note: 'vision model returned structured JSON result (artifact save failed)',
+                  description: '视觉模型返回结果（artifact 保存失败）'
+                }
+              }
+              _timeline.push(item as any)
+              try { if (progressId) pushProgress(progressId, item as any) } catch {}
+            }
           }
         } catch (e) { /* 忽略 timeline 推送错误，避免影响主流程 */ }
         return parsed
@@ -2041,7 +2081,8 @@ async function doMultiPassRecognition(
   model: string,
   authHeader: string | undefined,
   passes: number,
-  timeline?: { step: string; ts: number; meta?: any }[]
+  timeline?: { step: string; ts: number; meta?: any }[],
+  progressId?: string
 ): Promise<any[]> {
   const results: any[] = []
   const startTime = Date.now()
@@ -2053,15 +2094,9 @@ async function doMultiPassRecognition(
 
   // 记录多轮识别开始到timeline
   if (timeline) {
-    timeline.push({
-      step: 'multi_pass_recognition_start',
-      ts: startTime,
-      meta: {
-        type: 'vision_multi_pass',
-        totalPasses: passes,
-        description: `开始多轮视觉识别，共${passes}轮`
-      }
-    })
+    const it = { step: 'multi_pass_recognition_start', ts: startTime, meta: { type: 'vision_multi_pass', totalPasses: passes, description: `开始多轮视觉识别，共${passes}轮` } }
+    timeline.push(it)
+    try { if (progressId) pushProgress(progressId, it) } catch {}
   }
 
   // 性能优化：根据passes数量动态调整并发度
@@ -2091,7 +2126,7 @@ async function doMultiPassRecognition(
       })
 
       try {
-        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, passes)
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, passes, timeline, progressId)
 
         // 为结果添加轮次标识
         if (result.components) {
@@ -2137,18 +2172,25 @@ async function doMultiPassRecognition(
 
   // 记录多轮识别完成到timeline
   if (timeline) {
-    timeline.push({
-      step: 'multi_pass_recognition_done',
-      ts: endTime,
-      meta: {
-        type: 'vision_multi_pass',
+    try {
+      // 保存多轮结果汇总为 artifact
+      const { saveArtifact } = require('./artifacts')
+      const multiSummary = {
         totalPasses: passes,
         successfulPasses: results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length,
         totalProcessingTime: totalTime,
         averageTimePerPass: results.length > 0 ? Math.round(totalTime / results.length) : 0,
-        description: `多轮视觉识别完成，${results.length}轮中有${results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length}轮成功`
+        resultsSummary: results.map((r, idx) => ({ pass: idx + 1, components: (r.components || []).length, connections: (r.connections || []).length }))
       }
-    })
+      const a = await saveArtifact(JSON.stringify(multiSummary, null, 2), `multi_pass_summary_${img.originalname}`)
+      const it = { step: 'multi_pass_recognition_done', ts: endTime, meta: Object.assign({ type: 'vision_multi_pass', totalPasses: passes, description: `多轮视觉识别完成，${results.length}轮中有${multiSummary.successfulPasses}轮成功` }, { multiPassSummaryArtifact: a }) }
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
+    } catch (e) {
+      const it = { step: 'multi_pass_recognition_done', ts: endTime, meta: { type: 'vision_multi_pass', totalPasses: passes, successfulPasses: results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length, totalProcessingTime: totalTime, averageTimePerPass: results.length > 0 ? Math.round(totalTime / results.length) : 0, description: `多轮视觉识别完成，${results.length}轮中有${results.filter(r => (r.components?.length || 0) + (r.connections?.length || 0) > 0).length}轮成功`, note: 'artifact save failed' } }
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
+    }
   }
 
   return results
@@ -2167,7 +2209,8 @@ async function consolidateRecognitionResults(
   apiUrl: string,
   model: string,
   authHeader: string | undefined,
-  timeline?: { step: string; ts: number; meta?: any }[]
+  timeline?: { step: string; ts: number; meta?: any }[],
+  progressId?: string
 ): Promise<any> {
   if (results.length === 0) {
     return { components: [], connections: [] }
@@ -2183,15 +2226,9 @@ async function consolidateRecognitionResults(
 
   // 记录结果整合开始到timeline
   if (timeline) {
-    timeline.push({
-      step: 'recognition_consolidation_start',
-      ts: Date.now(),
-      meta: {
-        type: 'vision_consolidation',
-        resultCount: results.length,
-        description: `开始整合${results.length}个识别结果`
-      }
-    })
+    const it = { step: 'recognition_consolidation_start', ts: Date.now(), meta: { type: 'vision_consolidation', resultCount: results.length, description: `开始整合${results.length}个识别结果` } }
+    timeline.push(it)
+    try { if (progressId) pushProgress(progressId, it) } catch {}
   }
 
   // 分析各轮次的识别特点和权重
@@ -2316,19 +2353,25 @@ Focus on accuracy for IC models and component values - these are critical for ci
           consolidatedConnections: parsed.connections?.length || 0
         })
 
-        // 记录整合成功到timeline
+        // 记录整合成功到timeline，并保存 request/response/artifact 引用
         if (timeline) {
-          timeline.push({
-            step: 'recognition_consolidation_done',
-            ts: Date.now(),
-            meta: {
-              type: 'vision_consolidation',
-              resultCount: results.length,
-              consolidatedComponents: parsed.components?.length || 0,
-              consolidatedConnections: parsed.connections?.length || 0,
-              description: `结果整合成功，生成${parsed.components?.length || 0}个器件和${parsed.connections?.length || 0}条连接`
-            }
-          })
+          try {
+            const { saveArtifact } = require('./artifacts')
+            // 保存 consolidation prompt
+            const promptArtifact = await saveArtifact(consolidationPrompt, `consolidation_prompt_${Date.now()}`, { ext: '.txt', contentType: 'text/plain' })
+            // 保存 response 文本
+            const responseArtifact = await saveArtifact(responseText, `consolidation_response_${Date.now()}`, { ext: '.txt', contentType: 'text/plain' })
+            // 保存解析后的 JSON
+            const parsedArtifact = await saveArtifact(JSON.stringify(parsed, null, 2), `consolidation_parsed_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+
+            const it = { step: 'recognition_consolidation_done', ts: Date.now(), meta: { type: 'ai_interaction', modelType: 'llm', resultCount: results.length, consolidatedComponents: parsed.components?.length || 0, consolidatedConnections: parsed.connections?.length || 0, description: `结果整合成功，生成${parsed.components?.length || 0}个器件和${parsed.connections?.length || 0}条连接`, requestArtifact: promptArtifact, responseArtifact: responseArtifact, parsedArtifact: parsedArtifact } }
+            timeline.push(it)
+            try { if (progressId) pushProgress(progressId, it) } catch {}
+          } catch (e) {
+            const it = { step: 'recognition_consolidation_done', ts: Date.now(), meta: { type: 'vision_consolidation', resultCount: results.length, consolidatedComponents: parsed.components?.length || 0, consolidatedConnections: parsed.connections?.length || 0, description: `结果整合成功，生成${parsed.components?.length || 0}个器件和${parsed.connections?.length || 0}条连接`, note: 'artifact save failed' } }
+            timeline.push(it)
+            try { if (progressId) pushProgress(progressId, it) } catch {}
+          }
         }
 
         return parsed
@@ -2350,17 +2393,9 @@ Focus on accuracy for IC models and component values - these are critical for ci
 
   // 记录整合失败（使用最佳结果）到timeline
   if (timeline) {
-    timeline.push({
-      step: 'recognition_consolidation_fallback',
-      ts: Date.now(),
-      meta: {
-        type: 'vision_consolidation',
-        resultCount: results.length,
-        fallbackComponents: bestResult?.components?.length || 0,
-        fallbackConnections: bestResult?.connections?.length || 0,
-        description: `结果整合失败，使用最佳单轮结果：${bestResult?.components?.length || 0}个器件`
-      }
-    })
+    const it = { step: 'recognition_consolidation_fallback', ts: Date.now(), meta: { type: 'vision_consolidation', resultCount: results.length, fallbackComponents: bestResult?.components?.length || 0, fallbackConnections: bestResult?.connections?.length || 0, description: `结果整合失败，使用最佳单轮结果：${bestResult?.components?.length || 0}个器件` } }
+    timeline.push(it)
+    try { if (progressId) pushProgress(progressId, it) } catch {}
   }
 
   return bestResult || { components: [], connections: [] }

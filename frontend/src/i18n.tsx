@@ -175,6 +175,13 @@ const dictZh: Record<string, string> = {
   'step_aborted': '已中止',
   'step_llm_request_start': '调用模型 - 开始',
   'step_llm_request_done': '调用模型 - 完成',
+  // 新增步骤（汉化）
+  'step_request_payload_received': '请求载荷 - 已接收',
+  'step_vision_batch_request': '视觉批处理请求',
+  'step_vision_model_request': '视觉模型请求',
+  'step_vision_model_response': '视觉模型响应',
+  'step_llm_request': '大语言模型请求',
+  'step_llm_response': '大语言模型响应',
   'step_multi_pass_recognition_start': '多轮识别 - 开始',
   'step_multi_pass_recognition_done': '多轮识别 - 完成',
   'step_recognition_consolidation_start': '识别整合 - 开始',
@@ -194,6 +201,12 @@ const dictZh: Record<string, string> = {
   'timeline.group.request': '请求阶段',
   'timeline.group.frontend': '前端操作',
   'timeline.group.other': '其他',
+  // 来源标识（前端 / 后端）
+  'timeline.origin.frontend': '前端',
+  'timeline.origin.backend': '后端',
+  // LLM 交互标签
+  'timeline.tag.llm_sent': '发给LLM',
+  'timeline.tag.llm_received': '收到LLM',
 
   // FileUpload 层
   'upload.select': '选择文件',
@@ -374,6 +387,12 @@ const dictEn: Record<string, string> = {
   'timeline.group.request': 'Request',
   'timeline.group.frontend': 'Frontend',
   'timeline.group.other': 'Other',
+  // origin tags
+  'timeline.origin.frontend': 'Frontend',
+  'timeline.origin.backend': 'Backend',
+  // LLM tags
+  'timeline.tag.llm_sent': 'Sent to LLM',
+  'timeline.tag.llm_received': 'Received from LLM',
 
   // FileUpload
   'upload.select': 'Select Files',

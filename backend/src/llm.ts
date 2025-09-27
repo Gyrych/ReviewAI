@@ -2,10 +2,12 @@ import fetch from 'node-fetch'
 import { URL } from 'url'
 import https from 'https'
 import { logInfo, logError } from './logger'
+import { pushProgress } from './progress'
+import { makeTimelineItem, makeRequestSignature } from './timeline'
 
 const COMMON_PATHS = ['/chat/completions', '/chat', '/responses', '/v1/chat', '/v1/responses', '/v1/completions', '/completions']
 
-export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], datasheetMeta?: any[]): Promise<string> {
+export async function generateMarkdownReview(circuitJson: any, requirements: string, specs: string, apiUrl: string, model: string, authHeader?: string, systemPrompt?: string, history?: { role: string; content: string }[], datasheetMeta?: any[], timeline?: { step: string; ts: number; meta?: any }[], progressId?: string): Promise<string> {
   if (!apiUrl) {
     throw new Error('apiUrl missing for LLM call')
   }
@@ -143,6 +145,17 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
 
   let resp: any = null
   let lastErr: any = null
+  // 在尝试前记录 llm_request 到 timeline（一次），并保存请求 payload 为 artifact
+  try {
+    if (timeline) {
+      const { saveArtifact } = require('./artifacts')
+      const reqA = await saveArtifact(JSON.stringify({ url: apiUrl, payload: payload1 }, null, 2), `llm_request_payload_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+      const sig = makeRequestSignature(payload1)
+      const it = makeTimelineItem('llm.request', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { model, apiUrlOrigin: (() => { try { return new URL(apiUrl).origin } catch(e){ return apiUrl } })(), tag: 'llm_sent' , requestSignature: sig }, artifacts: { request: reqA }, tags: ['llm_sent'] })
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
+    }
+  } catch {}
   for (const tryUrl of urlsToTry) {
     try {
       logInfo('llm.try', { tryUrl: tryUrl })
@@ -172,6 +185,17 @@ export async function generateMarkdownReview(circuitJson: any, requirements: str
   }
 
   const txt = await resp.text()
+  // 保存 LLM response 为 artifact，并写入 llm_response 时间线（含 snippet）
+  try {
+    const { saveArtifact } = require('./artifacts')
+    const respA = await saveArtifact(txt, `llm_response_${Date.now()}`, { ext: '.txt', contentType: 'text/plain' })
+    if (timeline) {
+      const sig = makeRequestSignature(payload1)
+      const it = makeTimelineItem('llm.response', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { snippet: String(txt).slice(0, 1000), tag: 'llm_received', requestSignature: sig }, artifacts: { response: respA }, tags: ['llm_received'] })
+      timeline.push(it)
+      try { if (progressId) pushProgress(progressId, it) } catch {}
+    }
+  } catch (e) {}
   // 如果上游返回 HTML 页面（例如 OpenRouter 返回 Model Not Found 页面），提供更友好的错误信息
   try {
     const ct = (resp.headers && resp.headers.get ? resp.headers.get('content-type') : '') || ''
