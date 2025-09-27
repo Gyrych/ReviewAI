@@ -368,13 +368,28 @@ export default function ReviewForm({
                 const remote = j.timeline.map((it: any) => ({ step: it.step, ts: it.ts, origin: it.origin || 'backend', category: it.category || (it.meta && it.meta.modelType) || 'other', meta: it.meta || {}, artifacts: it.artifacts || {}, tags: it.tags || [] }))
                 // 按时间排序
                 const merged = localPrefix.concat(remote).sort((a: any, b: any) => (a.ts || 0) - (b.ts || 0))
-                // 去重策略：基于 step + (artifacts.request.id || artifacts.request.url) + meta.requestSignature
+                // 去重策略（加强版）：考虑 passNumber / tryUrl / artifact URL，避免多轮步骤被折叠
                 const seen = new Set<string>()
                 const uniq: any[] = []
                 for (const item of merged) {
                   const keyParts = [item.step || '']
-                  if (item.artifacts && item.artifacts.request && (item.artifacts.request.id || item.artifacts.request.url)) keyParts.push(String(item.artifacts.request.id || item.artifacts.request.url))
-                  if (item.meta && item.meta.requestSignature) keyParts.push(String(item.meta.requestSignature))
+                  try {
+                    const m = item.meta || {}
+                    const a = item.artifacts || {}
+                    // 多轮识别：加入 passNumber / passOfTotal / tryUrl
+                    if (m.passNumber) keyParts.push(`pass:${m.passNumber}`)
+                    if (m.passOfTotal) keyParts.push(`of:${m.passOfTotal}`)
+                    if (m.tryUrl) keyParts.push(`url:${m.tryUrl}`)
+                    // artifact 参考（新旧两种位置）
+                    const reqUrl = (a.request && (a.request.url || a.request.id)) || (m.requestArtifact && (m.requestArtifact.url || m.requestArtifact.id))
+                    const respUrl = (a.response && (a.response.url || a.response.id)) || (m.responseArtifact && (m.responseArtifact.url || m.responseArtifact.id))
+                    if (reqUrl) keyParts.push(`req:${String(reqUrl)}`)
+                    if (respUrl) keyParts.push(`resp:${String(respUrl)}`)
+                    // LLM 请求签名（若存在）
+                    if (m.requestSignature) keyParts.push(String(m.requestSignature))
+                  } catch {}
+                  // 最后兜底：若仍过于相似，加入时间戳的低位（降低被全部折叠的概率）
+                  try { if (item.ts) keyParts.push(`t:${String(item.ts).slice(-4)}`) } catch {}
                   const key = keyParts.join('|')
                   if (!seen.has(key)) { seen.add(key); uniq.push(item) }
                 }
@@ -560,7 +575,15 @@ export default function ReviewForm({
         try {
           // 若后端返回 timeline，将其合并并尝试映射用户可读进度
           if (Array.isArray(j.timeline)) {
-            const remote = j.timeline.map((x: any) => ({ step: x.step, ts: x.ts, meta: x.meta || x }))
+            const remote = j.timeline.map((x: any) => ({
+              step: x.step,
+              ts: x.ts,
+              origin: x.origin || 'backend',
+              category: x.category || (x.meta && x.meta.modelType) || 'other',
+              meta: x.meta || {},
+              artifacts: x.artifacts || {},
+              tags: x.tags || []
+            }))
             setTimeline((t) => {
               // 用最终完整的远端 timeline 覆盖合并，避免重复
               const localPrefix = t.filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
@@ -1150,6 +1173,26 @@ export default function ReviewForm({
                     model: model
                   }
                 }
+              } else if (item.step === 'vision_model_request') {
+                const meta = item.meta || {}
+                const pn = Number(meta.passNumber || 0)
+                const pt = Number(meta.passOfTotal || 0)
+                const roundTitle = (pn > 0 && pt > 0) ? `第 ${pn}/${pt} 轮 · 视觉模型请求` : '视觉模型请求'
+                enhancedItem.meta = Object.assign({}, meta, {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: roundTitle,
+                })
+              } else if (item.step === 'vision_model_response') {
+                const meta = item.meta || {}
+                const pn = Number(meta.passNumber || 0)
+                const pt = Number(meta.passOfTotal || 0)
+                const roundTitle = (pn > 0 && pt > 0) ? `第 ${pn}/${pt} 轮 · 视觉模型响应` : '视觉模型响应'
+                enhancedItem.meta = Object.assign({}, meta, {
+                  type: stepInfo.type,
+                  modelType: stepInfo.modelType,
+                  action: roundTitle,
+                })
               } else if (item.step === 'multi_pass_recognition_start') {
                 const meta = item.meta || {}
                 enhancedItem.meta = {
@@ -1310,7 +1353,22 @@ export default function ReviewForm({
 
               return (
                 <div key={key} className={`border-b border-gray-100 dark:border-cursorBorder ${isCurrent ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} ${isAIInteraction ? 'bg-purple-50 dark:bg-purple-900/20' : ''} ${isLLMResponse ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${isVisionResult ? 'bg-green-50 dark:bg-green-900/20' : ''}`}>
-                  <div className="flex items-start justify-between gap-2 p-1 cursor-pointer" onClick={() => setExpandedTimelineItems((s) => ({ ...s, [key]: !s[key] }))}>
+                  <div className="flex items-start justify-between gap-2 p-1 cursor-pointer" onClick={() => {
+                    const willExpand = !expandedTimelineItems[key]
+                    try {
+                      setExpandedTimelineItems((s) => ({ ...s, [key]: willExpand }))
+                    } catch (e) {}
+                    if (willExpand) {
+                      try {
+                        // 自动触发非图片类 artifact 的内容加载，避免拉取二进制大文件作为文本
+                        const arts = it.artifacts || {}
+                        try { Object.values(arts).forEach((a: any) => { if (a && !isImageArtifact(a)) ensureLoadArtifact(a) }) } catch (e) {}
+                        // 兼容旧 meta 字段中的 requestArtifact/responseArtifact
+                        try { if (it.meta && it.meta.requestArtifact && !isImageArtifact(it.meta.requestArtifact)) ensureLoadArtifact(it.meta.requestArtifact) } catch (e) {}
+                        try { if (it.meta && it.meta.responseArtifact && !isImageArtifact(it.meta.responseArtifact)) ensureLoadArtifact(it.meta.responseArtifact) } catch (e) {}
+                      } catch (e) {}
+                    }
+                  }}>
                     <div className="min-w-0 flex-1">
                       <div className="text-sm dark:text-gray-200 flex items-center gap-2">
                         <span className={`w-5 h-5 inline-flex items-center justify-center rounded-full text-xs ${isError ? 'text-red-600' : (isAIInteraction ? 'text-purple-600' : (isLLMResponse ? 'text-blue-600' : (isVisionResult ? 'text-green-600' : (isCurrent ? 'text-yellow-600' : 'text-gray-500'))))}`}>
@@ -1463,7 +1521,10 @@ export default function ReviewForm({
                         )}
 
                         {/* 通用：若存在 artifact 引用，内嵌渲染（独立于 requestInfo），不跳新页 */}
-                        {(it.artifacts && (it.artifacts.request || it.artifacts.response || it.artifacts.parsed || it.artifacts.multiPassSummary || it.artifacts.finalCircuit || it.artifacts.overlay || it.artifacts.metadata || it.artifacts.datasheetsMetadata || it.artifacts.preprocessedImage || it.artifacts.ocrText || it.artifacts.ocrWords || it.artifacts.result)) && (
+                        {(
+                          (it.artifacts && (it.artifacts.request || it.artifacts.response || it.artifacts.parsed || it.artifacts.multiPassSummary || it.artifacts.finalCircuit || it.artifacts.overlay || it.artifacts.metadata || it.artifacts.datasheetsMetadata || it.artifacts.preprocessedImage || it.artifacts.ocrText || it.artifacts.ocrWords || it.artifacts.result))
+                          || (it.meta && (it.meta.requestArtifact || it.meta.responseArtifact))
+                        ) && (
                           <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2 space-y-2">
                             {it.artifacts.request && (<ArtifactInline label="Request" art={it.artifacts.request} />)}
                             {it.artifacts.response && (<ArtifactInline label="Response" art={it.artifacts.response} />)}
@@ -1477,6 +1538,9 @@ export default function ReviewForm({
                             {it.artifacts.ocrText && (<ArtifactInline label="文本（OCR 已移除，如需恢复请使用外部 OCR）" art={it.artifacts.ocrText} />)}
                             {it.artifacts.ocrWords && (<ArtifactInline label="词级信息（OCR 已移除）" art={it.artifacts.ocrWords} />)}
                             {it.artifacts.result && (<ArtifactInline label="Review Report" art={it.artifacts.result} />)}
+                            {/* 兼容旧 meta.* 引用（后端某些步骤将 artifact 放在 meta 中） */}
+                            {(!it.artifacts.request && it.meta?.requestArtifact) && (<ArtifactInline label="Request" art={it.meta.requestArtifact} />)}
+                            {(!it.artifacts.response && it.meta?.responseArtifact) && (<ArtifactInline label="Response" art={it.meta.responseArtifact} />)}
                           </div>
                         )}
 

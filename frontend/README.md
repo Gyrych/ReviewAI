@@ -49,6 +49,29 @@ npm run dev
   - Optional overlay: inline SVG + mapping count
   - Collapsible `enrichedJson` for manual inspection
 
+### Artifact viewer in Timeline
+
+- When viewing the **步骤历史 (Timeline)**, timeline entries that contain artifact references (for example `requestArtifact` or `responseArtifact`) now expose an inline artifact viewer.
+- Click the timeline entry to expand details, then open the artifact detail ("Request" or "Response") and click **加载内容** to lazily fetch the artifact from the backend (`/api/artifacts/<filename>`).
+- Supported artifact types:
+  - JSON: rendered formatted and pretty-printed
+  - Plain text/markdown: rendered inside a scrollable block
+  - Images (png/jpg/webp): shown inline as an image preview
+- The artifact content is fetched only on demand and cached in memory for the current session to avoid repeated network calls.
+- If artifact fetch fails, an error message is shown in the artifact block.
+
+Testing the artifact viewer:
+
+1. Submit a review with image files so the backend produces `vision_model_request` and `vision_model_response` artifacts.
+2. After the backend returns, open the **步骤历史** panel and expand the `vision_model_request` / `vision_model_response` entries.
+3. Click the artifact `Request` or `Response` detail and press **加载内容** to view the full payload or model return.
+4. If needed, open the artifact URL in a new tab by copying the provided artifact URL (format: `/api/artifacts/<filename>`).
+
+Notes:
+
+- The artifact viewer does not change backend behavior; artifacts are served statically under `/api/artifacts/` by the backend.
+- Large artifacts are constrained by a maximum displayed height; use the download link (artifact path) to retrieve full files if necessary.
+
 ## Data flow
 
 1) On submit, the app attempts `GET /api/system-prompt`. If found, it sends `{ systemPrompt, requirements, specs }` as `systemPrompts` to the backend.

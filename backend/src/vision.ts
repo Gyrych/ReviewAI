@@ -1622,12 +1622,12 @@ Read the text on the schematic to get the correct labels and models.`
   }
 
   // 主要识别尝试
-  let result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, promptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId)
+  let result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, promptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId, passNumber, recognitionPasses)
 
   // 如果主要尝试失败，尝试备用prompt
   if (!result || (!Array.isArray(result.components) && !Array.isArray(result.connections))) {
     logInfo('vision.trying_fallback', { filename: img.originalname })
-    result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, fallbackPromptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId)
+    result = await performRecognitionAttempt(img, tryUrls, isOpenRouterHost, fallbackPromptText, model, authHeader, fileBuffer, visionTimeout, fetchRetries, fetchWithRetryLocal, timeline, progressId, passNumber, recognitionPasses)
   }
 
   // 最终验证结果
@@ -1657,7 +1657,9 @@ async function performRecognitionAttempt(
   fetchRetries: number,
   fetchWithRetryLocal: any,
   timeline?: { step: string; ts?: number; meta?: any }[],
-  progressId?: string
+  progressId?: string,
+  passNumber?: number,
+  recognitionPasses?: number
 ): Promise<any> {
   for (const tryUrl of tryUrls) {
     // 在每次尝试前记录 vision_model_request（包含脱敏请求信息与输入图像副本）
@@ -1679,7 +1681,7 @@ async function performRecognitionAttempt(
       let imgA: any = null
       try { if (fs.existsSync(img.path)) imgA = await saveArtifactFromPath(img.path, `uploaded_image_${img.originalname}`) } catch {}
       if (timeline) {
-        const it = { step: 'vision_model_request', ts: Date.now(), meta: { type: 'ai_interaction', modelType: 'vision', tryUrl, filename: img.originalname, requestArtifact: reqA, imageArtifact: imgA, description: '视觉模型请求（脱敏）' } }
+        const it = { step: 'vision_model_request', ts: Date.now(), meta: { type: 'ai_interaction', modelType: 'vision', tryUrl, filename: img.originalname, requestArtifact: reqA, imageArtifact: imgA, description: '视觉模型请求（脱敏）', passNumber: typeof passNumber === 'number' ? passNumber : 1, passOfTotal: typeof recognitionPasses === 'number' ? recognitionPasses : 1 } }
         timeline.push(it)
         try { if (progressId) pushProgress(progressId, it) } catch {}
       }
@@ -1775,7 +1777,9 @@ async function performRecognitionAttempt(
                   summary,
                   snippet: respStr.substring(0, 1024),
                   responseArtifact: a,
-                  description: '视觉模型返回结构化JSON结果'
+                  description: '视觉模型返回结构化JSON结果',
+                  passNumber: typeof passNumber === 'number' ? passNumber : 1,
+                  passOfTotal: typeof recognitionPasses === 'number' ? recognitionPasses : 1
                 }
               }
               _timeline.push(item)
@@ -1792,7 +1796,9 @@ async function performRecognitionAttempt(
                   filename: img.originalname,
                   summary,
                   note: 'vision model returned structured JSON result (artifact save failed)',
-                  description: '视觉模型返回结果（artifact 保存失败）'
+                  description: '视觉模型返回结果（artifact 保存失败）',
+                  passNumber: typeof passNumber === 'number' ? passNumber : 1,
+                  passOfTotal: typeof recognitionPasses === 'number' ? recognitionPasses : 1
                 }
               }
               _timeline.push(item as any)
