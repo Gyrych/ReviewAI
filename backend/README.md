@@ -56,6 +56,7 @@ Request body (multipart when sending images, otherwise x-www-form-urlencoded or 
 - `enableSearch` (boolean/string, optional, default true): enable web enrichment for ambiguous params
 - `searchTopN` (number, optional): top-N search results per ambiguous parameter
 - `saveEnriched` (boolean/string, optional, default true): save enriched JSON under `uploads/`
+- `recognitionPasses` (number/string, optional): **Deprecated** — the backend now enforces a fixed 5-step recognition pipeline (macro, IC, RC, net-trace, validation). If provided by clients it will be ignored and logged; the server will always run 5 passes.
 
 Provider routing:
 

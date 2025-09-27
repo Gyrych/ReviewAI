@@ -217,7 +217,6 @@ export default function ReviewForm({
   }
   // 多轮识别和搜索配置
   const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(false)
-  const [recognitionPasses, setRecognitionPasses] = useState<number>(5)
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
   const [searchTopN, setSearchTopN] = useState<number>(5)
 
@@ -478,7 +477,8 @@ export default function ReviewForm({
       // 添加多轮识别和搜索配置参数
       fd.append('multiPassRecognition', multiPassRecognition.toString())
       if (multiPassRecognition) {
-        fd.append('recognitionPasses', recognitionPasses.toString())
+        // 后端已固定为 5 步流水线，前端不可修改
+        fd.append('recognitionPasses', '5')
       }
       fd.append('enableSearch', enableSearch.toString())
       if (enableSearch) {
@@ -952,20 +952,8 @@ export default function ReviewForm({
               />
               <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
             </label>
-            {multiPassRecognition && (
-              <div className="flex items-center space-x-2">
-                <label className="text-sm text-gray-600 dark:text-gray-400">{t('form.multiPass.passes')}:</label>
-                <select
-                  value={recognitionPasses}
-                  onChange={(e) => setRecognitionPasses(Number(e.target.value))}
-                  className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
-                >
-                  {[3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* 说明：根据是否启用多轮显示不同短文案 */}
+            <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">{multiPassRecognition ? t('form.multiPass.multiNote') : t('form.multiPass.singleNote')}</div>
           </div>
 
           {/* 搜索配置 */}
@@ -1178,20 +1166,23 @@ export default function ReviewForm({
                 const pn = Number(meta.passNumber || 0)
                 const pt = Number(meta.passOfTotal || 0)
                 const roundTitle = (pn > 0 && pt > 0) ? `第 ${pn}/${pt} 轮 · 视觉模型请求` : '视觉模型请求'
+                // 仅在后端未提供 action 时，前端才填充 roundTitle，避免重复或覆盖后端自定义文本
+                const actionToUse = (meta.action && String(meta.action).trim()) ? meta.action : roundTitle
                 enhancedItem.meta = Object.assign({}, meta, {
                   type: stepInfo.type,
                   modelType: stepInfo.modelType,
-                  action: roundTitle,
+                  action: actionToUse,
                 })
               } else if (item.step === 'vision_model_response') {
                 const meta = item.meta || {}
                 const pn = Number(meta.passNumber || 0)
                 const pt = Number(meta.passOfTotal || 0)
                 const roundTitle = (pn > 0 && pt > 0) ? `第 ${pn}/${pt} 轮 · 视觉模型响应` : '视觉模型响应'
+                const actionToUseResp = (meta.action && String(meta.action).trim()) ? meta.action : roundTitle
                 enhancedItem.meta = Object.assign({}, meta, {
                   type: stepInfo.type,
                   modelType: stepInfo.modelType,
-                  action: roundTitle,
+                  action: actionToUseResp,
                 })
               } else if (item.step === 'multi_pass_recognition_start') {
                 const meta = item.meta || {}
@@ -1218,38 +1209,43 @@ export default function ReviewForm({
                 }
               } else if (item.step === 'recognition_consolidation_start') {
                 const meta = item.meta || {}
-                enhancedItem.meta = {
+                // 保留后端原有 meta 字段（例如 requestArtifact）并在其上补充展示信息
+                const actionToUse = (meta.action && String(meta.action).trim()) ? meta.action : '开始结果整合'
+                enhancedItem.meta = Object.assign({}, meta, {
                   type: stepInfo.type,
                   modelType: stepInfo.modelType,
-                  action: '开始结果整合',
+                  action: actionToUse,
                   description: stepInfo.description,
                   resultCount: meta.resultCount,
                   consolidationInfo: `使用大模型整合${meta.resultCount}个识别结果，生成最准确的最终结果`
-                }
+                })
               } else if (item.step === 'recognition_consolidation_done') {
                 const meta = item.meta || {}
-                enhancedItem.meta = {
+                // 保留后端的 artifacts/request/response 信息，不要覆盖
+                const actionToUseDone = (meta.action && String(meta.action).trim()) ? meta.action : '结果整合完成'
+                enhancedItem.meta = Object.assign({}, meta, {
                   type: stepInfo.type,
                   modelType: stepInfo.modelType,
-                  action: '结果整合完成',
+                  action: actionToUseDone,
                   description: stepInfo.description,
                   resultCount: meta.resultCount,
                   consolidatedComponents: meta.consolidatedComponents,
                   consolidatedConnections: meta.consolidatedConnections,
                   consolidationResult: `成功整合${meta.resultCount}个结果，最终生成${meta.consolidatedComponents}个器件和${meta.consolidatedConnections}条连接`
-                }
+                })
               } else if (item.step === 'recognition_consolidation_fallback') {
                 const meta = item.meta || {}
-                enhancedItem.meta = {
+                const actionToUseFallback = (meta.action && String(meta.action).trim()) ? meta.action : '结果整合回退'
+                enhancedItem.meta = Object.assign({}, meta, {
                   type: stepInfo.type,
                   modelType: stepInfo.modelType,
-                  action: '结果整合回退',
+                  action: actionToUseFallback,
                   description: stepInfo.description,
                   resultCount: meta.resultCount,
                   fallbackComponents: meta.fallbackComponents,
                   fallbackConnections: meta.fallbackConnections,
                   consolidationFallback: `整合失败，使用最佳单轮结果：${meta.fallbackComponents}个器件，${meta.fallbackConnections}条连接`
-                }
+                })
               } else if (item.step === 'images_processing_done') {
                 const visionResult = item.meta?.visionResult
                 if (visionResult) {
@@ -1651,12 +1647,52 @@ export default function ReviewForm({
                                 </div>
                               )}
 
-                              {it.meta.visionResponse && (
+                        {it.meta.visionResponse && (
                                 <div className="mt-2">
                                   <strong>{t('timeline.returnContent')}：</strong>
                                   <div className="text-gray-600 dark:text-gray-400 mt-1">{it.meta.visionResponse}</div>
                                 </div>
                               )}
+
+                        {/* 新增：如果 timeline 的 meta 包含 requestArtifact/responseArtifact，尝试直接显示已加载的原始内容（优先级高于 artifact inline） */}
+                        {it.meta && (it.meta.requestArtifact || it.meta.responseArtifact) && (
+                          <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2">
+                            <div className="text-[11px] text-purple-600 dark:text-purple-400 mb-2 font-medium">🔍 原始请求/返回</div>
+                            <div className="space-y-2 text-xs">
+                              {it.meta.requestArtifact && (() => {
+                                const art = it.meta.requestArtifact
+                                const url = String(art?.url || art?.fileUrl || '')
+                                const cache = artifactCache[url]
+                                return (
+                                  <div>
+                                    <div><strong>Request Artifact:</strong> {art?.filename || url}</div>
+                                    {cache?.content ? (
+                                      <pre className="text-[10px] overflow-auto max-h-48 bg-gray-50 dark:bg-gray-900 p-2 rounded whitespace-pre-wrap">{cache.content}</pre>
+                                    ) : (
+                                      <div className="text-[11px] text-gray-500">{cache?.loading ? '加载中...' : (<button type="button" className="text-xs px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText" onClick={() => ensureLoadArtifact(art)}>加载原始请求</button>)}</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+
+                              {it.meta.responseArtifact && (() => {
+                                const art = it.meta.responseArtifact
+                                const url = String(art?.url || art?.fileUrl || '')
+                                const cache = artifactCache[url]
+                                return (
+                                  <div>
+                                    <div><strong>Response Artifact:</strong> {art?.filename || url}</div>
+                                    {cache?.content ? (
+                                      <pre className="text-[10px] overflow-auto max-h-48 bg-gray-50 dark:bg-gray-900 p-2 rounded whitespace-pre-wrap">{cache.content}</pre>
+                                    ) : (
+                                      <div className="text-[11px] text-gray-500">{cache?.loading ? '加载中...' : (<button type="button" className="text-xs px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText" onClick={() => ensureLoadArtifact(art)}>加载原始返回</button>)}</div>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          </div>
+                        )}
                             </div>
                           </div>
                         )}

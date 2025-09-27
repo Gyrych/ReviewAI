@@ -362,27 +362,15 @@ export async function extractCircuitJsonFromImages(
  * @returns 专业的识别prompt
  */
 function generateSpecializedPrompt(passNumber: number, totalPasses: number): string {
-  // 第一轮：宏观识别，获取元件位置和基本类型
-  if (passNumber === 1) {
-    return generateMacroRecognitionPrompt()
-  }
+  // 固定五步流水线：1=macro, 2=IC, 3=RC, 4=net-trace, 5=validation
+  // 当后端以固定流程运行时（5 步），直接按照下面映射返回对应 prompt
+  if (passNumber === 1) return generateMacroRecognitionPrompt()
+  if (passNumber === 2) return generateICSpecializedPrompt()
+  if (passNumber === 3) return generateResistorCapacitorSpecializedPrompt()
+  if (passNumber === 4) return generateNetTracingPrompt()
+  if (passNumber === totalPasses) return generateDetailedVerificationPrompt()
 
-  // 第二轮：IC芯片专项识别，重点识别IC型号和引脚
-  if (passNumber === 2 || (totalPasses >= 3 && passNumber === Math.ceil(totalPasses / 2))) {
-    return generateICSpecializedPrompt()
-  }
-
-  // 第三轮：阻容元件专项识别，重点识别阻值和容值
-  if (passNumber === 3 || (totalPasses >= 4 && passNumber === totalPasses - 1)) {
-    return generateResistorCapacitorSpecializedPrompt()
-  }
-
-  // 最后一轮：精细化识别和验证
-  if (passNumber === totalPasses) {
-    return generateDetailedVerificationPrompt()
-  }
-
-  // 默认使用通用识别prompt
+  // 兜底：如果出现非预期轮次，返回通用识别prompt
   return generateGeneralRecognitionPrompt()
 }
 
@@ -486,30 +474,88 @@ Look for value markings near component symbols. Use engineering judgment for amb
  * 精细化验证prompt：综合验证和完善信息
  */
 function generateDetailedVerificationPrompt(): string {
-  return `DETAILED VERIFICATION PASS - Cross-validate and complete component information:
+  return `DETAILED VERIFICATION PASS - Validation + Explanation (final pass):
 
-1. CROSS-VALIDATION:
-   - Check if component values are within reasonable ranges
-   - Verify IC model numbers against known manufacturers
-   - Ensure pin counts match package types
-   - Validate connection patterns make electrical sense
+This pass MUST act as a validator and explain the reasoning for each change or decision.
 
-2. MISSING INFORMATION COMPLETION:
-   - Fill in any missing component values or model numbers
-   - Add pin information for ICs if not already identified
-   - Complete connection information
+1. FOR EACH COMPONENT AND CONNECTION, OUTPUT A DECISION ENTRY WITH:
+   - entityId: component id or connection id
+   - entityType: "component" | "connection"
+   - field: the field being decided (e.g., "label", "pins", "connection")
+   - originalValue: value as seen in previous passes (if any)
+   - finalValue: value after this pass (may be same as original)
+   - sourcePasses: array of pass numbers used as evidence (e.g., [2,3])
+   - decisionReason: short explanation why this value was accepted/changed
+   - confidence: 0.0 - 1.0
+   - action: one of ["accept", "modify", "remove", "defer_to_human"]
 
-3. ERROR CORRECTION:
-   - Correct obvious OCR errors in model numbers
-   - Fix unit conversions (e.g., "1KO" → "1KΩ")
-   - Standardize value formats
+2. CONFLICTS & UNCERTAINTIES:
+   - For any conflicting observations across passes, include a 'conflicts[]' entry describing the conflict, involved passes, and a recommended action (e.g., "choose_most_common", "human_review").
 
-4. QUALITY ASSURANCE:
-   - Flag any components with suspicious values
-   - Mark uncertain identifications
-   - Ensure all components have valid reference designators
+3. VERIFICATION RULES (apply strict engineering checks):
+   - Verify IC models against known patterns and common manufacturers
+   - Ensure numeric values fall within reasonable engineering ranges
+   - Validate pin counts vs package types
+  - For any automated correction, include 'originalValue' and 'decisionReason'
 
-Use all previous recognition passes as context. Focus on accuracy over speed.`
+4. OUTPUT FORMAT (MANDATORY):
+Return a single JSON object with these keys:
+  - "components": array
+  - "connections": array
+  - "decisions": array of decision entries (see above)
+  - "conflicts": array of conflict descriptors
+  - "uncertainties": array (items requiring human review)
+  - "metadata": object (include model_version, inference_time_ms)
+
+Example decision item:
+{
+  "entityId": "R1",
+  "entityType": "component",
+  "field": "label",
+  "originalValue": "1KO",
+  "finalValue": "1kΩ",
+  "sourcePasses": [3],
+  "decisionReason": "unit normalization and common OCR error 0->O",
+  "confidence": 0.92,
+  "action": "modify"
+}
+
+Use previous passes as evidence. Focus on producing a machine-readable audit trail (decisions) that explains every modification.`
+}
+
+/**
+ * Net-tracing / connection-disambiguation prompt：用于第4轮
+ * 要求模型列出每个 net 的候选路径、可能的歧义以及每条连接的置信度
+ */
+function generateNetTracingPrompt(): string {
+  return `NET-TRACING AND CONNECTION DISAMBIGUATION PASS - Analyze wiring and nets in detail:
+
+1. FOR EACH NET (group of connected pins), LIST:
+   - net_id (if available) or generate temporary id
+   - connected_pins: list of { componentId, pin }
+   - candidate_paths: array of candidate trace descriptions when ambiguous
+   - confidence: 0.0 - 1.0
+
+2. CONNECTION DISAMBIGUATION:
+   - Where multiple possible connections exist, list all candidates with short justification and confidence
+   - Indicate overlapping wires, vias, or ambiguous junctions and explain why ambiguous
+
+3. PRIORITY RULES:
+   - Prefer connections that appear in multiple previous passes
+   - Prefer direct wire continuity over inferred connections via labels unless strongly supported
+   - Mark power and ground nets explicitly when identified
+
+4. OUTPUT FORMAT:
+Return JSON with keys: components (optional updates), connections, nets, ambiguities.
+Each net should include candidate_paths and confidence. Each ambiguity should include a short reason and recommended action (e.g., 'human_review', 'choose_most_common').
+
+Example:
+{
+  "nets": [{ "net_id": "N1", "connected_pins": ["U1.1","R1.1"], "candidate_paths": [{"path":"direct","confidence":0.9}], "confidence":0.9}],
+  "ambiguities": [{"net_id":"N2","reason":"overlapping traces at junction","candidates":[...],"recommendation":"human_review"}]
+}
+
+Focus on enumerating ambiguous cases clearly so the final consolidation can make informed decisions.`
 }
 
 /**
@@ -1564,7 +1610,16 @@ async function recognizeSingleImage(
   }
 
   // 根据识别阶段生成专业的电子元件识别prompt
-  const promptText = generateSpecializedPrompt(passNumber || 1, recognitionPasses || 1)
+  // 注意：区分 `undefined` 与 0，允许上层通过传入 0 来强制使用通用 prompt（单轮场景）
+  const passNum = (typeof passNumber === 'number') ? passNumber : 1
+  const totalPassesNum = (typeof recognitionPasses === 'number') ? recognitionPasses : 1
+  // 单轮识别直接使用通用识别 prompt（避免只做宏观定位）
+  let promptText: string
+  if (totalPassesNum === 1) {
+    promptText = generateGeneralRecognitionPrompt()
+  } else {
+    promptText = generateSpecializedPrompt(passNum, totalPassesNum)
+  }
 
   // 备用prompt（通用识别）
   const fallbackPromptText = `Look at this circuit diagram. Find all electronic components and their connections.
@@ -1908,10 +1963,14 @@ async function doMultiPassRecognition(
   }
 
   // 性能优化：根据passes数量动态调整并发度
-  // passes <= 3: 并发度1（避免过度并行）
-  // passes 4-6: 并发度2
-  // passes > 6: 并发度3（最大并发度）
-  const maxConcurrent = passes <= 3 ? 1 : passes <= 6 ? 2 : 3
+  // 固定为5步流程时，强制将 passes 视为5，并设置并发度策略
+  if (passes !== 5) {
+    logWarn('vision.multi_pass.forced_passes', { requestedPasses: passes, forcedPasses: 5 })
+    passes = 5
+  }
+
+  // 并发策略：对于固定5步，使用并发度2以平衡速度与稳定性
+  const maxConcurrent = 2
   const batches: any[][] = []
 
   for (let i = 0; i < passes; i += maxConcurrent) {
@@ -1934,7 +1993,8 @@ async function doMultiPassRecognition(
       })
 
       try {
-        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, passes, timeline, progressId)
+        // 对于固定5步流程，传入 passNumber 与固定 passes=5
+        const result = await recognizeSingleImage(img, apiUrl, model, authHeader, passNumber, 5, timeline, progressId)
 
         // 为结果添加轮次标识
         if (result.components) {
@@ -2102,14 +2162,22 @@ SPECIALIZED CONSOLIDATION INSTRUCTIONS:
    - Remove components that appear to be false positives
 
 OUTPUT FORMAT:
-Return only a valid JSON object with exactly two keys:
-- "components": array of consolidated component objects
-- "connections": array of consolidated connection objects
+Return a single valid JSON object with keys:
+  - "components": array of consolidated component objects
+  - "connections": array of consolidated connection objects
+  - "decisions": array of decision entries produced by the final validation pass (see schema below)
+  - "conflicts": array of conflict descriptors
+  - "uncertainties": array of entries that require human review
 
-Each component must have: id, type, and optionally: label, params, pins
-Each connection must have: from (with componentId, pin), to (with componentId, pin)
+Each component must have: id, type, and optionally: label, params, pins, sourcePasses
+Each connection must have: from (with componentId, pin), to (with componentId, pin), confidence, sourcePasses
 
-Focus on accuracy for IC models and component values - these are critical for circuit analysis.`
+Decision entry schema (from final verification pass):
+  - entityId, entityType, field, originalValue, finalValue, sourcePasses, decisionReason, confidence, action
+
+If unable to decide on an item, include it in "uncertainties" with a recommended action (e.g., "human_review").
+
+Focus on accuracy and provide a machine-readable audit trail (decisions) explaining key merges and corrections.`
 
   // 整合超时控制：默认 30 分钟（可通过环境变量 CONSOLIDATION_TIMEOUT_MS 覆盖）
   const defaultTimeoutMs = process.env.CONSOLIDATION_TIMEOUT_MS ? parseInt(process.env.CONSOLIDATION_TIMEOUT_MS, 10) : 1800000
