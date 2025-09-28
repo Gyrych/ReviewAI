@@ -9,12 +9,12 @@ function run(name, cmd, args, cwd) {
   return p
 }
 
-const backend = run('backend', 'npm', ['run', 'dev'], path.join(__dirname, 'backend'))
+const circuitAgent = run('circuit-agent', 'npm', ['run', 'dev'], path.join(__dirname, 'services', 'circuit-agent'))
 const frontend = run('frontend', 'npm', ['run', 'dev'], path.join(__dirname, 'frontend'))
 
 function shutdown() {
   console.log('Shutting down processes...')
-  try { backend.kill() } catch (e) {}
+  try { circuitAgent.kill() } catch (e) {}
   try { frontend.kill() } catch (e) {}
   process.exit()
 }

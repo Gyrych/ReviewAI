@@ -32,14 +32,12 @@ export default function App() {
   })
 
   // 公共配置：模型 API、模型名、API Key 等，抽离到 App 级别保持跨选项卡不变
-  const DEFAULT_API_URLS = [
-    'https://api.deepseek.com/chat/completions',
-    'https://openrouter.ai/api/v1/chat/completions',
-  ]
-  const [allowedApiUrls, setAllowedApiUrls] = useState<string[]>(DEFAULT_API_URLS)
-  const [modelApiUrl, setModelApiUrl] = useState<string>(DEFAULT_API_URLS[0])
+  // 固定使用 OpenRouter 作为外部模型提供者
+  const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
+  const [allowedApiUrls, setAllowedApiUrls] = useState<string[]>([OPENROUTER_API_URL])
+  const [modelApiUrl, setModelApiUrl] = useState<string>(OPENROUTER_API_URL)
   const [customApiUrl, setCustomApiUrl] = useState<string>('')
-  const [model, setModel] = useState<string>('deepseek-chat')
+  const [model, setModel] = useState<string>(OPENROUTER_MODEL_PRESETS[0])
   const [customModelName, setCustomModelName] = useState<string>('')
   const [modelOptions, setModelOptions] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner'])
   const [apiKey, setApiKey] = useState<string>('')
@@ -51,20 +49,8 @@ export default function App() {
   const [liveTimeline, setLiveTimeline] = useState<{ step: string; ts?: number; meta?: any }[] | undefined>(undefined)
 
   // 根据选中的 API 自动切换可选模型列表（OpenRouter 使用特定候选）
-  useEffect(() => {
-    try {
-      const urlForCheck = modelApiUrl === 'custom' ? (customApiUrl || '') : modelApiUrl
-      if ((urlForCheck || '').startsWith('https://openrouter.ai')) {
-        const openRouterModels = [...OPENROUTER_MODEL_PRESETS, 'custom'].sort((a,b) => a.localeCompare(b))
-        setModelOptions(openRouterModels)
-        if (!openRouterModels.includes(model)) setModel(openRouterModels[0])
-      } else {
-        const defaults = [...DEFAULT_MODEL_PRESETS]
-        setModelOptions(defaults)
-        if (!defaults.includes(model)) setModel(defaults[0])
-      }
-    } catch (e) {}
-  }, [modelApiUrl, customApiUrl])
+  // 仅提供 OpenRouter 预设模型
+  useEffect(() => { setModelOptions([...OPENROUTER_MODEL_PRESETS, 'custom'].sort((a,b) => a.localeCompare(b))) }, [])
 
   useEffect(() => {
     try {
@@ -99,7 +85,7 @@ export default function App() {
   // 中文注释：拉取最近会话清单
   async function fetchSessionList() {
     try {
-      const res = await fetch('/api/sessions/list?limit=10')
+      const res = await fetch('/api/v1/circuit-agent/sessions/list?limit=10')
       if (!res.ok) throw new Error(await res.text())
       const j = await res.json()
       setSessionList(Array.isArray(j.items) ? j.items : [])
@@ -178,7 +164,7 @@ export default function App() {
 
   async function handleLoadSession(id: string) {
     try {
-      const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`)
+      const res = await fetch(`/api/v1/circuit-agent/sessions/${encodeURIComponent(id)}`)
       if (!res.ok) throw new Error(await res.text())
       const s = await res.json() as SessionFileV1
       applyLoadedSessionToUI(s)
@@ -189,7 +175,7 @@ export default function App() {
 
   async function handleDeleteSession(id: string) {
     try {
-      const res = await fetch(`/api/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const res = await fetch(`/api/v1/circuit-agent/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(await res.text())
       await fetchSessionList()
     } catch (e: any) {
@@ -206,8 +192,8 @@ export default function App() {
             <div className="flex items-center gap-3">
               {/* 内联 SVG Logo（可替换为真实图片） */}
               <div className="w-10 h-10 rounded overflow-hidden bg-white flex items-center justify-center">
-                {/* 尝试通过后端静态代理获取 logo，兼容 dev proxy 配置 */}
-                <img src="/api/logo/logo.png" alt="Review AI logo" className="w-10 h-10 object-cover" />
+                {/* 使用前端本地静态 logo 文件 */}
+                <img src="/logo.png" alt="Review AI logo" className="w-10 h-10 object-cover" />
               </div>
               <div className="leading-tight">
                 <div className="text-xl font-semibold text-gray-400">{t('app.brand.title_en')}</div>
@@ -239,17 +225,8 @@ export default function App() {
             <div className="grid grid-cols-1 gap-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelApi.label')}</label>
-                <select value={modelApiUrl} onChange={(e) => setModelApiUrl(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
-                  {allowedApiUrls.map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                  <option value="custom">{t('app.modelApi.option.custom')}</option>
-                </select>
-                {modelApiUrl === 'custom' && (
-                  <div className="mt-2">
-                    <input value={customApiUrl} onChange={(e) => setCustomApiUrl(e.target.value)} placeholder={t('app.modelApi.placeholder.customUrl')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-                  </div>
-                )}
+                <input value={OPENROUTER_API_URL} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-100 dark:bg-gray-800 dark:border-cursorBorder dark:text-gray-300" />
+                <p className="text-xs text-gray-500 mt-1">{t('app.modelApi.note.fixed') || 'Using OpenRouter (fixed)'}: {OPENROUTER_API_URL}</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelName.label')}</label>
@@ -270,7 +247,7 @@ export default function App() {
                         <option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>
                       ))}
                     </select>
-                    {modelApiUrl === DEFAULT_API_URLS[1] && model === 'custom' && (
+                    {modelApiUrl === OPENROUTER_API_URL && model === 'custom' && (
                       <div className="mt-2">
                         <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
                         <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.openrouter')}</p>

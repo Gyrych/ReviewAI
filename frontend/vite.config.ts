@@ -8,7 +8,8 @@ export default defineConfig({
     port: 3002, // 改用未被系统排除的端口以避免 EACCES
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // 将代理目标指向 circuit-agent 子服务默认端口
+        target: 'http://localhost:4001',
         changeOrigin: true,
         secure: false
       }

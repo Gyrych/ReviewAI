@@ -39,8 +39,8 @@ export default function ReviewForm({
   sessionSeed?: SessionSeed
 }) {
   const { t, lang } = useI18n() as any
-  // backend endpoint is fixed and not shown to the user
-  const apiUrl = '/api/review'
+  // backend endpoint is fixed and not shown to the user（切换到新子服务编排端点）
+  const apiUrl = '/api/v1/circuit-agent/orchestrate/review'
   const [apiUrlError, setApiUrlError] = useState<string | null>(null)
   // default system prompt fields set to '无'
   const [requirements, setRequirements] = useState('无')
@@ -359,7 +359,7 @@ export default function ReviewForm({
         if (progressPollRef.current) window.clearInterval(progressPollRef.current)
         progressPollRef.current = window.setInterval(async () => {
           try {
-            const r = await fetch(`/api/progress/${encodeURIComponent(pid)}`)
+            const r = await fetch(`/api/v1/circuit-agent/progress/${encodeURIComponent(pid)}`)
             if (!r.ok) return
             const j = await r.json()
             if (Array.isArray(j.timeline)) {
@@ -410,7 +410,7 @@ export default function ReviewForm({
       if (progressIdRef.current) fd.append('progressId', progressIdRef.current)
       // fetch latest system prompt from backend and prepend to prompts
       try {
-        const spRes = await fetch(`/api/system-prompt?lang=${encodeURIComponent(lang)}`)
+        const spRes = await fetch(`/api/v1/circuit-agent/system-prompt?lang=${encodeURIComponent(lang)}`)
         if (spRes.ok) {
           const spTxt = await spRes.text()
           // prepend system prompt content to the three system prompt fields
@@ -505,7 +505,7 @@ export default function ReviewForm({
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {
-        const endpoint = directReview ? '/api/direct-review' : apiUrl
+        const endpoint = apiUrl
         res = await fetch(endpoint, { method: 'POST', body: fd, headers, signal: controller.signal })
       } finally {
         clearTimeout(timeoutId)
@@ -814,7 +814,7 @@ export default function ReviewForm({
         files: filesPayload,
       }
 
-      const res = await fetch('/api/sessions/save', {
+      const res = await fetch('/api/v1/circuit-agent/sessions/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
