@@ -258,6 +258,66 @@ app.post('/api/review', upload.any(), async (req, res) => {
   // 初始化IC器件资料元数据
   let datasheetMeta: any[] = []
 
+  // 如果前端请求 directReview，则跳过视觉解析流程，直接将图片/资料与提示一并转发给大模型进行评审
+  const directReview = (String(body.directReview || '').toLowerCase() === 'true')
+  if (directReview) {
+    const tImgStart = Date.now()
+    const imgStart = makeTimelineItem('vision.processing_skipped', { ts: tImgStart, origin: 'backend', category: 'vision', meta: { modelType: 'vision', description: 'Direct review requested - skip vision parsing' } })
+    timeline.push(imgStart)
+    if (progressId) pushProgress(progressId, imgStart)
+
+    // 保存上传的图片 artifact 以便审计和作为 LLM 请求的附件参考
+    try {
+      const { saveArtifactFromPath, saveArtifact } = require('./artifacts')
+      const savedFiles: any[] = []
+      for (const f of files) {
+        try {
+          const a = await saveArtifactFromPath(f.path, `uploaded_${f.originalname}`)
+          savedFiles.push(a)
+        } catch (e) {
+          // 忽略单个文件保存失败
+        }
+      }
+      // 将 files metadata 写入 timeline
+      const it = makeTimelineItem('backend.saved_uploads', { ts: Date.now(), origin: 'backend', category: 'io', meta: { description: 'Uploaded files saved for direct review', files: savedFiles } })
+      timeline.push(it)
+      if (progressId) pushProgress(progressId, it)
+    } catch (e) {
+      // 忽略 artifact 保存错误
+    }
+
+    // 直接构造供 LLM 使用的 message：包含用户提供的 requirements/specs/systemPrompt/history/dialog
+    const llmSystem = systemPrompt || ''
+    const userMessage = `Please review the attached schematic images and any provided datasheets.\n\nDesign requirements:\n${requirements}\n\nDesign specs:\n${specs}\n\nIf you need clarification, return clarifying questions first; otherwise produce a Markdown review.`
+
+    // 保存 LLM 请求 artifact
+    try {
+      const { saveArtifact } = require('./artifacts')
+      const preview = { model, apiUrl, systemPrompt: llmSystem, message: userMessage, filesCount: files.length }
+      await saveArtifact(JSON.stringify(preview, null, 2), `direct_review_request_${Date.now()}`, { ext: '.json', contentType: 'application/json' })
+    } catch {}
+
+    // 调用大模型进行直接评审（使用 generateMarkdownReview，以 circuitJson 为空表示无结构化JSON）
+    const markdown = await generateMarkdownReview({ components: [], connections: [] }, requirements, specs, apiUrl, model, authHeader, systemPrompt, history, [], timeline, progressId)
+    const llmDone = makeTimelineItem('llm.analysis_done', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { modelType: 'llm', description: 'Direct LLM analysis complete' } })
+    timeline.push(llmDone)
+    if (progressId) pushProgress(progressId, llmDone)
+
+    // 保存评审报告 artifact
+    try {
+      const { saveArtifact } = require('./artifacts')
+      const reportA = await saveArtifact(String(markdown || ''), `review_report_${Date.now()}`, { ext: '.md', contentType: 'text/markdown' })
+      const it = makeTimelineItem('analysis.result', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { description: 'Analysis result (direct review)', artifacts: { result: reportA } } })
+      timeline.push(it)
+      if (progressId) pushProgress(progressId, it)
+    } catch {}
+
+    const responseBody: any = { markdown }
+    try { responseBody.timeline = timeline } catch {}
+    try { responseBody.enrichedJson = { components: [], connections: [] } } catch {}
+    return res.json(responseBody)
+  }
+
   // 如果需要识别图片，标记并记录阶段时间点；在此处创建必要的局部变量以避免作用域问题
   if (!body.enrichedJson && files.length > 0) {
     const tImgStart = Date.now()
@@ -562,6 +622,124 @@ app.post('/api/deepseek', express.json(), async (req, res) => {
   } catch (err: any) {
     logError('/api/deepseek error', { error: String(err?.message || err) })
     res.status(502).json({ error: err?.message || 'upstream error' })
+  }
+})
+
+// 新增端点：POST /api/direct-review
+// 独立流程：接收图片与提示词/需求/规范，先让视觉模块（或通过模型直接识别图像）生成结构化描述，再调用语言模型进行评审。
+app.post('/api/direct-review', upload.any(), async (req, res) => {
+  try {
+    const body = req.body || {}
+    const model = body.model || null
+    const apiUrl = body.apiUrl || null
+    const authHeader = req.header('authorization') || undefined
+
+    if (!model) return res.status(400).json({ error: 'model missing' })
+    if (!apiUrl) return res.status(400).json({ error: 'apiUrl missing' })
+
+    const requirements = body.requirements || ''
+    const specs = body.specs || ''
+    const systemPrompt = (() => {
+      try { const sp = body.systemPrompts ? (typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts) : null; return sp ? (sp.systemPrompt || '') : '' } catch { return '' }
+    })()
+
+    const maybeFiles = (req as any).files
+    const files = Array.isArray(maybeFiles) ? maybeFiles.filter((f: any) => { const mt = f.mimetype || ''; return (typeof mt === 'string') && (mt.startsWith('image/') || mt === 'application/pdf') }) : []
+
+    const progressId = (body.progressId || '').toString().trim()
+    if (progressId) try { initProgress(progressId) } catch {}
+
+    const timeline: { step: string; ts: number; meta?: any }[] = []
+    timeline.push(makeTimelineItem('backend.request_received', { ts: Date.now(), origin: 'backend', category: 'state', meta: { description: 'direct-review request received' } }))
+
+    // 保存上传文件为 artifacts
+    const savedFiles: any[] = []
+    try {
+      const { saveArtifactFromPath } = require('./artifacts')
+      for (const f of files) {
+        try { const a = await saveArtifactFromPath(f.path, `direct_upload_${f.originalname}`); savedFiles.push(a) } catch {}
+      }
+      const it = makeTimelineItem('backend.saved_uploads', { ts: Date.now(), origin: 'backend', category: 'io', meta: { description: 'Saved uploaded files for direct-review', files: savedFiles } })
+      timeline.push(it)
+      if (progressId) pushProgress(progressId, it)
+    } catch (e) {}
+
+    // 不使用视觉模块；若前端提供 enrichedJson 可作为上下文，否则直接将图片以 data URL 附在请求中交给大模型处理
+    let reply = ''
+    try {
+      // 解析历史（若存在）
+      let history: any[] = []
+      if (body.history) {
+        try { history = typeof body.history === 'string' ? JSON.parse(body.history) : body.history } catch { history = [] }
+      }
+
+      // 构造模型提示：包含系统提示、设计需求与设计规范
+      const promptParts: string[] = []
+      if (systemPrompt && String(systemPrompt).trim()) promptParts.push(`System Prompt:\n${systemPrompt}\n`)
+      if (requirements && String(requirements).trim()) promptParts.push(`Design requirements:\n${requirements}\n`)
+      if (specs && String(specs).trim()) promptParts.push(`Design specs:\n${specs}\n`)
+
+      // 附件：将上传的图片或 PDF 转为 data URL 并嵌入提示（注意：可能很大）
+      if (files.length > 0) {
+        const attachLines: string[] = []
+        for (const f of files) {
+          try {
+            const buf = fs.existsSync(f.path) ? fs.readFileSync(f.path) : null
+            if (!buf) continue
+            const mime = f.mimetype || 'application/octet-stream'
+            const b64 = buf.toString('base64')
+            // 为避免提示过长，可只在 prompt 中包含文件名和可访问 URL；但若上游模型支持 data URL，可直接包含
+            const dataUrl = `data:${mime};base64,${b64}`
+            attachLines.push(`File: ${f.originalname}\nDataURL:\n${dataUrl}\n`)
+          } catch (e) {
+            // 忽略单个文件转码错误
+          }
+        }
+        if (attachLines.length > 0) promptParts.push(`Attached files (data URLs):\n${attachLines.join('\n')}`)
+      }
+
+      // 指示模型输出格式：先输出问题确认（若有），再输出评审报告；不要返回结构化 JSON
+      promptParts.push('请先给出任何必要的【问题确认】（若存在），每条一行；如果无需澄清，直接输出完整的【评审报告】（Markdown 格式，包含概述、问题与建议、结论）。请不要返回结构化 JSON 文件。')
+
+      const messageToLLM = promptParts.join('\n\n') + '\n\nUser dialog/context:\n' + (body.dialog || '')
+
+      // 调用文本对话接口，让模型直接基于图片和提示生成问题确认与评审报告
+      reply = await deepseekTextDialog(apiUrl, messageToLLM, model, authHeader, systemPrompt, history)
+    } catch (e) {
+      logError('direct-review.llm_failed', { error: String(e) })
+      throw e
+    }
+
+    // LLM 已直接返回文本回复（包含问题确认与评审报告），将该回复作为最终 markdown 返回
+    timeline.push(makeTimelineItem('llm.analysis_start', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { description: 'direct-review LLM analysis (raw reply) start' } }))
+    if (progressId) pushProgress(progressId, timeline[timeline.length-1])
+
+    const markdown = reply || ''
+
+    timeline.push(makeTimelineItem('llm.analysis_done', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { description: 'direct-review LLM analysis (raw reply) done' } }))
+    if (progressId) pushProgress(progressId, timeline[timeline.length-1])
+
+    // 保存并返回 LLM 原始回复
+    try {
+      const { saveArtifact } = require('./artifacts')
+      const reportA = await saveArtifact(String(markdown || ''), `direct_review_report_${Date.now()}`, { ext: '.md', contentType: 'text/markdown' })
+      timeline.push(makeTimelineItem('analysis.result', { ts: Date.now(), origin: 'backend', category: 'llm', meta: { description: 'direct-review result', artifacts: { result: reportA } } }))
+      if (progressId) pushProgress(progressId, timeline[timeline.length-1])
+    } catch {}
+
+    const responseBody: any = { markdown }
+    try { responseBody.timeline = timeline } catch {}
+    try { responseBody.savedFiles = savedFiles } catch {}
+    return res.json(responseBody)
+  } catch (e: any) {
+    logError('/api/direct-review error', { error: String(e?.message || e) })
+    res.status(502).json({ error: e?.message || 'upstream error' })
+  } finally {
+    try {
+      const maybeFiles = (req as any).files
+      const files = Array.isArray(maybeFiles) ? maybeFiles : []
+      files.forEach((f: any) => { if (f && f.path && fs.existsSync(f.path)) fs.unlink(f.path, () => {}) })
+    } catch (e) {}
   }
 })
 

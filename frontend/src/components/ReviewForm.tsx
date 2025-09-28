@@ -215,7 +215,9 @@ export default function ReviewForm({
       </details>
     )
   }
-  // 多轮识别和搜索配置
+  // 直接 LLM 评审与多轮识别和搜索配置
+  // 默认启用直接 LLM 评审（将图片与可选的器件资料直接发送给大模型，跳过视觉解析）
+  const [directReview, setDirectReview] = useState<boolean>(true)
   const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(false)
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
   const [searchTopN, setSearchTopN] = useState<number>(5)
@@ -466,6 +468,8 @@ export default function ReviewForm({
       fd.append('apiUrl', apiUrlClean)
       fd.append('requirements', requirements)
       fd.append('specs', specs)
+      // include directReview flag to instruct backend to skip vision parsing
+      fd.append('directReview', directReview ? 'true' : 'false')
       // systemPrompts may already be appended above when fetched
       // include conversation history（已包含本轮用户输入）
       try {
@@ -501,7 +505,8 @@ export default function ReviewForm({
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {
-        res = await fetch(apiUrl, { method: 'POST', body: fd, headers, signal: controller.signal })
+        const endpoint = directReview ? '/api/direct-review' : apiUrl
+        res = await fetch(endpoint, { method: 'POST', body: fd, headers, signal: controller.signal })
       } finally {
         clearTimeout(timeoutId)
         // 请求结束后清理 controllerRef
@@ -583,7 +588,7 @@ export default function ReviewForm({
         // UI 侧：根据时间线提示多阶段进度（若可用）
         try {
           // 若后端返回 timeline，将其合并并尝试映射用户可读进度
-          if (Array.isArray(j.timeline)) {
+        if (Array.isArray(j.timeline)) {
             const remote = j.timeline.map((x: any) => ({
               step: x.step,
               ts: x.ts,
@@ -598,6 +603,14 @@ export default function ReviewForm({
               const localPrefix = t.filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
               return localPrefix.concat(remote)
             })
+            // 如果后端返回包含 direct-review 专用步骤，更新进度展示
+            try {
+              const steps: string[] = remote.map((r: any) => r.step)
+              if (steps.includes('backend.saved_uploads')) setProgressStep('sending_request')
+              if (steps.includes('llm.analysis_start')) setProgressStep('second_stage_analysis_start')
+              if (steps.includes('llm.analysis_done')) setProgressStep('second_stage_analysis_done')
+              if (steps.includes('analysis.result')) setProgressStep('analysis_result')
+            } catch {}
           }
           const steps: string[] = (j.timeline || []).map((x: any) => x.step)
           // 尝试将阶段线性映射为用户可读标记
@@ -950,14 +963,29 @@ export default function ReviewForm({
       <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
         <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
         <div className="space-y-3">
+          {/* 直接 LLM 评审 开关 */}
+          <div className="flex items-center space-x-4">
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={directReview}
+                onChange={(e) => { setDirectReview(e.target.checked); if (e.target.checked) setMultiPassRecognition(false); }}
+                className="rounded border-gray-300 dark:border-gray-600"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.directReview.label')}</span>
+            </label>
+            <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">{t('form.directReview.note')}</div>
+          </div>
+
           {/* 多轮识别配置 */}
           <div className="flex items-center space-x-4">
             <label className="flex items-center space-x-2">
               <input
                 type="checkbox"
                 checked={multiPassRecognition}
-                onChange={(e) => setMultiPassRecognition(e.target.checked)}
+                onChange={(e) => { setMultiPassRecognition(e.target.checked); if (e.target.checked) setDirectReview(false); }}
                 className="rounded border-gray-300 dark:border-gray-600"
+                disabled={directReview}
               />
               <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
             </label>
