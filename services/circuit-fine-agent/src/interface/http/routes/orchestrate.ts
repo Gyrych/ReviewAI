@@ -105,6 +105,6 @@ export function makeOrchestrateRouter(deps: {
   return { upload, handler }
 }
 
-export { makeOrchestrateRouter } from '../../../../circuit-agent/src/interface/http/routes/orchestrate'
+// 已在本文件定义 makeOrchestrateRouter，移除对 circuit-agent 的重复导出以避免构建冲突
 
 

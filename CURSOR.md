@@ -18,17 +18,23 @@
 
 前提：Node.js >= 18
 
-1. 启动子服务（Circuit Agent）
+1. 启动子服务（Circuit Agent 与 Circuit Fine Agent）
 
 ```bash
 cd services/circuit-agent
 npm install
 npm run dev
+
+cd ../circuit-fine-agent
+npm install
+npm run dev
 ```
 
-默认端口: `4001`
+默认端口:
+- `circuit-agent`: `4001`
+- `circuit-fine-agent`: `4002`
 
-1. 启动前端
+2. 启动前端
 
 ```bash
 cd frontend
@@ -36,11 +42,12 @@ npm install
 npm run dev
 ```
 
-默认端口: `3000`
+默认端口（开发配置）: `3002`（若被占用，Vite 会尝试其它端口）
 
-1. Windows 一键启动
+3. Windows 一键启动
 
 在仓库根目录运行 `start-all.bat`（或 `node start-all.js`）。
+注意：`start-all.js` 已实现依赖检查；如子服务目录缺少 `node_modules`，会自动运行 `npm install` 后再启动服务。
 
 ## 必需提示词（位置与文件）
 
@@ -100,3 +107,6 @@ npm run dev
 - 2025-09-29: 前端实现与拆分：新增 `frontend/src/types/agent.ts`、在 `App.tsx` 静态注册 `circuit` / `circuit-fine`、按 agent 隔离 App 状态、`ReviewForm` 支持 `agentBaseUrl` 与 `initialMode` 并新增两个 agent 入口文件。
 - 2025-09-29: 后端：新增 `services/circuit-fine-agent` 服务骨架并迁移/复制核心实现（domain、usecases、infra、routes、storage），生成 `services/circuit-fine-agent/openapi.yaml` 草案，确保 prompts/storage/artifacts 命名空间隔离。
 - 2025-09-29: 文档更新：在 `doc/prd/agent-api-specs.md` 与 `CURSOR.md` 中记录多 Agent 的实现细节与本地验证建议。
+ - 2025-09-29: 前端修改：精简 tabs 为“电路图单agent评审”和“电路图多agent评审”，将 App 级模型设置移至标题栏并移除页面中显示的模型 API 地址；ReviewForm 根据 `initialMode` 条件隐藏/显示高级配置；会话加载/保存 UI 从全局区移至 Agent 层（wrapper 组件）。
+ - 2025-09-29: 修复并改进启动脚本：`start-all.js` 增加缺失依赖检测并在必要时自动运行 `npm install`，并支持同时启动 `circuit-agent`、`circuit-fine-agent` 与 `frontend`；同步更新 `start-all.bat` 提示文本。
+ - 2025-09-29: 修复后端构建冲突：移除 `services/circuit-fine-agent` 中对 `DirectReviewUseCase` 与 `makeOrchestrateRouter` 的重复 re-export，避免 esbuild 报 "Multiple exports with the same name" 错误。

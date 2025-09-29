@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
 import FileUpload from './FileUpload'
 import type { SessionSeed } from '../types/session'
 import ReactMarkdown from 'react-markdown'
 import { useI18n } from '../i18n'
 
-export default function ReviewForm({
+const ReviewForm = React.forwardRef(function ReviewForm({
   agentBaseUrl,
   onResult,
   initialMode,
@@ -41,7 +41,7 @@ export default function ReviewForm({
   onSavePair?: (api: string, model: string) => void
   markdown?: string
   sessionSeed?: SessionSeed
-}) {
+}, ref: any) {
   const { t, lang } = useI18n() as any
   // agentBaseUrl: agent 后端 base URL（由 App 传入），默认兼容旧路径
   const agentBase = (typeof (agentBaseUrl) === 'string' && agentBaseUrl.trim()) ? agentBaseUrl.trim() : '/api/v1/circuit-agent'
@@ -221,8 +221,8 @@ export default function ReviewForm({
   }
   // 直接 LLM 评审与多轮识别和搜索配置
   // 根据 initialMode 初始化：
-  // - 'direct'（默认）：directReview=true, multiPassRecognition=false
-  // - 'fine'：directReview=false, multiPassRecognition=true
+  // - 'direct'（单agent评审）：不展示高级的 direct/multi 选项（由模式固定行为）
+  // - 'fine'（多agent评审）：默认启用多轮识别
   const [directReview, setDirectReview] = useState<boolean>(() => (initialMode === 'fine' ? false : true))
   const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(() => (initialMode === 'fine' ? true : false))
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
@@ -253,90 +253,65 @@ export default function ReviewForm({
   // NOTE: modelApiUrl, model, modelOptions and related persistence are managed by parent (App).
 
   // 中文注释：当收到外部会话种子时，回填至本地状态（包括文件重建与 enrichedJson）
-  useEffect(() => {
-    async function hydrateFromSeed(seed?: SessionSeed) {
-      if (!seed) return
+  async function applyLoadedSession(seed?: SessionSeed | any) {
+    if (!seed) return
+    try {
+      isHydratingRef.current = true
+      setRequirements(seed.requirements || '无')
+      setSpecs(seed.specs || '无')
+      setQuestionConfirm(seed.questionConfirm || '')
+      setDialog(seed.dialog || '')
+      // history
       try {
-        isHydratingRef.current = true
-        setRequirements(seed.requirements || '无')
-        setSpecs(seed.specs || '无')
-        setQuestionConfirm(seed.questionConfirm || '')
-        setDialog(seed.dialog || '')
-        // 将保存的 questionConfirm 作为兜底补齐到 history（若历史中缺少"问题确认/Clarifying Question"项）
-        try {
-          const qcText = (seed.questionConfirm || '').trim()
-          const baseHistory = Array.isArray(seed.history) ? [...seed.history] : []
-          const hasQcInHistory = baseHistory.some((h) => h && h.role === 'assistant' && typeof h.content === 'string' && (h.content.includes('【问题确认】') || h.content.includes('【Clarifying Question】') || (qcText && h.content.trim() === qcText)))
-          if (!hasQcInHistory && qcText) {
-            baseHistory.push({ role: 'assistant', content: qcText })
-          }
-          setHistory(baseHistory)
-        } catch {
-          setHistory(Array.isArray(seed.history) ? seed.history : [])
-        }
-        // enrichedJson 回填
-        if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
-        // 回填 timeline（若存在）
-        try {
-          const loadedTimeline = Array.isArray((seed as any).timeline) ? [...(seed as any).timeline] : []
-          setTimeline(loadedTimeline)
-
-          // 根据加载的 timeline 恢复进度状态
-          if (loadedTimeline.length > 0) {
-            // 设置当前进度步骤为最后一个步骤
-            const lastStep = loadedTimeline[loadedTimeline.length - 1]
-            setProgressStep(lastStep.step)
-
-            // 计算总耗时（从第一个步骤到最后一个步骤）
-            try {
-              const firstStep = loadedTimeline[0]
-              if (firstStep.ts && lastStep.ts) {
-                const totalElapsed = Math.max(0, lastStep.ts - firstStep.ts)
-                setElapsedMs(totalElapsed)
-              }
-            } catch (e) {
-              // 忽略时间计算错误
-            }
-          }
-
-          // 停止任何正在运行的计时器，因为这是已保存的会话
-          if (timerRef.current) {
-            window.clearInterval(timerRef.current)
-            timerRef.current = null
-          }
-        } catch {}
-        // 文件重建：base64 -> Blob -> File
-        if (Array.isArray(seed.files) && seed.files.length > 0) {
-          const rebuilt: File[] = []
-          for (const f of seed.files) {
-            try {
-              const b64 = (f.dataBase64 || '').split(',').pop() || ''
-              const binStr = atob(b64)
-              const len = binStr.length
-              const bytes = new Uint8Array(len)
-              for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i)
-              const blob = new Blob([bytes], { type: f.type || 'application/octet-stream' })
-              const file = new File([blob], f.name || 'file', { type: f.type, lastModified: f.lastModified || Date.now() })
-              rebuilt.push(file)
-            } catch (e) {
-              // 单个文件失败不影响整体
-            }
-          }
-          setFiles(rebuilt)
-        } else {
-          setFiles([])
-        }
-        // 加载历史会话后，默认视为"无未保存更改"
-        setHasUnsavedChanges(false)
-      } catch (e) {
-        // 忽略种子异常
-      } finally {
-        isHydratingRef.current = false
+        const qcText = (seed.questionConfirm || '').trim()
+        const baseHistory = Array.isArray(seed.history) ? [...seed.history] : []
+        const hasQcInHistory = baseHistory.some((h) => h && h.role === 'assistant' && typeof h.content === 'string' && (h.content.includes('【问题确认】') || h.content.includes('【Clarifying Question】') || (qcText && h.content.trim() === qcText)))
+        if (!hasQcInHistory && qcText) baseHistory.push({ role: 'assistant', content: qcText })
+        setHistory(baseHistory)
+      } catch {
+        setHistory(Array.isArray(seed.history) ? seed.history : [])
       }
+      if (seed.enrichedJson) setLocalEnrichedJson(seed.enrichedJson)
+      try {
+        const loadedTimeline = Array.isArray((seed as any).timeline) ? [...(seed as any).timeline] : []
+        setTimeline(loadedTimeline)
+        if (loadedTimeline.length > 0) {
+          const lastStep = loadedTimeline[loadedTimeline.length - 1]
+          setProgressStep(lastStep.step)
+          try {
+            const firstStep = loadedTimeline[0]
+            if (firstStep.ts && lastStep.ts) setElapsedMs(Math.max(0, lastStep.ts - firstStep.ts))
+          } catch {}
+        }
+        if (timerRef.current) { window.clearInterval(timerRef.current); timerRef.current = null }
+      } catch {}
+
+      // 文件重建
+      if (Array.isArray(seed.files) && seed.files.length > 0) {
+        const rebuilt: File[] = []
+        for (const f of seed.files) {
+          try {
+            const b64 = (f.dataBase64 || '').split(',').pop() || ''
+            const binStr = atob(b64)
+            const len = binStr.length
+            const bytes = new Uint8Array(len)
+            for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i)
+            const blob = new Blob([bytes], { type: f.type || 'application/octet-stream' })
+            const file = new File([blob], f.name || 'file', { type: f.type, lastModified: f.lastModified || Date.now() })
+            rebuilt.push(file)
+          } catch {}
+        }
+        setFiles(rebuilt)
+      } else setFiles([])
+      setHasUnsavedChanges(false)
+    } catch (e) {
+      // ignore
+    } finally {
+      isHydratingRef.current = false
     }
-    hydrateFromSeed(sessionSeed)
-    // 仅在 sessionSeed 变化时回填
-  }, [sessionSeed])
+  }
+
+  useEffect(() => { if (sessionSeed) applyLoadedSession(sessionSeed) }, [sessionSeed])
 
   // 中文注释：监听关键字段变化，标记为"有未保存更改"（在加载期不触发）
   useEffect(() => {
@@ -751,6 +726,13 @@ export default function ReviewForm({
     }
   }, [timeline])
 
+  // 向外暴露保存会话方法（供 wrapper 调用）
+  useImperativeHandle(ref, () => ({
+    saveSession: async () => {
+      return await handleSaveSession()
+    }
+  }))
+
   // 中文注释：中止当前与大模型的对话请求
   function handleAbort() {
     try {
@@ -966,41 +948,62 @@ export default function ReviewForm({
       </div>
 
       {/* 多轮识别和搜索配置 */}
-      <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
-        <div className="space-y-3">
-          {/* 直接 LLM 评审 开关 */}
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={directReview}
-                onChange={(e) => { setDirectReview(e.target.checked); if (e.target.checked) setMultiPassRecognition(false); }}
-                className="rounded border-gray-300 dark:border-gray-600"
-                disabled={initialMode === 'fine'}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.directReview.label')}</span>
-            </label>
-            <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">{t('form.directReview.note')}</div>
-          </div>
+      {/* 高级配置：按 initialMode 条件渲染 */}
+      {initialMode !== 'direct' && (
+        <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
+          <div className="space-y-3">
+            {/* 当 initialMode !== 'direct' 时，显示多轮识别相关（多agent 模式保留多轮与搜索） */}
+            {initialMode === 'fine' && (
+              <>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={multiPassRecognition}
+                      onChange={(e) => { setMultiPassRecognition(e.target.checked); if (e.target.checked) setDirectReview(false); }}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
+                  </label>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">{multiPassRecognition ? t('form.multiPass.multiNote') : t('form.multiPass.singleNote')}</div>
+                </div>
 
-          {/* 多轮识别配置 */}
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={multiPassRecognition}
-                onChange={(e) => { setMultiPassRecognition(e.target.checked); if (e.target.checked) setDirectReview(false); }}
-                className="rounded border-gray-300 dark:border-gray-600"
-                disabled={initialMode === 'direct'}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
-            </label>
-            {/* 说明：根据是否启用多轮显示不同短文案 */}
-            <div className="text-xs text-gray-500 dark:text-gray-400 ml-2">{multiPassRecognition ? t('form.multiPass.multiNote') : t('form.multiPass.singleNote')}</div>
+                <div className="flex items-center space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={enableSearch}
+                      onChange={(e) => setEnableSearch(e.target.checked)}
+                      className="rounded border-gray-300 dark:border-gray-600"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.search.enable')}</span>
+                  </label>
+                  {enableSearch && (
+                    <div className="flex items-center space-x-2">
+                      <label className="text-sm text-gray-600 dark:text-gray-400">{t('form.search.topN')}:</label>
+                      <select
+                        value={searchTopN}
+                        onChange={(e) => setSearchTopN(Number(e.target.value))}
+                        className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
+                      >
+                        {[3, 5, 10, 15, 20].map(n => (
+                          <option key={n} value={n}>{n}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
+        </div>
+      )}
 
-          {/* 搜索配置 */}
+      {/* 单agent（direct）模式：保留启用器件搜索的选项（仅搜索开关） */}
+      {initialMode === 'direct' && (
+        <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+          <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
           <div className="flex items-center space-x-4">
             <label className="flex items-center space-x-2">
               <input
@@ -1019,16 +1022,13 @@ export default function ReviewForm({
                   onChange={(e) => setSearchTopN(Number(e.target.value))}
                   className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200"
                 >
-                  {[3, 5, 10, 15, 20].map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
+                  {[3,5,10,15,20].map(n => (<option key={n} value={n}>{n}</option>))}
                 </select>
               </div>
             )}
           </div>
-
         </div>
-      </div>
+      )}
 
       {/* 文件上传已在上方显示，避免重复显示 */}
 
@@ -1087,9 +1087,7 @@ export default function ReviewForm({
         <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={handleResetAll}>
           {t('form.reset')}
         </button>
-        <button type="button" className="px-4 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded-md disabled:opacity-60" onClick={handleSaveSession} disabled={saving}>
-          {saving ? t('form.save.loading') : t('form.save')}
-        </button>
+        {/* 保存会话按钮移至 Agent 层（wrapper） */}
       </div>
       {/* 将时间线放到按钮下方 */}
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
@@ -1845,6 +1843,8 @@ export default function ReviewForm({
       </div>
     </form>
   )
-}
 
+})
+
+export default ReviewForm
 

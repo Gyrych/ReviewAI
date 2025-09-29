@@ -25,16 +25,19 @@ export default function App() {
     'qwen/qwen-vl-max',
   ]
   const DEFAULT_MODEL_PRESETS = ['deepseek-chat', 'deepseek-reasoner']
-  // 静态注册的 Agent 列表（按 PRD）
+  // 静态注册的 Agent 列表（仅保留两种电路图评审）
+  // 在开发环境下，某些 agent 服务运行在不同端口（circuit-agent:4001, circuit-fine-agent:4002）
+  // 因此为保证请求能正确到达，DEV 模式下使用完整 host:port 路径；生产环境仍使用相对路径。
+  const isDev = Boolean((import.meta as any).env && (import.meta as any).env.DEV)
   const AGENTS: { id: string; label: string; baseUrl: string }[] = [
-    { id: 'circuit', label: 'Circuit (Direct)', baseUrl: '/api/v1/circuit-agent' },
-    { id: 'circuit-fine', label: 'Circuit (Fine)', baseUrl: '/api/v1/circuit-fine-agent' },
+    { id: 'circuit', label: t('app.tabs.circuit_single'), baseUrl: isDev ? 'http://localhost:4001/api/v1/circuit-agent' : '/api/v1/circuit-agent' },
+    { id: 'circuit-fine', label: t('app.tabs.circuit_multi'), baseUrl: isDev ? 'http://localhost:4002/api/v1/circuit-fine-agent' : '/api/v1/circuit-fine-agent' },
   ]
   // per-agent UI state maps，确保不同 agent 之间互不干扰
   const [markdownMap, setMarkdownMap] = useState<Record<string, string>>(() => AGENTS.reduce((m, a) => (m[a.id] = '', m), {} as Record<string, string>))
   const [enrichedJsonMap, setEnrichedJsonMap] = useState<Record<string, any | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, any | null>))
   const [overlayMap, setOverlayMap] = useState<Record<string, any | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, any | null>))
-  const [activeTab, setActiveTab] = useState<'circuit' | 'circuit-fine' | 'code' | 'doc' | 'req'>('circuit')
+  const [activeTab, setActiveTab] = useState<'circuit' | 'circuit-fine'>('circuit')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try { return (localStorage.getItem('theme') as 'light' | 'dark') || 'light' } catch(e){ return 'light' }
   })
@@ -212,7 +215,11 @@ export default function App() {
                 <div className="text-sm text-gray-600 dark:text-gray-300">{t('app.brand.title_cn')}</div>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2">
+              <select value={model} onChange={(e) => setModel(e.target.value)} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm">
+                {modelOptions.map((m) => (<option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>))}
+              </select>
+              <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={t('app.apiKey.placeholder') || 'API Key'} title={t('app.apiKey.hint') || '输入 API Key'} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm" />
               <button
                 onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
                 className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -232,83 +239,9 @@ export default function App() {
       <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
         <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow">
 
-          {/* 全局配置区域：模型 API 地址、模型名称、API Key 等 */}
-          <div className="mb-4">
-            <div className="grid grid-cols-1 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelApi.label')}</label>
-                <input value={OPENROUTER_API_URL} readOnly className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-100 dark:bg-gray-800 dark:border-cursorBorder dark:text-gray-300" />
-                <p className="text-xs text-gray-500 mt-1">{t('app.modelApi.note.fixed') || 'Using OpenRouter (fixed)'}: {OPENROUTER_API_URL}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.modelName.label')}</label>
-                {modelApiUrl === 'custom' ? (
-                  <>
-                    <select className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" value="custom" disabled>
-                      <option value="custom">{t('app.modelName.option.custom')}</option>
-                    </select>
-                    <div className="mt-2">
-                      <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-                      <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.customApi')}</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <select value={model} onChange={(e) => setModel(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText">
-                      {modelOptions.map((m) => (
-                        <option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>
-                      ))}
-                    </select>
-                    {modelApiUrl === OPENROUTER_API_URL && model === 'custom' && (
-                      <div className="mt-2">
-                        <input value={customModelName} onChange={(e) => setCustomModelName(e.target.value)} placeholder={t('app.modelName.placeholder.customName')} className="block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-                        <p className="text-xs text-yellow-600 mt-1">{t('app.modelName.note.openrouter')}</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('app.apiKey.label')}</label>
-                <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} className="mt-1 block w-full rounded-md border px-3 py-2 bg-white dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText" />
-              </div>
-            </div>
-          </div>
+          {/* App 级设置已移至标题栏（右侧），此处不再展示 API URL */}
 
-          {/* 加载会话：按钮与滚动清单（最多 10 条） */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between">
-              <button onClick={() => setSessionsVisible(!sessionsVisible)} className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                {sessionsVisible ? t('app.sessions.toggle.hide') : t('app.sessions.toggle.show')}
-              </button>
-              {sessionsVisible && (
-                <button onClick={() => fetchSessionList()} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-xs transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {t('app.sessions.refresh')}
-                </button>
-              )}
-            </div>
-            {sessionsVisible && (
-              <div className="mt-2 border rounded p-2 max-h-64 overflow-y-auto bg-white dark:bg-cursorPanel dark:border-cursorBorder">
-                {(sessionListMap[activeTab] || []).length === 0 && (
-                  <div className="text-sm text-gray-500 dark:text-gray-300">{t('app.sessions.empty')}</div>
-                )}
-                <ul className="space-y-2">
-                  {((sessionListMap[activeTab] || []) as SessionListItem[]).map((it: SessionListItem) => (
-                    <li key={it.id} className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium dark:text-cursorText truncate">{it.createdAt}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{it.apiHost} · {it.model || ''}</div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => handleLoadSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">{t('app.sessions.load')}</button>
-                        <button onClick={() => handleDeleteSession(it.id)} className="px-2 py-1 text-xs rounded border bg-white dark:bg-cursorPanel dark:border-cursorBorder text-red-600 dark:text-red-400 transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500">{t('app.sessions.delete')}</button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          {/* 会话管理改为 Agent 层，App 层不在此处渲染会话列表 */}
 
           <div>
             <div className="border-b border-gray-200">
@@ -318,15 +251,7 @@ export default function App() {
                     {ag.label}
                   </button>
                 ))}
-                <button onClick={() => setActiveTab('code')} className={`px-3 py-2 ${activeTab === 'code' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {t('app.tabs.code')}
-                </button>
-                <button onClick={() => setActiveTab('doc')} className={`px-3 py-2 ${activeTab === 'doc' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {t('app.tabs.doc')}
-                </button>
-                <button onClick={() => setActiveTab('req')} className={`px-3 py-2 ${activeTab === 'req' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {t('app.tabs.req')}
-                </button>
+                {/* 其余标签页已移除 */}
               </nav>
             </div>
             <div className="mt-4">
@@ -335,7 +260,7 @@ export default function App() {
                   const ag = AGENTS.find(a => a.id === activeTab) || AGENTS[0]
                   const Component = activeTab === 'circuit' ? CircuitReviewForm : CircuitFineReviewForm
                   return (
-                    <Component
+                  <Component
                       agentBaseUrl={ag.baseUrl}
                       onResult={(md: string) => setMarkdownMap((m) => ({ ...m, [activeTab]: md }))}
                       setEnrichedJson={(j: any) => setEnrichedJsonMap((m) => ({ ...m, [activeTab]: j }))}
@@ -352,19 +277,12 @@ export default function App() {
                       markdown={markdownMap[activeTab]}
                       sessionSeed={sessionSeedMap[activeTab] || undefined}
                       onTimeline={(tl: any) => setLiveTimelineMap((m) => ({ ...m, [activeTab]: Array.isArray(tl) ? tl : undefined }))}
+                      onLoadSession={handleLoadSession}
                     />
                   )
                 })()
               )}
-              {activeTab === 'code' && (
-                <div className="text-gray-500">{t('app.tabs.code')}{t('app.tab.todo')}</div>
-              )}
-              {activeTab === 'doc' && (
-                <div className="text-gray-500">{t('app.tabs.doc')}{t('app.tab.todo')}</div>
-              )}
-              {activeTab === 'req' && (
-                <div className="text-gray-500">{t('app.tabs.req')}{t('app.tab.todo')}</div>
-              )}
+              {/* 已移除的非电路标签页相关内容 */}
             </div>
           </div>
         </div>
