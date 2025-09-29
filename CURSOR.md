@@ -92,6 +92,10 @@ npm run dev
 - 提示词缺失：专用视觉提示缺失会导致后端报错并中止请求，请确保 `ReviewAIPrompt/` 下文件存在且非空。
 - 日志与工件：后端会在 `services/circuit-agent/storage/artifacts/` 保存生成的 artifact（例如 `*_direct_review_report_*.md`），用于调试与回溯。
 
+- 端口冲突与重复启动提示：若在使用 `start-all.bat` 或 `start-all.js` 启动时遇到 `EADDRINUSE`（端口被占用），通常是先前的服务实例仍在运行。解决方法：
+  - 关闭之前打开的启动窗口或终止占用端口的进程（示例：在 PowerShell 中使用 `Get-NetTCPConnection -LocalPort 4001,4002` 查找 `OwningProcess`，再 `Stop-Process -Id <PID>` 停止），或重新启动机器；
+  - 或通过任务管理器/资源管理器查找并结束对应 `node.exe` 进程。为方便操作，仓库新增了 `scripts/install-redis-client.ps1`、`scripts/run-redis-docker.ps1`、`scripts/set-redis-env.ps1`，并可扩展添加用于释放端口的辅助脚本。
+
 ## 修改与同步策略
 
 每次对代码、架构或提示词进行修改后，请手动更新本文件以保持一致性。建议在 Pull Request 描述或提交信息中注明对 `CURSOR.md` 的同步更新。
@@ -110,3 +114,8 @@ npm run dev
  - 2025-09-29: 前端修改：精简 tabs 为“电路图单agent评审”和“电路图多agent评审”，将 App 级模型设置移至标题栏并移除页面中显示的模型 API 地址；ReviewForm 根据 `initialMode` 条件隐藏/显示高级配置；会话加载/保存 UI 从全局区移至 Agent 层（wrapper 组件）。
  - 2025-09-29: 修复并改进启动脚本：`start-all.js` 增加缺失依赖检测并在必要时自动运行 `npm install`，并支持同时启动 `circuit-agent`、`circuit-fine-agent` 与 `frontend`；同步更新 `start-all.bat` 提示文本。
  - 2025-09-29: 修复后端构建冲突：移除 `services/circuit-fine-agent` 中对 `DirectReviewUseCase` 与 `makeOrchestrateRouter` 的重复 re-export，避免 esbuild 报 "Multiple exports with the same name" 错误。
+ - 2025-09-29: 修复 `services/circuit-fine-agent/src/interface/http/routes/directReview.ts` 中的相对导入路径错误（回退层级少一层），已将导入路径修正为指向兄弟包 `services/circuit-agent/src/interface/http/routes/directReview`。
+ - 2025-09-29: 修复 `services/circuit-fine-agent/src/interface/http/routes/directReview.ts` 中的相对导入路径错误（回退层级少一层），已将导入路径修正为指向兄弟包 `services/circuit-agent/src/interface/http/routes/directReview`。
+ - 2025-09-29: 修复其他 route 文件中的相对导入（`structuredReview.ts`、`sessions.ts`、`structuredRecognize.ts`、`aggregate.ts`），统一指向 `services/circuit-agent/src/interface/http/routes/*`。
+ - 2025-09-29: 在 `scripts/` 添加三个 PowerShell 脚本用于在 Windows 上安装 redis 客户端、通过 Docker 启动 Redis 容器并设置 `REDIS_URL` 环境变量；并在本地成功运行脚本、拉取并启动 `redis:7` 镜像，验证返回 `PONG`。
+ - 2025-09-29: 验证服务健康端点：`circuit-agent` 与 `circuit-fine-agent` 均返回 HTTP 200 且 `status: ok`。
