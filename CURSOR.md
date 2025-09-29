@@ -1,0 +1,98 @@
+# CURSOR.md — 仓库记忆与快速参考（中文）
+
+创建者: GPT-5 Mini（为用户生成）
+创建日期: 2025-09-29
+
+本文件为本仓库的快速参考与记忆文档（供 AI 助手与开发者查阅）。
+请在对仓库结构、运行方式或关键文件做出修改后同步更新本文件。
+
+## 仓库概览
+
+本仓库 “schematic-ai-review” 用于对电路原理图进行基于视觉与 LLM 的自动化审查，主要组件：
+
+- `frontend/`：Vite + React + TypeScript 前端，负责文件上传、展示 Markdown 审查结果与 SVG 覆盖层（开发服务器：`http://localhost:3000`）。
+- `services/circuit-agent/`：独立的后端子服务，提供图像到结构化电路 JSON 的识别、分步审查与最终聚合（默认端口 `4001`，API 基路径 `/api/v1/circuit-agent`）。
+- `ReviewAIPrompt/`：必须提供的系统与分 pass 视觉提示词文件集合（运行时必须存在且非空）。
+
+## 快速启动（本地开发）
+
+前提：Node.js >= 18
+
+1. 启动子服务（Circuit Agent）
+
+```bash
+cd services/circuit-agent
+npm install
+npm run dev
+```
+
+默认端口: `4001`
+
+1. 启动前端
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+默认端口: `3000`
+
+1. Windows 一键启动
+
+在仓库根目录运行 `start-all.bat`（或 `node start-all.js`）。
+
+## 必需提示词（位置与文件）
+
+后端与前端在运行时期望 `ReviewAIPrompt/` 下包含一组提示词文件以供版本控制与人工审阅。以下文件应存在且非空：
+
+- `ReviewAIPrompt/系统提示词.md`（中文，系统级）
+- `ReviewAIPrompt/SystemPrompt.md`（英文，系统级）
+- `ReviewAIPrompt/single_pass_vision_prompt.md`（通用单轮视觉提示）
+- `ReviewAIPrompt/macro_prompt.md`（宏观 pass）
+- `ReviewAIPrompt/ic_prompt.md`（IC 专用 pass）
+- `ReviewAIPrompt/rc_prompt.md`（电阻/电容 pass）
+- `ReviewAIPrompt/net_prompt.md`（网表追踪 pass）
+- `ReviewAIPrompt/verify_prompt.md`（校验 pass）
+- `ReviewAIPrompt/consolidation_prompt.md`（汇总/合并用）
+
+当前实现情况与注意事项：
+
+- 实际代码库中 **部分 Provider 仍使用内联 system prompt 字符串**（见 `services/circuit-agent/src/infra/providers/OpenRouterVisionProvider.ts` 与 `OpenRouterVisionChat.ts`）。
+- 虽然 `ReviewAIPrompt/` 中存在 canonical prompt 文件（例如 `single_pass_vision_prompt.md`），但当前运行时并不会自动将这些文件同步加载到所有 provider。换言之，仓库包含的 prompt 文本和 provider 内联提示可能不同步。
+- 建议将 prompt 外置并实现 `PromptRepository`（例如 `PromptRepositoryFs`），在运行时由 provider 从 `ReviewAIPrompt/` 加载对应 prompt，从而避免版本漂移并支持 prompt 版本化与缓存。
+
+注意：若系统提示词在 `ReviewAIPrompt/` 与仓库根目录都缺失，后端会抛出错误并 fail-fast。前端在缺失系统提示词时会显示非阻断警告，但专用视觉提示若缺失仍可能导致识别流程异常。
+
+## 关键端口与脚本
+
+- 前端开发服务器: `http://localhost:3000`
+- 子服务默认端口: `http://localhost:4001`（可由 `PORT` 环境变量覆盖）
+- 根脚本: `start-all.bat` / `start-all.js`
+
+## 关键目录与文件索引（简要）
+
+- `frontend/` — 前端源码、构建与静态资源（Vite）。
+- `services/circuit-agent/` — 后端子服务（src/ 包含分层架构：domain、app、infra、interface、bootstrap）。
+- `ReviewAIPrompt/` — 运行时必须的提示词集合（见上文）。
+- `docs/` — 项目相关说明与设计文档（analysis.md、circuit_schema.md 等）。
+- `logo/` — 项目徽标与图像资源。
+
+## 运行与调试注意事项
+
+- 启动顺序：通常先启动 `services/circuit-agent`，再启动前端以确保 API 可用。
+- 端口冲突：若 `3000`/`4001` 被占用，请修改对应服务的端口并相应更新 `frontend/vite.config.ts` 中的代理目标或传入 `PORT` 环境变量。前端代理默认把 `/api` 转发到后端。
+- 提示词缺失：专用视觉提示缺失会导致后端报错并中止请求，请确保 `ReviewAIPrompt/` 下文件存在且非空。
+- 日志与工件：后端会在 `services/circuit-agent/storage/artifacts/` 保存生成的 artifact（例如 `*_direct_review_report_*.md`），用于调试与回溯。
+
+## 修改与同步策略
+
+每次对代码、架构或提示词进行修改后，请手动更新本文件以保持一致性。建议在 Pull Request 描述或提交信息中注明对 `CURSOR.md` 的同步更新。
+
+## 联系方式与参考
+
+项目作者联系（如需示例提示词等）：`gyrych@gmail.com`
+
+## 变更记录
+
+-- 2025-09-29: 初始创建，由 AI 助手生成（GPT-5 Mini）。

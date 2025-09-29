@@ -264,7 +264,7 @@
 
 接口草案：
 
-```
+```ts
 interface PromptRepository {
   load(key: PromptKey): Promise<string>
 }
@@ -277,7 +277,8 @@ type PromptKey =
 ### 7.3 代码改造要点
 
 - `OpenRouterVisionProvider.recognizeSingle`：
-  - 移除内联 `system` 内容，改为 `promptRepo.load({ mode:'structured', stage:'vision_single_pass' })`
+  - 当前实现说明：代码库中 `OpenRouterVisionProvider`（`services/circuit-agent/src/infra/providers/OpenRouterVisionProvider.ts`）以及 `OpenRouterVisionChat` 使用内联的 system prompt 字符串来驱动视觉模型，而非通过统一的 prompt 加载器读取 `ReviewAIPrompt/` 下的文件。
+  - 建议改造：移除内联 `system` 内容，改为 `promptRepo.load({ mode:'structured', stage:'vision_single_pass' })`，以实现提示词外置与版本管理。
 - `OpenRouterVisionProvider.consolidate`：
   - 外置合并提示词
 - `MultiModelReviewUseCase` / `FinalAggregationUseCase`：
@@ -323,23 +324,23 @@ type PromptKey =
 
 ## 9) 渐进式落地路线图（建议 2–3 个迭代）
 
-迭代一（架构基线）：
+### 迭代一（架构基线）
 
-1. 引入 `PromptRepositoryFs`，将 vision/consolidation 提示词外置，保留 system 端点
-2. 统一时间线命名空间（不改业务逻辑）
-3. 工件目录分桶（`artifacts/{mode}/...`），响应体携带 `artifactBase`
+1. 引入 `PromptRepositoryFs`，将 vision/consolidation 提示词外置，保留 system 端点。
+2. 统一时间线命名空间（不改业务逻辑）。
+3. 工件目录分桶（`artifacts/{mode}/...`），响应体携带 `artifactBase`。
 
-迭代二（模式隔离与校验）：
+### 迭代二（模式隔离与校验）
 
-4. 路由/会话按 `mode` 标记；前端保存/加载透传 mode
-5. 接口层引入 Zod/Valibot 校验，错误码与消息标准化
-6. Provider 超时/重试/限速通过 `config` 配置
+1. 路由/会话按 `mode` 标记；前端保存/加载透传 mode。
+2. 接口层引入 Zod/Valibot 校验，错误码与消息标准化。
+3. Provider 超时/重试/限速通过 `config` 配置。
 
-迭代三（可观测与产品完善）：
+### 迭代三（可观测与产品完善）
 
-7. 时间线语义方法化（`TimelineService` 增加专用 maker）
-8. 响应体输出 `promptVersion` 与关键 promptKey，便于复现
-9. 文档化与脚本：`ReviewAIPrompt/` 模板与校验脚本
+1. 时间线语义方法化（`TimelineService` 增加专用 maker）。
+2. 响应体输出 `promptVersion` 与关键 promptKey，便于复现。
+3. 文档化与脚本：`ReviewAIPrompt/` 模板与校验脚本。
 
 ---
 
@@ -379,4 +380,3 @@ type PromptKey =
 ## 结语
 
 当前代码已具备清晰分层与良好扩展点。通过提示词外置、DTO 强校验、时间线规范化与模式全隔离，可以显著提升系统的可维护性与长期演进能力。建议按“提示词外置 → 时间线规范 → 模式隔离 → 校验强化”的顺序迭代推进。
-
