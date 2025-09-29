@@ -3,7 +3,10 @@ import dotenv from 'dotenv'
 import { loadConfig } from '../config/config'
 import { healthHandler } from '../interface/http/routes/health'
 import path from 'path'
-import expressStatic from 'express'
+import fs from 'fs'
+import { fileURLToPath } from 'url'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 import { ProgressMemoryStore } from '../infra/progress/ProgressMemoryStore'
 import { ProgressRedisStore } from '../infra/progress/ProgressRedisStore'
 import { makeProgressHandler } from '../interface/http/routes/progress'
@@ -36,7 +39,7 @@ const BASE_PATH = cfg.basePath
 // 中文注释：创建 Express 应用，并挂载健康检查路由
 const app = express()
 // 统一 JSON 解析与基础错误处理中间件
-app.use(expressStatic.json({ limit: '200mb' }))
+app.use(express.json({ limit: '200mb' }))
 app.use((req, res, next) => {
   try { next() } catch (e: any) { res.status(500).json({ error: 'internal error' }) }
 })
@@ -48,39 +51,48 @@ app.get(`${BASE_PATH}/health`, healthHandler)
 try {
   const storageRoot = cfg.storageRoot
   const artifactsDir = path.join(storageRoot, 'artifacts')
-  app.use(`${BASE_PATH}/artifacts`, expressStatic.static(artifactsDir))
+  app.use(`${BASE_PATH}/artifacts`, express.static(artifactsDir))
   // logo（直接使用仓库根 logo 目录）
-  const repoLogoDir = path.resolve(__dirname, '..', '..', '..', 'logo')
-  app.use(`${BASE_PATH}/logo`, expressStatic.static(repoLogoDir))
+  const repoRootForStatic = path.resolve(__dirname, '..', '..', '..', '..')
+  const repoLogoDir = path.resolve(repoRootForStatic, 'logo')
+  app.use(`${BASE_PATH}/logo`, express.static(repoLogoDir))
   // system prompts（复用 ReviewAIPrompt 或仓库根）
-  app.get(`${BASE_PATH}/system-prompt`, (req, res) => {
-    try {
-      const lang = String(req.query.lang || 'zh')
-      const filename = lang === 'en' ? 'SystemPrompt.md' : '系统提示词.md'
-      const preferred = path.resolve(process.cwd(), 'ReviewAIPrompt', filename)
-      const fallback = path.resolve(process.cwd(), filename)
-      const p = fsExists(preferred) ? preferred : (fsExists(fallback) ? fallback : '')
-      if (!p) return res.status(404).type('application/json').send(JSON.stringify({ error: 'system prompt not found' }))
-      const txt = require('fs').readFileSync(p, 'utf8')
-      res.type('text/plain').send(txt)
-    } catch (e) { res.status(500).json({ error: 'failed to read system prompt' }) }
-  })
+  // 注意：此路由放在 try 块之外，避免静态资源挂载异常导致路由未注册
 } catch {}
 
 // 中文注释：进度查询端点（默认使用内存实现；后续可切换为 Redis 实例）
 // 中文注释：优先使用 Redis（若可用），否则回退内存
-let progressStore: any
-try {
-  const Redis = (await import('redis')).createClient
-  const client = Redis({ url: cfg.redisUrl })
-  await client.connect()
-  progressStore = new ProgressRedisStore(client, { ttlSeconds: 24*60*60 })
-  console.log('[circuit-agent] Progress store: Redis')
-} catch {
-  progressStore = new ProgressMemoryStore()
-  console.log('[circuit-agent] Progress store: Memory (fallback)')
-}
+let progressStore: any = new ProgressMemoryStore()
+;(async () => {
+  try {
+    const redisMod: any = await import('redis')
+    const createClient = redisMod.createClient
+    const client = createClient({ url: cfg.redisUrl })
+    await client.connect()
+    progressStore = new ProgressRedisStore(client, { ttlSeconds: 24 * 60 * 60 })
+    console.log('[circuit-agent] Progress store: Redis')
+  } catch (e: any) {
+    // 保持 Memory fallback，记录原因但不抛出
+    console.log('[circuit-agent] Progress store: Memory (fallback)', e?.message || '')
+  }
+})()
+
 app.get(`${BASE_PATH}/progress/:id`, makeProgressHandler(progressStore))
+
+// 中文注释：system-prompt 路由（独立注册，避免前置 try/catch 影响）
+app.get(`${BASE_PATH}/system-prompt`, (req, res) => {
+  try {
+    const lang = String(req.query.lang || 'zh')
+    const filename = lang === 'en' ? 'SystemPrompt.md' : '系统提示词.md'
+    const repoRoot = path.resolve(__dirname, '..', '..', '..', '..')
+    const preferred = path.resolve(repoRoot, 'ReviewAIPrompt', filename)
+    const fallback = path.resolve(repoRoot, filename)
+    const p = fs.existsSync(preferred) ? preferred : (fs.existsSync(fallback) ? fallback : '')
+    if (!p) return res.status(404).type('application/json').send(JSON.stringify({ error: 'system prompt not found' }))
+    const txt = fs.readFileSync(p, 'utf8')
+    res.type('text/plain').send(txt)
+  } catch (e) { res.status(500).json({ error: 'failed to read system prompt' }) }
+})
 
 // 中文注释：挂载直接评审模式路由（multipart 上传）
 const artifact = new ArtifactStoreFs(cfg.storageRoot)
@@ -100,7 +112,7 @@ app.post(`${BASE_PATH}/modes/structured/recognize`, sr.upload.any(), sr.handler)
 // 中文注释：并行文本评审 + 最终整合
 const textLlm = new OpenRouterTextProvider(cfg.openRouterBase, cfg.timeouts.llmMs)
 const multiReview = new MultiModelReviewUseCase(textLlm, timeline)
-app.post(`${BASE_PATH}/modes/structured/review`, expressStatic.json(), makeStructuredReviewHandler(multiReview))
+app.post(`${BASE_PATH}/modes/structured/review`, express.json(), makeStructuredReviewHandler(multiReview))
 
 const finalAgg = new FinalAggregationUseCase(textLlm, timeline)
 const ag = makeAggregateRouter({ usecase: finalAgg, storageRoot: cfg.storageRoot })
@@ -110,12 +122,12 @@ app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
 const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, direct: directReview, structured, multi: multiReview, aggregate: finalAgg })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
-function fsExists(p: string): boolean { try { return require('fs').existsSync(p) } catch { return false } }
+function fsExists(p: string): boolean { try { return fs.existsSync(p) } catch { return false } }
 
 // 中文注释：sessions 路由（list/load/save/delete）
 const sessions = new SessionStoreFs(cfg.storageRoot)
 const sess = makeSessionsHandlers(sessions)
-app.post(`${BASE_PATH}/sessions/save`, expressStatic.json(), sess.save)
+app.post(`${BASE_PATH}/sessions/save`, express.json(), sess.save)
 app.get(`${BASE_PATH}/sessions/list`, sess.list)
 app.get(`${BASE_PATH}/sessions/:id`, sess.read)
 app.delete(`${BASE_PATH}/sessions/:id`, sess.remove)

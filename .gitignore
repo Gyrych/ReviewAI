@@ -30,3 +30,51 @@ frontend/.env.*
 
 
 node_modules
+
+# =========================
+# 构建产物与打包输出
+# =========================
+/frontend/dist/                # 已存在构建产物，需要被忽略
+/dist/                        # 通用构建目录
+/build/
+
+# =========================
+# 服务/子项目的运行时日志与临时文件
+# =========================
+/services/**/logs/             # services 下各服务日志目录
+/services/**/tmp/              # 临时文件
+services/circuit-agent/logs/   # 显式列出已发现日志
+
+# =========================
+# IDE 与编辑器配置
+# =========================
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+
+# =========================
+# 系统/OS 文件
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 前端/Vite 缓存与产物
+# =========================
+frontend/node_modules/
+frontend/.vite/
+*.local
+*.cache
+coverage/
+.nyc_output/
+
+# =========================
+# 各类本地环境文件 & 密钥
+# =========================
+.env.local
+.env.*.local
+services/**/.env
+*.pem
+secrets/

@@ -60,8 +60,34 @@ export function makeOrchestrateRouter(deps: {
       const circuit: CircuitGraph = rec.circuit
 
       // 并行评审：当前使用单一文本模型数组（可扩展为多选）
-      const models: string[] = (() => { try { return body.models ? (Array.isArray(body.models) ? body.models : JSON.parse(body.models)) : [model] } catch { return [model] } })()
-      const multi = await deps.multi.execute({ apiUrl, models, circuit, systemPrompt: String(body.systemPrompt || ''), requirements: String(body.requirements || ''), specs: String(body.specs || ''), dialog: String(body.dialog || ''), history: (() => { try { return body.history ? (typeof body.history === 'string' ? JSON.parse(body.history) : body.history) : [] } catch { return [] } )(), authHeader, progressId })
+      const models: string[] = (() => {
+        try {
+          return body.models ? (Array.isArray(body.models) ? body.models : JSON.parse(body.models)) : [model]
+        } catch {
+          return [model]
+        }
+      })()
+
+      const historyParsed = (() => {
+        try {
+          return body.history ? (typeof body.history === 'string' ? JSON.parse(body.history) : body.history) : []
+        } catch {
+          return []
+        }
+      })()
+
+      const multi = await deps.multi.execute({
+        apiUrl,
+        models,
+        circuit,
+        systemPrompt: String(body.systemPrompt || ''),
+        requirements: String(body.requirements || ''),
+        specs: String(body.specs || ''),
+        dialog: String(body.dialog || ''),
+        history: historyParsed,
+        authHeader,
+        progressId
+      })
 
       // 终稿整合：固定 openai/gpt-5
       const agg = await deps.aggregate.execute({ apiUrl, model: 'openai/gpt-5', circuit, reports: multi.reports, systemPrompt: String(body.systemPrompt || ''), attachments: attachments.map(a => ({ name: a.name, mime: a.mime, text: tryText(a.bytes) })), authHeader, progressId })
