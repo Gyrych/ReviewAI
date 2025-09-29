@@ -95,4 +95,8 @@ npm run dev
 
 ## 变更记录
 
--- 2025-09-29: 初始创建，由 AI 助手生成（GPT-5 Mini）。
+- 2025-09-29: 初始创建，由 AI 助手生成（GPT-5 Mini）。
+- 2025-09-29: 撰写多 Agent PRD 与 API 规范草案（`doc/prd/multi-agent-prd.md`, `doc/prd/agent-api-specs.md`）。
+- 2025-09-29: 前端实现与拆分：新增 `frontend/src/types/agent.ts`、在 `App.tsx` 静态注册 `circuit` / `circuit-fine`、按 agent 隔离 App 状态、`ReviewForm` 支持 `agentBaseUrl` 与 `initialMode` 并新增两个 agent 入口文件。
+- 2025-09-29: 后端：新增 `services/circuit-fine-agent` 服务骨架并迁移/复制核心实现（domain、usecases、infra、routes、storage），生成 `services/circuit-fine-agent/openapi.yaml` 草案，确保 prompts/storage/artifacts 命名空间隔离。
+- 2025-09-29: 文档更新：在 `doc/prd/agent-api-specs.md` 与 `CURSOR.md` 中记录多 Agent 的实现细节与本地验证建议。

@@ -1,0 +1,26 @@
+{
+  "name": "circuit-fine-agent-service",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Circuit Fine-grained Review Agent - standalone backend microservice (skeleton reusing circuit-agent core)",
+  "scripts": {
+    "dev": "tsx src/bootstrap/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/bootstrap/server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.2",
+    "node-fetch": "^3.3.2",
+    "schematic-ai-review": "file:../.."
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "tsx": "^4.15.7",
+    "typescript": "^5.6.3"
+  }
+}
+
+

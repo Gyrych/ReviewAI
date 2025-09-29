@@ -5,7 +5,9 @@ import ReactMarkdown from 'react-markdown'
 import { useI18n } from '../i18n'
 
 export default function ReviewForm({
+  agentBaseUrl,
   onResult,
+  initialMode,
   // 新增：当后端返回 timeline 时，回调父组件以便统一展示
   onTimeline,
   setEnrichedJson,
@@ -22,6 +24,8 @@ export default function ReviewForm({
   markdown,
   sessionSeed,
 }: {
+  agentBaseUrl?: string
+  initialMode?: 'direct' | 'fine'
   onResult: (markdown: string) => void
   onTimeline?: (timeline: { step: string; ts?: number; meta?: any }[]) => void
   setEnrichedJson?: (j: any) => void
@@ -39,8 +43,8 @@ export default function ReviewForm({
   sessionSeed?: SessionSeed
 }) {
   const { t, lang } = useI18n() as any
-  // backend endpoint is fixed and not shown to the user（切换到新子服务编排端点）
-  const apiUrl = '/api/v1/circuit-agent/orchestrate/review'
+  // agentBaseUrl: agent 后端 base URL（由 App 传入），默认兼容旧路径
+  const agentBase = (typeof (agentBaseUrl) === 'string' && agentBaseUrl.trim()) ? agentBaseUrl.trim() : '/api/v1/circuit-agent'
   const [apiUrlError, setApiUrlError] = useState<string | null>(null)
   // default system prompt fields set to '无'
   const [requirements, setRequirements] = useState('无')
@@ -216,9 +220,11 @@ export default function ReviewForm({
     )
   }
   // 直接 LLM 评审与多轮识别和搜索配置
-  // 默认启用直接 LLM 评审（将图片与可选的器件资料直接发送给大模型，跳过视觉解析）
-  const [directReview, setDirectReview] = useState<boolean>(true)
-  const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(false)
+  // 根据 initialMode 初始化：
+  // - 'direct'（默认）：directReview=true, multiPassRecognition=false
+  // - 'fine'：directReview=false, multiPassRecognition=true
+  const [directReview, setDirectReview] = useState<boolean>(() => (initialMode === 'fine' ? false : true))
+  const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(() => (initialMode === 'fine' ? true : false))
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
   const [searchTopN, setSearchTopN] = useState<number>(5)
 
@@ -359,7 +365,7 @@ export default function ReviewForm({
         if (progressPollRef.current) window.clearInterval(progressPollRef.current)
         progressPollRef.current = window.setInterval(async () => {
           try {
-            const r = await fetch(`/api/v1/circuit-agent/progress/${encodeURIComponent(pid)}`)
+        const r = await fetch(`${agentBase}/progress/${encodeURIComponent(pid)}`)
             if (!r.ok) return
             const j = await r.json()
             if (Array.isArray(j.timeline)) {
@@ -410,7 +416,7 @@ export default function ReviewForm({
       if (progressIdRef.current) fd.append('progressId', progressIdRef.current)
       // fetch latest system prompt from backend and prepend to prompts
       try {
-        const spRes = await fetch(`/api/v1/circuit-agent/system-prompt?lang=${encodeURIComponent(lang)}`)
+        const spRes = await fetch(`${agentBase}/system-prompt?lang=${encodeURIComponent(lang)}`)
         if (spRes.ok) {
           const spTxt = await spRes.text()
           // prepend system prompt content to the three system prompt fields
@@ -505,7 +511,7 @@ export default function ReviewForm({
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
       let res: Response
       try {
-        const endpoint = apiUrl
+        const endpoint = `${agentBase}/orchestrate/review`
         res = await fetch(endpoint, { method: 'POST', body: fd, headers, signal: controller.signal })
       } finally {
         clearTimeout(timeoutId)
@@ -814,7 +820,7 @@ export default function ReviewForm({
         files: filesPayload,
       }
 
-      const res = await fetch('/api/v1/circuit-agent/sessions/save', {
+      const res = await fetch(`${agentBase}/sessions/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -971,6 +977,7 @@ export default function ReviewForm({
                 checked={directReview}
                 onChange={(e) => { setDirectReview(e.target.checked); if (e.target.checked) setMultiPassRecognition(false); }}
                 className="rounded border-gray-300 dark:border-gray-600"
+                disabled={initialMode === 'fine'}
               />
               <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.directReview.label')}</span>
             </label>
@@ -985,7 +992,7 @@ export default function ReviewForm({
                 checked={multiPassRecognition}
                 onChange={(e) => { setMultiPassRecognition(e.target.checked); if (e.target.checked) setDirectReview(false); }}
                 className="rounded border-gray-300 dark:border-gray-600"
-                disabled={directReview}
+                disabled={initialMode === 'direct'}
               />
               <span className="text-sm text-gray-700 dark:text-gray-200">{t('form.multiPass.enable')}</span>
             </label>

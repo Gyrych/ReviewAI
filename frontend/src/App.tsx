@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import ReviewForm from './components/ReviewForm'
+import CircuitReviewForm from './agents/circuit/ReviewForm'
+import CircuitFineReviewForm from './agents/circuit-fine/ReviewForm'
 import ResultView from './components/ResultView'
 import type { SessionFileV1, SessionListItem, SessionSeed } from './types/session'
 import { useI18n } from './i18n'
@@ -23,10 +25,16 @@ export default function App() {
     'qwen/qwen-vl-max',
   ]
   const DEFAULT_MODEL_PRESETS = ['deepseek-chat', 'deepseek-reasoner']
-  const [markdown, setMarkdown] = useState('')
-  const [enrichedJson, setEnrichedJson] = useState<any | null>(null)
-  const [overlay, setOverlay] = useState<any | null>(null)
-  const [activeTab, setActiveTab] = useState<'circuit' | 'code' | 'doc' | 'req'>('circuit')
+  // 静态注册的 Agent 列表（按 PRD）
+  const AGENTS: { id: string; label: string; baseUrl: string }[] = [
+    { id: 'circuit', label: 'Circuit (Direct)', baseUrl: '/api/v1/circuit-agent' },
+    { id: 'circuit-fine', label: 'Circuit (Fine)', baseUrl: '/api/v1/circuit-fine-agent' },
+  ]
+  // per-agent UI state maps，确保不同 agent 之间互不干扰
+  const [markdownMap, setMarkdownMap] = useState<Record<string, string>>(() => AGENTS.reduce((m, a) => (m[a.id] = '', m), {} as Record<string, string>))
+  const [enrichedJsonMap, setEnrichedJsonMap] = useState<Record<string, any | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, any | null>))
+  const [overlayMap, setOverlayMap] = useState<Record<string, any | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, any | null>))
+  const [activeTab, setActiveTab] = useState<'circuit' | 'circuit-fine' | 'code' | 'doc' | 'req'>('circuit')
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     try { return (localStorage.getItem('theme') as 'light' | 'dark') || 'light' } catch(e){ return 'light' }
   })
@@ -43,10 +51,10 @@ export default function App() {
   const [apiKey, setApiKey] = useState<string>('')
   // 中文注释：会话加载相关状态
   const [sessionsVisible, setSessionsVisible] = useState<boolean>(false)
-  const [sessionList, setSessionList] = useState<SessionListItem[]>([])
-  const [sessionSeed, setSessionSeed] = useState<SessionSeed | null>(null)
+  const [sessionListMap, setSessionListMap] = useState<Record<string, SessionListItem[]>>(() => AGENTS.reduce((m, a) => (m[a.id] = [], m), {} as Record<string, SessionListItem[]>))
+  const [sessionSeedMap, setSessionSeedMap] = useState<Record<string, SessionSeed | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, SessionSeed | null>))
   // 新增：实时 timeline 状态，用于 ResultView 在没有 sessionSeed 时展示最近一次的 timeline
-  const [liveTimeline, setLiveTimeline] = useState<{ step: string; ts?: number; meta?: any }[] | undefined>(undefined)
+  const [liveTimelineMap, setLiveTimelineMap] = useState<Record<string, { step: string; ts?: number; meta?: any }[] | undefined>>(() => AGENTS.reduce((m, a) => (m[a.id] = undefined, m), {} as Record<string, { step: string; ts?: number; meta?: any }[] | undefined>))
 
   // 根据选中的 API 自动切换可选模型列表（OpenRouter 使用特定候选）
   // 仅提供 OpenRouter 预设模型
@@ -83,12 +91,14 @@ export default function App() {
   }, [theme])
 
   // 中文注释：拉取最近会话清单
-  async function fetchSessionList() {
+  async function fetchSessionList(agentId?: string) {
     try {
-      const res = await fetch('/api/v1/circuit-agent/sessions/list?limit=10')
+      const aid = agentId || activeTab
+      const agent = AGENTS.find(a => a.id === aid) || AGENTS[0]
+      const res = await fetch(`${agent.baseUrl}/sessions/list?limit=10`)
       if (!res.ok) throw new Error(await res.text())
       const j = await res.json()
-      setSessionList(Array.isArray(j.items) ? j.items : [])
+      setSessionListMap((m) => ({ ...m, [aid]: Array.isArray(j.items) ? j.items : [] }))
     } catch (e) {
       // 静默失败，不影响主流程
     }
@@ -140,13 +150,13 @@ export default function App() {
         setCustomModelName('')
       }
 
-      // 评审结果与结构化数据
-      setMarkdown(s.markdown || '')
-      setEnrichedJson(s.enrichedJson || null)
-      setOverlay(s.overlay || null)
+      // 评审结果与结构化数据 - 按 agent 隔离存储
+      setMarkdownMap((m) => ({ ...m, [activeTab]: s.markdown || '' }))
+      setEnrichedJsonMap((m) => ({ ...m, [activeTab]: s.enrichedJson || null }))
+      setOverlayMap((m) => ({ ...m, [activeTab]: s.overlay || null }))
 
-      // 给子组件的种子数据
-      setSessionSeed({
+      // 给子组件的种子数据（按 agent 存储）
+      setSessionSeedMap((m) => ({ ...m, [activeTab]: {
         requirements: s.requirements || '',
         specs: s.specs || '',
         questionConfirm: s.questionConfirm || '',
@@ -155,8 +165,8 @@ export default function App() {
         timeline: Array.isArray(s.timeline) ? s.timeline : [],
         files: Array.isArray(s.files) ? s.files : [],
         enrichedJson: s.enrichedJson,
-      })
-      setActiveTab('circuit')
+      } }))
+      // 不改变 activeTab（保留用户当前选中）
     } catch (e) {
       // 忽略映射异常，避免影响主流程
     }
@@ -164,7 +174,8 @@ export default function App() {
 
   async function handleLoadSession(id: string) {
     try {
-      const res = await fetch(`/api/v1/circuit-agent/sessions/${encodeURIComponent(id)}`)
+      const agent = AGENTS.find(a => a.id === activeTab) || AGENTS[0]
+      const res = await fetch(`${agent.baseUrl}/sessions/${encodeURIComponent(id)}`)
       if (!res.ok) throw new Error(await res.text())
       const s = await res.json() as SessionFileV1
       applyLoadedSessionToUI(s)
@@ -175,7 +186,8 @@ export default function App() {
 
   async function handleDeleteSession(id: string) {
     try {
-      const res = await fetch(`/api/v1/circuit-agent/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const agent = AGENTS.find(a => a.id === activeTab) || AGENTS[0]
+      const res = await fetch(`${agent.baseUrl}/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!res.ok) throw new Error(await res.text())
       await fetchSessionList()
     } catch (e: any) {
@@ -277,11 +289,11 @@ export default function App() {
             </div>
             {sessionsVisible && (
               <div className="mt-2 border rounded p-2 max-h-64 overflow-y-auto bg-white dark:bg-cursorPanel dark:border-cursorBorder">
-                {sessionList.length === 0 && (
+                {(sessionListMap[activeTab] || []).length === 0 && (
                   <div className="text-sm text-gray-500 dark:text-gray-300">{t('app.sessions.empty')}</div>
                 )}
                 <ul className="space-y-2">
-                  {sessionList.map((it) => (
+                  {((sessionListMap[activeTab] || []) as SessionListItem[]).map((it: SessionListItem) => (
                     <li key={it.id} className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="text-sm font-medium dark:text-cursorText truncate">{it.createdAt}</div>
@@ -301,9 +313,11 @@ export default function App() {
           <div>
             <div className="border-b border-gray-200">
               <nav className="-mb-px flex space-x-4" aria-label="Tabs">
-                <button onClick={() => setActiveTab('circuit')} className={`px-3 py-2 ${activeTab === 'circuit' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
-                  {t('app.tabs.circuit')}
-                </button>
+                {AGENTS.map((ag) => (
+                  <button key={ag.id} onClick={() => setActiveTab(ag.id as any)} className={`px-3 py-2 ${activeTab === ag.id ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
+                    {ag.label}
+                  </button>
+                ))}
                 <button onClick={() => setActiveTab('code')} className={`px-3 py-2 ${activeTab === 'code' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-300'}`}>
                   {t('app.tabs.code')}
                 </button>
@@ -316,25 +330,31 @@ export default function App() {
               </nav>
             </div>
             <div className="mt-4">
-              {activeTab === 'circuit' && (
-                <ReviewForm
-                  onResult={setMarkdown}
-                  setEnrichedJson={setEnrichedJson}
-                  setOverlay={setOverlay}
-                  overlay={overlay}
-                  modelApiUrl={modelApiUrl}
-                  customApiUrl={customApiUrl}
-                  model={model}
-                  customModelName={customModelName}
-                  setCustomModelName={setCustomModelName}
-                  apiKey={apiKey}
-                  allowedApiUrls={allowedApiUrls}
-                  onSavePair={handleSavePair}
-                  markdown={markdown}
-                  sessionSeed={sessionSeed || undefined}
-                  // 传入回调以接收 ReviewForm 合并后的 timeline
-                  onTimeline={(tl) => setLiveTimeline(Array.isArray(tl) ? tl : undefined)}
-                />
+              {(activeTab === 'circuit' || activeTab === 'circuit-fine') && (
+                (() => {
+                  const ag = AGENTS.find(a => a.id === activeTab) || AGENTS[0]
+                  const Component = activeTab === 'circuit' ? CircuitReviewForm : CircuitFineReviewForm
+                  return (
+                    <Component
+                      agentBaseUrl={ag.baseUrl}
+                      onResult={(md: string) => setMarkdownMap((m) => ({ ...m, [activeTab]: md }))}
+                      setEnrichedJson={(j: any) => setEnrichedJsonMap((m) => ({ ...m, [activeTab]: j }))}
+                      setOverlay={(o: any) => setOverlayMap((m) => ({ ...m, [activeTab]: o }))}
+                      overlay={overlayMap[activeTab]}
+                      modelApiUrl={modelApiUrl}
+                      customApiUrl={customApiUrl}
+                      model={model}
+                      customModelName={customModelName}
+                      setCustomModelName={setCustomModelName}
+                      apiKey={apiKey}
+                      allowedApiUrls={allowedApiUrls}
+                      onSavePair={handleSavePair}
+                      markdown={markdownMap[activeTab]}
+                      sessionSeed={sessionSeedMap[activeTab] || undefined}
+                      onTimeline={(tl: any) => setLiveTimelineMap((m) => ({ ...m, [activeTab]: Array.isArray(tl) ? tl : undefined }))}
+                    />
+                  )
+                })()
               )}
               {activeTab === 'code' && (
                 <div className="text-gray-500">{t('app.tabs.code')}{t('app.tab.todo')}</div>
@@ -350,7 +370,7 @@ export default function App() {
         </div>
         <div className="col-span-7">
           <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
-          <ResultView markdown={markdown || t('app.result.waiting')} enrichedJson={enrichedJson} overlay={overlay} setEnrichedJson={setEnrichedJson} timeline={liveTimeline || (sessionSeed && (sessionSeed as any).timeline ? (sessionSeed as any).timeline : undefined)} />
+          <ResultView markdown={markdownMap[activeTab] || t('app.result.waiting')} enrichedJson={enrichedJsonMap[activeTab]} overlay={overlayMap[activeTab]} setEnrichedJson={(j:any)=>setEnrichedJsonMap((m)=>({...m,[activeTab]:j}))} timeline={liveTimelineMap[activeTab] || (sessionSeedMap[activeTab] && (sessionSeedMap[activeTab] as any).timeline ? (sessionSeedMap[activeTab] as any).timeline : undefined)} />
         </div>
       </div>
     </div>
