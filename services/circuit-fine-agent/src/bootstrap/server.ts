@@ -7,6 +7,7 @@ import fs from 'fs'
 import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+import cors from 'cors'
 import { ProgressMemoryStore } from '../infra/progress/ProgressMemoryStore'
 import { ProgressRedisStore } from '../infra/progress/ProgressRedisStore'
 import { makeProgressHandler } from '../interface/http/routes/progress'
@@ -35,6 +36,20 @@ const PORT = cfg.port
 const BASE_PATH = cfg.basePath
 
 const app = express()
+
+// 中文注释：启用严格来源白名单的 CORS，仅放行前端开发地址，并允许 Authorization 以透传上游模型 API
+const corsOptions = {
+  origin: ['http://localhost:3002', 'http://127.0.0.1:3002'],
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'] as const,
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  optionsSuccessStatus: 204,
+  credentials: false,
+  maxAge: 86400,
+}
+app.use(cors(corsOptions))
+// 中文注释：显式处理预检请求，确保返回允许的跨域响应头
+app.options('*', cors(corsOptions))
+
 app.use(express.json({ limit: '200mb' }))
 app.use((req, res, next) => { try { next() } catch (e:any) { res.status(500).json({ error: 'internal error' }) } })
 

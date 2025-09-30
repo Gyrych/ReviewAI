@@ -95,6 +95,17 @@ npm run dev
 - 端口冲突与重复启动提示：若在使用 `start-all.bat` 或 `start-all.js` 启动时遇到 `EADDRINUSE`（端口被占用），通常是先前的服务实例仍在运行。解决方法：
   - 关闭之前打开的启动窗口或终止占用端口的进程（示例：在 PowerShell 中使用 `Get-NetTCPConnection -LocalPort 4001,4002` 查找 `OwningProcess`，再 `Stop-Process -Id <PID>` 停止），或重新启动机器；
   - 或通过任务管理器/资源管理器查找并结束对应 `node.exe` 进程。为方便操作，仓库新增了 `scripts/install-redis-client.ps1`、`scripts/run-redis-docker.ps1`、`scripts/set-redis-env.ps1`，并可扩展添加用于释放端口的辅助脚本。
+  - 新增脚本：`scripts/restart-services.ps1` 可自动释放 `3002/4001/4002` 端口并重新启动三个服务（前端 + 两后端）。
+
+### CORS（跨域）
+
+- 为支持前端 DEV 环境直接调用后端（`http://localhost:3002` → `http://localhost:4001/4002`），两个子服务已启用严格白名单 CORS：
+  - 允许来源：`http://localhost:3002`、`http://127.0.0.1:3002`
+  - 允许方法：GET/POST/DELETE/OPTIONS
+  - 允许请求头：Authorization、Content-Type
+  - 预检缓存：`Access-Control-Max-Age: 86400`
+  - 统一处理预检：全局 `OPTIONS *`
+  - 若部署到其他域名/端口，请扩展白名单或改为从环境变量读取允许来源
 
 ## 修改与同步策略
 
@@ -119,3 +130,4 @@ npm run dev
  - 2025-09-29: 修复其他 route 文件中的相对导入（`structuredReview.ts`、`sessions.ts`、`structuredRecognize.ts`、`aggregate.ts`），统一指向 `services/circuit-agent/src/interface/http/routes/*`。
  - 2025-09-29: 在 `scripts/` 添加三个 PowerShell 脚本用于在 Windows 上安装 redis 客户端、通过 Docker 启动 Redis 容器并设置 `REDIS_URL` 环境变量；并在本地成功运行脚本、拉取并启动 `redis:7` 镜像，验证返回 `PONG`。
  - 2025-09-29: 验证服务健康端点：`circuit-agent` 与 `circuit-fine-agent` 均返回 HTTP 200 且 `status: ok`。
+- 2025-09-30: 启用后端 CORS（`services/circuit-agent` 与 `services/circuit-fine-agent`）：严格白名单放行前端开发来源 3002，允许 Authorization/Content-Type，显式处理预检；新增 `scripts/restart-services.ps1` 用于释放端口并重启服务。
