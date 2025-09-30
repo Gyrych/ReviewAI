@@ -917,7 +917,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 glass-soft">
       {/* 无系统提示词环境告警（可关闭，不阻断） */}
       {noSystemPromptWarning && (
         <div className="p-2 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200 flex items-start justify-between gap-2">

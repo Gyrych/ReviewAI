@@ -27,3 +27,30 @@ html, body, #root {
 }
 
 
+/* 磨玻璃（Glassmorphism）实用类：在不大幅改动布局的前提下增加半透明模糊背景效果 */
+.glass {
+  background-color: rgba(255,255,255,0.6);
+  backdrop-filter: blur(8px) saturate(1.05);
+  -webkit-backdrop-filter: blur(8px) saturate(1.05);
+  border: 1px solid rgba(255,255,255,0.18);
+}
+
+.dark .glass {
+  background-color: rgba(15,17,21,0.45); /* dark 模式下使用更深的玻璃色 */
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* 更柔和的玻璃卡片，用于侧栏和结果区的次要面板 */
+.glass-soft {
+  background-color: rgba(255,255,255,0.4);
+  backdrop-filter: blur(6px) saturate(1.02);
+  -webkit-backdrop-filter: blur(6px) saturate(1.02);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.dark .glass-soft {
+  background-color: rgba(15,17,21,0.36);
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+

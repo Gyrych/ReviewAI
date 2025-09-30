@@ -132,3 +132,4 @@ npm run dev
  - 2025-09-29: 验证服务健康端点：`circuit-agent` 与 `circuit-fine-agent` 均返回 HTTP 200 且 `status: ok`。
 - 2025-09-30: 启用后端 CORS（`services/circuit-agent` 与 `services/circuit-fine-agent`）：严格白名单放行前端开发来源 3002，允许 Authorization/Content-Type，显式处理预检；新增 `scripts/restart-services.ps1` 用于释放端口并重启服务。
 - 2025-09-30: 新增自动依赖检测与安装功能：`start-all.js` 在启动前会检查各服务 `node_modules` 依赖，若缺失或设置 `FORCE_DEP_INSTALL=1` 则自动运行 `npm ci`（若存在 lockfile）或 `npm install`，失败时支持重试与可选继续策略。新增 Windows PowerShell 脚本 `scripts/install-and-start-services.ps1` 提供一键安装并启动（支持 `-ForceInstall` 与 `-SkipInstall` 参数）。
+- 2025-09-30: 前端视觉微调：新增磨玻璃（glassmorphism）样式类并在关键面板应用，以提升视觉质感（文件：`frontend/src/styles/tailwind.css`, `frontend/src/App.tsx`, `frontend/src/components/ResultView.tsx`, `frontend/src/components/ReviewForm.tsx`）。

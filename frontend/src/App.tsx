@@ -237,7 +237,7 @@ export default function App() {
         </div>
       </div>
       <div className="max-w-6xl mx-auto grid grid-cols-12 gap-6">
-        <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow">
+        <div className="col-span-5 bg-white dark:bg-cursorPanel p-4 rounded shadow glass-soft">
 
           {/* App 级设置已移至标题栏（右侧），此处不再展示 API URL */}
 
