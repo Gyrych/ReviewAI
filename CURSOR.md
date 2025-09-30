@@ -122,14 +122,17 @@ npm run dev
 - 2025-09-29: 前端实现与拆分：新增 `frontend/src/types/agent.ts`、在 `App.tsx` 静态注册 `circuit` / `circuit-fine`、按 agent 隔离 App 状态、`ReviewForm` 支持 `agentBaseUrl` 与 `initialMode` 并新增两个 agent 入口文件。
 - 2025-09-29: 后端：新增 `services/circuit-fine-agent` 服务骨架并迁移/复制核心实现（domain、usecases、infra、routes、storage），生成 `services/circuit-fine-agent/openapi.yaml` 草案，确保 prompts/storage/artifacts 命名空间隔离。
 - 2025-09-29: 文档更新：在 `doc/prd/agent-api-specs.md` 与 `CURSOR.md` 中记录多 Agent 的实现细节与本地验证建议。
- - 2025-09-29: 前端修改：精简 tabs 为“电路图单agent评审”和“电路图多agent评审”，将 App 级模型设置移至标题栏并移除页面中显示的模型 API 地址；ReviewForm 根据 `initialMode` 条件隐藏/显示高级配置；会话加载/保存 UI 从全局区移至 Agent 层（wrapper 组件）。
- - 2025-09-29: 修复并改进启动脚本：`start-all.js` 增加缺失依赖检测并在必要时自动运行 `npm install`，并支持同时启动 `circuit-agent`、`circuit-fine-agent` 与 `frontend`；同步更新 `start-all.bat` 提示文本。
- - 2025-09-29: 修复后端构建冲突：移除 `services/circuit-fine-agent` 中对 `DirectReviewUseCase` 与 `makeOrchestrateRouter` 的重复 re-export，避免 esbuild 报 "Multiple exports with the same name" 错误。
- - 2025-09-29: 修复 `services/circuit-fine-agent/src/interface/http/routes/directReview.ts` 中的相对导入路径错误（回退层级少一层），已将导入路径修正为指向兄弟包 `services/circuit-agent/src/interface/http/routes/directReview`。
- - 2025-09-29: 修复 `services/circuit-fine-agent/src/interface/http/routes/directReview.ts` 中的相对导入路径错误（回退层级少一层），已将导入路径修正为指向兄弟包 `services/circuit-agent/src/interface/http/routes/directReview`。
- - 2025-09-29: 修复其他 route 文件中的相对导入（`structuredReview.ts`、`sessions.ts`、`structuredRecognize.ts`、`aggregate.ts`），统一指向 `services/circuit-agent/src/interface/http/routes/*`。
- - 2025-09-29: 在 `scripts/` 添加三个 PowerShell 脚本用于在 Windows 上安装 redis 客户端、通过 Docker 启动 Redis 容器并设置 `REDIS_URL` 环境变量；并在本地成功运行脚本、拉取并启动 `redis:7` 镜像，验证返回 `PONG`。
- - 2025-09-29: 验证服务健康端点：`circuit-agent` 与 `circuit-fine-agent` 均返回 HTTP 200 且 `status: ok`。
-- 2025-09-30: 启用后端 CORS（`services/circuit-agent` 与 `services/circuit-fine-agent`）：严格白名单放行前端开发来源 3002，允许 Authorization/Content-Type，显式处理预检；新增 `scripts/restart-services.ps1` 用于释放端口并重启服务。
+- 2025-09-29: 前端修改：精简 tabs 为“电路图单agent评审”和“电路图多agent评审”，将 App 级模型设置移至标题栏并移除页面中显示的模型 API 地址；ReviewForm 根据 `initialMode` 条件隐藏/显示高级配置；会话加载/保存 UI 从全局区移至 Agent 层（wrapper 组件）。
+- 2025-09-29: 修复并改进启动脚本：`start-all.js` 增加缺失依赖检测并在必要时自动运行 `npm install`，并支持同时启动 `circuit-agent`、`circuit-fine-agent` 与 `frontend`；同步更新 `start-all.bat` 提示文本。
+- 2025-09-29: 修复后端构建冲突：移除 `services/circuit-fine-agent` 中对 `DirectReviewUseCase` 与 `makeOrchestrateRouter` 的重复 re-export，避免 esbuild 报 "Multiple exports with the same name" 错误。
+- 2025-09-29: 修复 `services/circuit-fine-agent/src/interface/http/routes/directReview.ts` 中的相对导入路径错误（回退层级少一层），已将导入路径修正为指向兄弟包 `services/circuit-agent/src/interface/http/routes/directReview`。
+- 2025-09-29: 修复其他 route 文件中的相对导入（`structuredReview.ts`、`sessions.ts`、`structuredRecognize.ts`、`aggregate.ts`），统一指向 `services/circuit-agent/src/interface/http/routes/*`。
+- 2025-09-29: 在 `scripts/` 添加三个 PowerShell 脚本用于在 Windows 上安装 redis 客户端、通过 Docker 启动 Redis 容器并设置 `REDIS_URL` 环境变量；并在本地成功运行脚本、拉取并启动 `redis:7` 镜像，验证返回 `PONG`。
+- 2025-09-29: 验证服务健康端点：`circuit-agent` 与 `circuit-fine-agent` 均返回 HTTP 200 且 `status: ok`。
+- 2025-09-30: 启用后端 CORS（`services/circuit-agent` 与 `services/circuit-fine-agent`）：严格白名单放行前端开发来源 3002，允许 Authorization/Content-Type，显式处理预检；新增 `scripts/restart-services.ps1` 用于释放端口并重启三个服务（前端 + 两后端）。
 - 2025-09-30: 新增自动依赖检测与安装功能：`start-all.js` 在启动前会检查各服务 `node_modules` 依赖，若缺失或设置 `FORCE_DEP_INSTALL=1` 则自动运行 `npm ci`（若存在 lockfile）或 `npm install`，失败时支持重试与可选继续策略。新增 Windows PowerShell 脚本 `scripts/install-and-start-services.ps1` 提供一键安装并启动（支持 `-ForceInstall` 与 `-SkipInstall` 参数）。
 - 2025-09-30: 前端视觉微调：新增磨玻璃（glassmorphism）样式类并在关键面板应用，以提升视觉质感（文件：`frontend/src/styles/tailwind.css`, `frontend/src/App.tsx`, `frontend/src/components/ResultView.tsx`, `frontend/src/components/ReviewForm.tsx`）。
+- 2025-09-30: 新增多轮对话式单 agent 评审功能改造（由 AI 助手 GPT-5 Mini 实施）：
+  - 后端：`DirectReviewUseCase` 支持接收并合并 `history` 字段，将历史轮次转换为 LLM 的 user/assistant messages；注入 `DuckDuckGoHtmlSearch` 作为搜索提供者并在 `enableSearch` 打开时将检索摘要作为 system 消息附加到 LLM 上下文；`orchestrate` 路由保留并转发 `history` 与 `enableSearch` 标志。
+  - 前端：`FileUpload` 最大文件数调整为 20；`ReviewForm` 取消单独的问题确认窗格，改为多轮对话式提交流（每次提交将本轮 dialog 与完整 history 一并发送），支持中止（Abort）但保留会话历史，可保存并恢复会话；新增导出按钮可将当前 Markdown 导出为 `.doc` 文件；会话历史条目包含附件元信息以支持恢复与审阅。
+  - 文档：新增 PRD `doc/prd/multi-turn-single-agent-prd.md`，并同步要求更新 `README`/`CURSOR.md`。

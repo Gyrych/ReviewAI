@@ -116,7 +116,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   }
   const [error, setError] = useState<string | null>(null)
   const [dialog, setDialog] = useState('')
-  const [questionConfirm, setQuestionConfirm] = useState('')
+  // 问题确认（已移除）：历史中包含 assistant 的所有条目
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
   // 中文注释：记录与大模型交互的步骤时间线（用于展示历史步骤）
   const [timeline, setTimeline] = useState<{ step: string; ts?: number; meta?: any; origin?: string; artifacts?: any; category?: string; tags?: string[] }[]>([])
@@ -228,7 +228,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
   const [searchTopN, setSearchTopN] = useState<number>(5)
 
-  const questionRef = useRef<HTMLTextAreaElement | null>(null)
+  // 已移除 questionRef（对应的问题确认窗格）
   const dialogRef = useRef<HTMLTextAreaElement | null>(null)
 
   // derived when needed inside handleSubmit
@@ -242,9 +242,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
     } catch (e) {}
   }
 
-  useEffect(() => {
-    adjustHeight(questionRef.current)
-  }, [questionConfirm])
+  // 已移除与 questionConfirm 相关的自动调整逻辑
 
   useEffect(() => {
     adjustHeight(dialogRef.current)
@@ -259,14 +257,11 @@ const ReviewForm = React.forwardRef(function ReviewForm({
       isHydratingRef.current = true
       setRequirements(seed.requirements || '无')
       setSpecs(seed.specs || '无')
-      setQuestionConfirm(seed.questionConfirm || '')
+      // questionConfirm 已弃用，忽略 seed.questionConfirm
       setDialog(seed.dialog || '')
       // history
       try {
-        const qcText = (seed.questionConfirm || '').trim()
         const baseHistory = Array.isArray(seed.history) ? [...seed.history] : []
-        const hasQcInHistory = baseHistory.some((h) => h && h.role === 'assistant' && typeof h.content === 'string' && (h.content.includes('【问题确认】') || h.content.includes('【Clarifying Question】') || (qcText && h.content.trim() === qcText)))
-        if (!hasQcInHistory && qcText) baseHistory.push({ role: 'assistant', content: qcText })
         setHistory(baseHistory)
       } catch {
         setHistory(Array.isArray(seed.history) ? seed.history : [])
@@ -317,7 +312,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   useEffect(() => {
     if (isHydratingRef.current) return
     setHasUnsavedChanges(true)
-  }, [requirements, specs, questionConfirm, dialog, history, files, localEnrichedJson, markdown, overlay])
+  }, [requirements, specs, dialog, history, files, localEnrichedJson, markdown, overlay])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -621,12 +616,13 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         const otherPart = md.slice(0, idx)
         if (otherPart && otherPart.trim()) questionParts.push(otherPart.trim())
         const qcText = questionParts.length > 0 ? questionParts.join('\n\n') : ''
-        if (qcText) setQuestionConfirm(qcText)
+        // qcText 为模型给出的 clarifying text，已改为加入 history 而非单独保存
+        // if (qcText) setQuestionConfirm(qcText)
         // 多轮记录：同时把问题确认与评审报告分别记入历史，便于分页查看
-        const newEntries: { role: 'user' | 'assistant'; content: string }[] = []
-        if (submittedDialog) newEntries.push({ role: 'user', content: submittedDialog })
-        if (qcText) newEntries.push({ role: 'assistant', content: qcText })
-        if (reportPart && reportPart.trim()) newEntries.push({ role: 'assistant', content: reportPart.trim() })
+        const newEntries: { role: 'user' | 'assistant'; content: string; attachmentsMeta?: any[]; ts?: number }[] = []
+        if (submittedDialog) newEntries.push({ role: 'user', content: submittedDialog, attachmentsMeta: files.map(f => ({ name: f.name, type: f.type, size: f.size })), ts: Date.now() })
+        if (qcText) newEntries.push({ role: 'assistant', content: qcText, ts: Date.now() })
+        if (reportPart && reportPart.trim()) newEntries.push({ role: 'assistant', content: reportPart.trim(), ts: Date.now() })
         if (newEntries.length > 0) setHistory((h) => h.concat(newEntries))
         // 记录 timeline 中的结果节点，包含大模型返回的具体内容
         setTimeline((t) => t.concat([{
@@ -650,12 +646,12 @@ const ReviewForm = React.forwardRef(function ReviewForm({
           const qText = md && md.trim() ? md.trim() : ''
           const combined = questionParts.concat(qText ? [qText] : [])
           const qcText = combined.length > 0 ? combined.join('\n\n') : ''
-          if (qcText) setQuestionConfirm(qcText)
+          // if (qcText) setQuestionConfirm(qcText)
           // 不展示结果视图，等待用户补充信息后再提交
           // 同样记录本轮 user 与 assistant（问题确认）到 history
-          const entries: { role: 'user' | 'assistant'; content: string }[] = []
-          if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
-          if (qcText) entries.push({ role: 'assistant', content: qcText })
+          const entries: { role: 'user' | 'assistant'; content: string; attachmentsMeta?: any[]; ts?: number }[] = []
+          if (submittedDialog) entries.push({ role: 'user', content: submittedDialog, attachmentsMeta: files.map(f => ({ name: f.name, type: f.type, size: f.size })), ts: Date.now() })
+          if (qcText) entries.push({ role: 'assistant', content: qcText, ts: Date.now() })
           if (entries.length > 0) setHistory((h) => h.concat(entries))
           setTimeline((t) => t.concat([{
             step: 'clarifying_question',
@@ -670,12 +666,12 @@ const ReviewForm = React.forwardRef(function ReviewForm({
           if (submittedDialog && (dialog || '').trim() === submittedDialog) setDialog('')
         } else {
           // 将全文作为评审结果展示
-          if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
+          // if (questionParts.length > 0) setQuestionConfirm(questionParts.join('\n\n'))
           if (md && md.trim()) {
             onResult(md.trim())
-            const entries: { role: 'user' | 'assistant'; content: string }[] = []
-            if (submittedDialog) entries.push({ role: 'user', content: submittedDialog })
-            entries.push({ role: 'assistant', content: md.trim() })
+            const entries: { role: 'user' | 'assistant'; content: string; attachmentsMeta?: any[]; ts?: number }[] = []
+            if (submittedDialog) entries.push({ role: 'user', content: submittedDialog, attachmentsMeta: files.map(f => ({ name: f.name, type: f.type, size: f.size })), ts: Date.now() })
+            entries.push({ role: 'assistant', content: md.trim(), ts: Date.now() })
             setHistory((h) => h.concat(entries))
             setTimeline((t) => t.concat([{
               step: 'analysis_result',
@@ -791,7 +787,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         customModelName: isCustomModelMode ? (customModelName || undefined) : undefined,
         requirements,
         specs,
-        questionConfirm,
+        // questionConfirm 已弃用，历史中包含 assistant 的所有条目
+        questionConfirm: undefined,
         dialog,
         history,
         // 将本地 timeline 一并持久化（若有）
@@ -838,8 +835,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
     setPage(p)
   }, [history, dialog])
 
-  // 中文注释：页或历史变更时，自动调整两个窗格的高度以适配内容
-  useEffect(() => { adjustHeight(questionRef.current) }, [page, history])
+  // 中文注释：页或历史变更时，自动调整对话窗格的高度以适配内容
   useEffect(() => { adjustHeight(dialogRef.current) }, [page, history, dialog])
 
   function getQcTextForPage(p: number): string {
@@ -898,7 +894,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
       setRequirements('无')
       setSpecs('无')
       setDialog('')
-      setQuestionConfirm('')
+      // questionConfirm 已弃用
       setHistory([])
       setFiles([])
       setLocalEnrichedJson(null)
@@ -1034,16 +1030,6 @@ const ReviewForm = React.forwardRef(function ReviewForm({
 
       <div className="grid grid-cols-1 gap-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.qc.label')}</label>
-          <textarea
-            ref={questionRef}
-            readOnly
-            value={getQcTextForPage(page)}
-            className="mt-1 block w-full rounded-md border px-3 py-2 bg-gray-50 dark:bg-cursorPanel dark:border-cursorBorder dark:text-cursorText thin-gray-scroll resize-none overflow-hidden"
-            placeholder={t('form.qc.placeholder')}
-          />
-        </div>
-        <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('form.dialog.label')}</label>
           <textarea
             ref={dialogRef}
@@ -1086,6 +1072,23 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         </button>
         <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500" onClick={handleResetAll}>
           {t('form.reset')}
+        </button>
+        <button type="button" className="px-4 py-2 bg-white border dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder rounded-md transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500" onClick={() => {
+          try {
+            // 导出当前显示的评审结果（markdown）为 .doc（前端触发下载）
+            const md = markdown || ''
+            const blob = new Blob([md], { type: 'application/msword' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `review_report_${Date.now()}.doc`
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+          } catch (e) { alert('导出失败') }
+        }}>
+          导出报告
         </button>
         {/* 保存会话按钮移至 Agent 层（wrapper） */}
       </div>

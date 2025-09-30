@@ -8,7 +8,7 @@ type FileUploadProps = {
   maxSizeMB?: number
 }
 
-export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB = 10 }: FileUploadProps) {
+export default function FileUpload({ files, onChange, maxFiles = 20, maxSizeMB = 10 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [previews, setPreviews] = useState<{ id: string; url?: string; name: string; type: string }[]>([])
   const { t } = useI18n()

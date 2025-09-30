@@ -31,6 +31,12 @@
 - 支持本地会话保存/加载（包含文件 base64、enrichedJson、overlay），不持久化敏感凭据
 - 文件日志便于诊断排错
 
+## 最近更新
+
+- 2025-09-30：新增单 agent 多轮对话评审模式，主要变更：
+  - 后端 `DirectReviewUseCase` 支持接收并合并 `history`，并在启用 `enableSearch` 时将 Web 检索摘要加入 LLM 上下文。
+  - 前端 `ReviewForm` 支持多轮提交、保留会话历史、可中止/恢复，并可以将最终 Markdown 导出为 `.doc` 文件；`FileUpload` 最大文件数上限已调整为 20。
+
 ## 架构（已更新）
 
 - `frontend/` — Vite + React + TypeScript + Tailwind（开发端口 3000）。

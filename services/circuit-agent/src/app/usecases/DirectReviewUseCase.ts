@@ -1,4 +1,4 @@
-import type { ReviewRequest, ReviewReport, VisionChatProvider, ArtifactStore, RichMessage } from '../../domain/contracts/index.js'
+import type { ReviewRequest, ReviewReport, VisionChatProvider, ArtifactStore, RichMessage, SearchProvider } from '../../domain/contracts/index.js'
 import { AnonymizationService } from '../services/AnonymizationService.js'
 import { TimelineService } from '../services/TimelineService.js'
 
@@ -8,6 +8,8 @@ export class DirectReviewUseCase {
     private vision: VisionChatProvider,
     private artifact: ArtifactStore,
     private timeline: TimelineService,
+    // 可选：注入搜索提供者以便在开启 enableSearch 时用于联网检索
+    private searchProvider?: SearchProvider,
   ) {}
 
   async execute(params: {
@@ -43,6 +45,46 @@ export class DirectReviewUseCase {
       } catch {}
     }
     parts.push({ role: 'user', content: userParts })
+
+    // 1.5) 如果存在历史会话，将历史按轮次追加为 assistant/user 消息，便于 LLM 理解上下文
+    try {
+      const history = (params.request as any).history || []
+      if (Array.isArray(history) && history.length > 0) {
+        for (const h of history) {
+          try {
+            const hh = h as any
+            if (hh.modelMarkdown) {
+              parts.push({ role: 'assistant', content: String(hh.modelMarkdown) })
+            }
+            if (hh.dialog) {
+              parts.push({ role: 'user', content: String(hh.dialog) })
+            }
+          } catch {}
+        }
+      }
+    } catch {}
+
+    // 如果启用了搜索，并注入了搜索提供者，则执行检索并将摘要作为 system 消息加入上下文
+    try {
+      const enableSearch = ((params.request as any).enableSearch === true) || (params.request.options && (params.request.options as any).enableSearch === true)
+      if (enableSearch && this.searchProvider) {
+        const qParts: string[] = []
+        if (params.request.requirements) qParts.push(params.request.requirements)
+        if (params.request.specs) qParts.push(params.request.specs)
+        if (params.request.dialog) qParts.push(params.request.dialog)
+        const q = qParts.join('\n') || ''
+        if (q) {
+          try {
+            const topN = Number((params.request as any).searchTopN || ((params.request.options as any) && (params.request.options as any).searchTopN) || 5)
+            const hits = await this.searchProvider.search(q, topN)
+            if (Array.isArray(hits) && hits.length > 0) {
+              const summary = hits.map((s: any, i: number) => `${i + 1}. ${s.title} — ${s.url}`).join('\n')
+              parts.unshift({ role: 'system', content: `Search results summary:\n${summary}` })
+            }
+          } catch {}
+        }
+      }
+    } catch {}
 
     // 2) 时间线：请求入队
     const tlReq = this.timeline.make('llm.request', { model, apiUrl })

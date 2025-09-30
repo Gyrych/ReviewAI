@@ -33,6 +33,12 @@ If you prefer a ready-to-use system prompt, contact the author for a paid copy: 
 - Local session save/load (files as base64, JSON, overlay) without persisting secrets
 - File-based logging for diagnostics
 
+## Recent updates
+
+- 2025-09-30: Added multi-turn dialog mode for single-agent schematic review. Key changes:
+  - Backend `DirectReviewUseCase` now accepts and merges `history` into LLM messages and supports `enableSearch` to include web search summaries in LLM context.
+  - Frontend `ReviewForm` now supports multi-round submissions, preserves history, allows abort/resume, and can export final Markdown as a `.doc` file. `FileUpload` max files increased to 20.
+
 ## Architecture (updated)
 
 - `frontend/` — Vite + React + TypeScript + Tailwind (dev port 3000).

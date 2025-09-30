@@ -113,7 +113,9 @@ app.get(`${BASE_PATH}/system-prompt`, (req, res) => {
 const artifact = new ArtifactStoreFs(cfg.storageRoot)
 const timeline = new TimelineService(progressStore)
 const vision = new OpenRouterVisionChat(cfg.openRouterBase, cfg.timeouts.llmMs)
-const directReview = new DirectReviewUseCase(vision, artifact, timeline)
+// 将搜索提供者注入到 DirectReviewUseCase 以支持 enableSearch 标志
+const searchProvider = new DuckDuckGoHtmlSearch()
+const directReview = new DirectReviewUseCase(vision, artifact, timeline, searchProvider)
 const { upload, handler } = makeDirectReviewRouter({ usecase: directReview, artifact, storageRoot: cfg.storageRoot })
 app.post(`${BASE_PATH}/modes/direct/review`, upload.any(), handler)
 

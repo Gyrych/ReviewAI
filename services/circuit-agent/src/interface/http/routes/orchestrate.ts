@@ -34,16 +34,31 @@ export function makeOrchestrateRouter(deps: {
       const attachments: Attachment[] = filesField.map((f) => ({ name: f.originalname || f.filename, mime: f.mimetype || 'application/octet-stream', bytes: fs.readFileSync(f.path) }))
 
       if (directReview) {
+        const parsedHistory = (() => { try { return body.history ? (typeof body.history === 'string' ? JSON.parse(body.history) : body.history) : [] } catch { return [] } })()
+        const enableSearchFlag = String(body.enableSearch || 'false').toLowerCase() === 'true'
+        const searchTopN = Number(body.searchTopN || 5)
+        // 支持解析前端可能提交的 systemPrompts 复合字段（兼容前端发送的 JSON 字段）
+        let systemPromptToUse = String(body.systemPrompt || '')
+        try {
+          if (!systemPromptToUse && body.systemPrompts) {
+            const sp = typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts
+            if (sp && sp.systemPrompt) systemPromptToUse = String(sp.systemPrompt || '')
+          }
+        } catch {}
+
         const out = await deps.direct.execute({
           apiUrl,
           model,
           request: {
             files: attachments,
-            systemPrompt: String(body.systemPrompt || ''),
+            systemPrompt: systemPromptToUse,
             requirements: String(body.requirements || ''),
             specs: String(body.specs || ''),
             dialog: String(body.dialog || ''),
-            history: (() => { try { return body.history ? (typeof body.history === 'string' ? JSON.parse(body.history) : body.history) : [] } catch { return [] } })(),
+            history: parsedHistory,
+            // 将 enableSearch 与搜索数量传递给 usecase
+            enableSearch: enableSearchFlag,
+            searchTopN,
             options: { progressId }
           },
           authHeader
