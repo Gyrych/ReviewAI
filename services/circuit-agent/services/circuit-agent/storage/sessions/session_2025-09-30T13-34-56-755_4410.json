@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "apiUrl": "https://openrouter.ai/api/v1/chat/completions",
+  "model": "openai/gpt-5",
+  "requirements": "无",
+  "specs": "无",
+  "dialog": "",
+  "history": [],
+  "markdown": "",
+  "files": []
+}

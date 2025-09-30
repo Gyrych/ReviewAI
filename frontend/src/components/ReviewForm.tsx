@@ -1131,6 +1131,9 @@ const ReviewForm = React.forwardRef(function ReviewForm({
                   'ocr_recognition_failed': { type: 'ai_interaction', modelType: 'vision', description: 'OCR 识别失败，继续后续流程' },
                   'llm_request': { type: 'ai_interaction', modelType: 'llm', description: '发送大语言模型请求（含上下文与JSON）' },
                   'llm_response': { type: 'ai_interaction', modelType: 'llm', description: '接收大语言模型响应' },
+                  // 兼容新的点号命名
+                  'llm.request': { type: 'ai_interaction', modelType: 'llm', description: '发送大语言模型请求（含上下文与JSON）' },
+                  'llm.response': { type: 'ai_interaction', modelType: 'llm', description: '接收大语言模型响应' },
                   'second_stage_analysis_start': { type: 'ai_interaction', modelType: 'llm', description: '开始二次分析（评审生成）' },
                   'second_stage_analysis_done': { type: 'ai_interaction', modelType: 'llm', description: '二次分析完成（产出评审报告）' }
                 }
@@ -1552,6 +1555,24 @@ const ReviewForm = React.forwardRef(function ReviewForm({
                                   <div><strong>{t('timeline.hasRequirements')}：</strong>{it.meta.analysisRequest.hasRequirements ? '是' : '否'}</div>
                                   <div><strong>{t('timeline.hasSpecs')}：</strong>{it.meta.analysisRequest.hasSpecs ? '是' : '否'}</div>
                                   <div><strong>{t('timeline.hasHistory')}：</strong>{it.meta.analysisRequest.hasHistory ? '是' : '否'}</div>
+                                </>
+                              )}
+
+                              {/* 新增：针对后端 direct 模式 LLM 请求 meta 的关键信息展示 */}
+                              {(!it.meta.analysisRequest && (it.step === 'llm.request' || it.step === 'llm_request') || /llm\.request/i.test(String(it.step || ''))) && (
+                                <>
+                                  {it.meta?.model && (<div><strong>{t('timeline.languageModel')}：</strong>{it.meta.model}</div>)}
+                                  {it.meta?.apiUrl && (<div><strong>{t('timeline.apiUrl')}：</strong>{it.meta.apiUrl}</div>)}
+                                  {typeof it.meta?.messageCount === 'number' && (<div><strong>{t('timeline.messageCount')}：</strong>{it.meta.messageCount}</div>)}
+                                  {typeof it.meta?.hasHistory === 'boolean' && (<div><strong>{t('timeline.hasHistory')}：</strong>{it.meta.hasHistory ? '是' : '否'}</div>)}
+                                  {typeof it.meta?.hasAttachments === 'boolean' && (<div><strong>{t('timeline.hasFiles')}：</strong>{it.meta.hasAttachments ? '是' : '否'}</div>)}
+                                </>
+                              )}
+
+                              {/* 新增：针对 LLM 响应 meta 的关键信息展示 */}
+                              {((it.step === 'llm.response' || it.step === 'llm_response') || /llm\.response/i.test(String(it.step || ''))) && (
+                                <>
+                                  {typeof it.meta?.contentLength === 'number' && (<div><strong>{t('timeline.responseSize')}：</strong>{it.meta.contentLength} bytes</div>)}
                                 </>
                               )}
 

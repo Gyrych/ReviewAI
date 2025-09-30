@@ -18,6 +18,28 @@
 
 前提：Node.js >= 18
 
+### Windows 一键启动（推荐）
+
+在仓库根目录双击 `start-services.bat` 或在 CMD/PowerShell 中运行：
+```
+start-services.bat
+```
+
+脚本会自动：
+1. 释放端口 4001/4002/3003（如被占用）
+2. 分三个 CMD 窗口启动：
+   - circuit-agent (4001)
+   - circuit-fine-agent (4002)
+   - frontend (3003)
+
+前端访问地址：`http://127.0.0.1:5173`
+
+**注意**：
+- 旧的 `start-all.bat` 已删除，请使用新的 `start-services.bat`。
+- 前端端口由 3003 改为 5173（Vite 默认端口），以避免 Windows 3002/3003 端口的权限限制。
+
+### 手动启动（分步）
+
 1. 启动子服务（Circuit Agent 与 Circuit Fine Agent）
 
 ```bash
@@ -42,12 +64,12 @@ npm install
 npm run dev
 ```
 
-默认端口（开发配置）: `3002`（若被占用，Vite 会尝试其它端口）
+默认端口（开发配置）: `5173`（Vite 默认端口；3002/3003 在 Windows 部分环境有权限限制）
 
-3. Windows 一键启动
+### 备用启动方式
 
-在仓库根目录运行 `start-all.bat`（或 `node start-all.js`）。
-注意：`start-all.js` 已实现依赖检查；如子服务目录缺少 `node_modules`，会自动运行 `npm install` 后再启动服务。
+- 使用 Node.js 启动脚本：`node start-all.js`（已实现依赖检查；如子服务目录缺少 `node_modules`，会自动运行 `npm install` 后再启动服务）
+- 使用 PowerShell 启动脚本：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-services.ps1`
 
 ## 必需提示词（位置与文件）
 
@@ -73,9 +95,9 @@ npm run dev
 
 ## 关键端口与脚本
 
-- 前端开发服务器: `http://localhost:3000`
+- 前端开发服务器: `http://localhost:5173` (Vite 默认端口；3002/3003 在 Windows 下受限)
 - 子服务默认端口: `http://localhost:4001`（可由 `PORT` 环境变量覆盖）
-- 根脚本: `start-all.bat` / `start-all.js`
+- 根脚本: `start-services.bat` (Windows 一键启动) / `start-all.js` (Node.js 跨平台)
 
 ## 关键目录与文件索引（简要）
 
@@ -92,15 +114,15 @@ npm run dev
 - 提示词缺失：专用视觉提示缺失会导致后端报错并中止请求，请确保 `ReviewAIPrompt/` 下文件存在且非空。
 - 日志与工件：后端会在 `services/circuit-agent/storage/artifacts/` 保存生成的 artifact（例如 `*_direct_review_report_*.md`），用于调试与回溯。
 
-- 端口冲突与重复启动提示：若在使用 `start-all.bat` 或 `start-all.js` 启动时遇到 `EADDRINUSE`（端口被占用），通常是先前的服务实例仍在运行。解决方法：
+- 端口冲突与重复启动提示：若在使用 `start-services.bat` 或 `start-all.js` 启动时遇到 `EADDRINUSE`（端口被占用），通常是先前的服务实例仍在运行。解决方法：
   - 关闭之前打开的启动窗口或终止占用端口的进程（示例：在 PowerShell 中使用 `Get-NetTCPConnection -LocalPort 4001,4002` 查找 `OwningProcess`，再 `Stop-Process -Id <PID>` 停止），或重新启动机器；
   - 或通过任务管理器/资源管理器查找并结束对应 `node.exe` 进程。为方便操作，仓库新增了 `scripts/install-redis-client.ps1`、`scripts/run-redis-docker.ps1`、`scripts/set-redis-env.ps1`，并可扩展添加用于释放端口的辅助脚本。
   - 新增脚本：`scripts/restart-services.ps1` 可自动释放 `3002/4001/4002` 端口并重新启动三个服务（前端 + 两后端）。
 
 ### CORS（跨域）
 
-- 为支持前端 DEV 环境直接调用后端（`http://localhost:3002` → `http://localhost:4001/4002`），两个子服务已启用严格白名单 CORS：
-  - 允许来源：`http://localhost:3002`、`http://127.0.0.1:3002`
+- 为支持前端 DEV 环境直接调用后端（`http://localhost:5173` → `http://localhost:4001/4002`），两个子服务已启用严格白名单 CORS：
+  - 允许来源：`http://localhost:3002`、`http://127.0.0.1:3002`、`http://localhost:3003`、`http://127.0.0.1:3003`、`http://localhost:5173`、`http://127.0.0.1:5173`
   - 允许方法：GET/POST/DELETE/OPTIONS
   - 允许请求头：Authorization、Content-Type
   - 预检缓存：`Access-Control-Max-Age: 86400`
@@ -141,3 +163,14 @@ npm run dev
     - 结果：`POST /orchestrate/review` 返回 200；后端在 `services/circuit-agent/services/circuit-agent/storage/artifacts/` 生成 Markdown 报告（最新：`2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`）。
     - 小修复：对 `services/circuit-agent/src/infra/http/OpenRouterClient.ts` 作了 keep-alive / 超时相关的小优化以改进上游请求稳定性（最小改动，未改业务逻辑）。
     - 开发环境注意：在 Windows 环境下运行 `npm run dev` 时若报 `tsx` 未找到，请在服务目录运行 `npm install` 或 `npm install -D tsx`。
+
+- 2025-09-30: 新增 PRD：单 Agent 完整时间线与 LLM 交互工件（`doc/prd/single-agent-full-timeline-prd.md`）。目标：
+  - 在 direct 模式中记录并展示与大模型的完整交互（请求 JSON 与响应原始 JSON），不做脱敏；
+  - 在时间线突出 LLM 步骤，meta 中补充 apiUrl/model/消息条数等关键信息；
+  - 前端时间线沿用懒加载 artifact 查看，避免一次性加载大体积内容；
+  - 上游失败不落盘请求/响应工件，允许重试。
+- 2025-09-30: 实施单 Agent 完整时间线（已完成）：
+  - 后端：`DirectReviewUseCase` 取消匿名化，为每次 LLM 调用生成并挂载完整请求/响应 JSON 工件；`TimelineService.make` 支持 `origin/category` 注入；时间线 `llm.request/llm.response` 补充 `apiUrl/model/messageCount/hasHistory/hasAttachments/contentLength` 等 meta。
+  - 前端：时间线"请求信息"区新增展示模型名/API/消息条数/历史/附件；懒加载 `Request/Response` artifacts；已支持 `llm.request`/`llm.response` 的 AI 高亮。
+  - 部署：前端端口最终改为 5173（Vite 默认端口，3002/3003 在 Windows 下均受权限限制）；CORS 白名单同步新增 5173；新增 `start-services.bat`（Windows CMD 脚本）与 `scripts/start-services.ps1`（PowerShell）实现一键释放端口并分窗口启动三个服务；删除旧的空 `start-all.bat`。
+  - 验收：在"电路图单agent评审"提交后，时间线展开 `llm.request`/`llm.response` 可见完整请求/返回 JSON（不脱敏）与关键统计。

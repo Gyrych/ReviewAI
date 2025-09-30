@@ -4,8 +4,11 @@ import type { ProgressStore, TimelineItem } from '../../domain/contracts/index.j
 export class TimelineService {
   constructor(private progress: ProgressStore) {}
 
-  make(step: string, meta?: any): TimelineItem {
-    return { step, ts: Date.now(), origin: 'agent', category: 'state', meta: meta || {} }
+  // 中文注释：允许通过可选参数覆盖 origin/category，以便更准确标注来源与类别
+  make(step: string, meta?: any, opts?: { origin?: 'agent'|'external'|'frontend'|'backend'; category?: string }): TimelineItem {
+    const origin = (opts && opts.origin) ? opts.origin : 'agent'
+    const category = (opts && opts.category) ? opts.category : 'state'
+    return { step, ts: Date.now(), origin, category, meta: meta || {} }
   }
 
   async push(progressId: string|undefined, item: TimelineItem) {

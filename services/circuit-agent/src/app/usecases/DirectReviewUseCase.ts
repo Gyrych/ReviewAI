@@ -87,19 +87,49 @@ export class DirectReviewUseCase {
     } catch {}
 
     // 2) 时间线：请求入队
-    const tlReq = this.timeline.make('llm.request', { model, apiUrl })
+    // 中文注释：补充请求 meta 信息（不脱敏），包含消息条数、历史与附件标记
+    const messageCount = (() => {
+      try {
+        const all: any[] = []
+        for (const m of parts) all.push(m)
+        return all.length
+      } catch { return (parts as any[]).length || 0 }
+    })()
+    const hasHistory = (() => { try { return Array.isArray((params.request as any).history) && (params.request as any).history.length > 0 } catch { return false } })()
+    const hasAttachments = (files && files.length > 0)
+
+    // 中文注释：在调用上游前，生成与上游一致的请求体并保存为 artifact（完整 JSON）
+    const requestBody = { model, messages: parts, stream: false }
+    const reqArtifact = await this.artifact.save(JSON.stringify(requestBody, null, 2), 'llm_request', { ext: '.json', contentType: 'application/json' })
+
+    const tlReq = this.timeline.make('llm.request', {
+      apiUrl,
+      model,
+      messageCount,
+      hasHistory,
+      hasAttachments
+    }, { origin: 'backend', category: 'llm' })
+    // 将请求 artifact 挂载到时间线条目
+    ;(tlReq as any).artifacts = Object.assign({}, (tlReq as any).artifacts || {}, { request: reqArtifact })
     await this.timeline.push(progressId, tlReq)
 
     // 3) 调用上游
     const headers: Record<string,string> = {}
     if (params.authHeader) headers['Authorization'] = params.authHeader
-    // 匿名化（仅文本类）
-    const scrubbedParts = anonymizer.scrubInput(parts)
-    const resp = await this.vision.chatRich({ apiUrl, model, messages: scrubbedParts, headers, timeoutMs: Number(process.env.LLM_TIMEOUT_MS || 7200000) })
+    // 中文注释：按需求不做脱敏，直接使用原始 parts 调用上游
+    const resp = await this.vision.chatRich({ apiUrl, model, messages: parts, headers, timeoutMs: Number(process.env.LLM_TIMEOUT_MS || 7200000) })
 
     // 4) 报告与工件
+    // 保存上游原始 JSON 响应为 artifact（完整）
+    const respRaw = String(resp.raw || '')
+    const respArtifact = await this.artifact.save(respRaw, 'llm_response', { ext: '.json', contentType: 'application/json' })
+
     const reportA = await this.artifact.save(resp.text || '', 'direct_review_report', { ext: '.md', contentType: 'text/markdown' })
-    const tlResp = this.timeline.make('llm.response', { snippet: String(resp.text || '').slice(0, 1000), artifacts: { result: reportA } })
+    const tlResp = this.timeline.make('llm.response', {
+      snippet: String(resp.text || '').slice(0, 1000),
+      contentLength: respRaw.length
+    }, { origin: 'backend', category: 'llm' })
+    ;(tlResp as any).artifacts = Object.assign({}, (tlResp as any).artifacts || {}, { response: respArtifact, result: reportA })
     await this.timeline.push(progressId, tlResp)
 
     return { markdown: resp.text, timeline: [tlReq, tlResp] }
