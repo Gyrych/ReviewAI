@@ -37,6 +37,13 @@
   - 后端 `DirectReviewUseCase` 支持接收并合并 `history`，并在启用 `enableSearch` 时将 Web 检索摘要加入 LLM 上下文。
   - 前端 `ReviewForm` 支持多轮提交、保留会话历史、可中止/恢复，并可以将最终 Markdown 导出为 `.doc` 文件；`FileUpload` 最大文件数上限已调整为 20。
 
+## E2E 自动化测试运行（2025-09-30）
+
+- 摘要：使用 Chrome DevTools 自动化：通过前端 `ReviewForm` 上传本地图片 `C:\Users\MACCURA\OneDrive\Desktop\实例电路.png`，在对话框中填写“帮我评审这个电路”，提交 direct single-agent review，校验后端 progress 与 artifact 输出。
+- 结果：`POST /api/v1/circuit-agent/orchestrate/review` 返回 200，后端在 `services/circuit-agent/services/circuit-agent/storage/artifacts/` 生成 Markdown 报告（最新：`2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`）。
+- 已应用的最小修复：针对上游请求稳定性对 `services/circuit-agent/src/infra/http/OpenRouterClient.ts` 做了 keep-alive / 超时相关的小优化。
+- Windows 注意：若 `npm run dev` 报 `tsx` 未找到，请运行 `npm install` 或局部安装 `tsx`：`npm install -D tsx`。
+
 ## 架构（已更新）
 
 - `frontend/` — Vite + React + TypeScript + Tailwind（开发端口 3000）。

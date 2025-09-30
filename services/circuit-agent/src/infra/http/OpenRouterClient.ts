@@ -12,16 +12,32 @@ export async function postJson(url: string, body: any, headers: Record<string,st
   }
 
   const agent = new https.Agent({ keepAlive: true, keepAliveMsecs: Number(process.env.KEEP_ALIVE_MSECS || 60000) })
-  const resp = await fetchFn(url, {
-    method: 'POST',
-    headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
-    body: JSON.stringify(body),
-    // @ts-ignore Node fetch 支持 signal，下面实现超时控制
-    agent
-  })
-  // 中文注释：使用 AbortController 实现超时（Node 原生 fetch 无 timeout 选项）
-  // 上面已发起请求，这里若需要严格超时控制，可改为外层在调用前构造 signal；
-  // 为保持最小改动，此处仅保留 agent keep-alive 优化。
+
+  // 使用 AbortController 实现超时控制，避免请求无限挂起
+  const controller = new AbortController()
+  const signal = controller.signal
+  const to = Number(timeoutMs || Number(process.env.LLM_TIMEOUT_MS || 120000))
+  const timeoutHandle = setTimeout(() => controller.abort(), to)
+
+  let resp: any
+  try {
+    resp = await fetchFn(url, {
+      method: 'POST',
+      headers: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),
+      body: JSON.stringify(body),
+      // @ts-ignore Node fetch 支持 signal
+      signal,
+      agent
+    })
+  } catch (err: any) {
+    clearTimeout(timeoutHandle)
+    if (err && err.name === 'AbortError') {
+      // 明确的超时错误，向上游抛出可识别的信息
+      throw new Error('upstream timeout')
+    }
+    throw err
+  }
+  clearTimeout(timeoutHandle)
   const text = await resp.text()
   const outHeaders: Record<string,string> = {}
   try { for (const [k,v] of (resp.headers as any).entries()) outHeaders[k] = String(v) } catch {}

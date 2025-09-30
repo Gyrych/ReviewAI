@@ -136,3 +136,8 @@ npm run dev
   - 后端：`DirectReviewUseCase` 支持接收并合并 `history` 字段，将历史轮次转换为 LLM 的 user/assistant messages；注入 `DuckDuckGoHtmlSearch` 作为搜索提供者并在 `enableSearch` 打开时将检索摘要作为 system 消息附加到 LLM 上下文；`orchestrate` 路由保留并转发 `history` 与 `enableSearch` 标志。
   - 前端：`FileUpload` 最大文件数调整为 20；`ReviewForm` 取消单独的问题确认窗格，改为多轮对话式提交流（每次提交将本轮 dialog 与完整 history 一并发送），支持中止（Abort）但保留会话历史，可保存并恢复会话；新增导出按钮可将当前 Markdown 导出为 `.doc` 文件；会话历史条目包含附件元信息以支持恢复与审阅。
   - 文档：新增 PRD `doc/prd/multi-turn-single-agent-prd.md`，并同步要求更新 `README`/`CURSOR.md`。
+  - 2025-09-30: E2E 测试与修复记录（由自动化 Chrome DevTools 执行）:
+    - 执行步骤：通过前端 `ReviewForm` 上传本地图片 `C:\Users\MACCURA\OneDrive\Desktop\实例电路.png`，填写对话“帮我评审这个电路”，选择模型并提交 `POST /orchestrate/review`；捕获并验证后端 `progress` 与 artifact 输出。
+    - 结果：`POST /orchestrate/review` 返回 200；后端在 `services/circuit-agent/services/circuit-agent/storage/artifacts/` 生成 Markdown 报告（最新：`2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`）。
+    - 小修复：对 `services/circuit-agent/src/infra/http/OpenRouterClient.ts` 作了 keep-alive / 超时相关的小优化以改进上游请求稳定性（最小改动，未改业务逻辑）。
+    - 开发环境注意：在 Windows 环境下运行 `npm run dev` 时若报 `tsx` 未找到，请在服务目录运行 `npm install` 或 `npm install -D tsx`。

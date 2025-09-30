@@ -39,6 +39,13 @@ If you prefer a ready-to-use system prompt, contact the author for a paid copy: 
   - Backend `DirectReviewUseCase` now accepts and merges `history` into LLM messages and supports `enableSearch` to include web search summaries in LLM context.
   - Frontend `ReviewForm` now supports multi-round submissions, preserves history, allows abort/resume, and can export final Markdown as a `.doc` file. `FileUpload` max files increased to 20.
 
+## E2E automated test run (2025-09-30)
+
+- Summary: Performed an end-to-end automated test using Chrome DevTools: uploaded a local image (`C:\Users\MACCURA\OneDrive\Desktop\实例电路.png`) via the frontend `ReviewForm`, submitted the direct single-agent review with the dialog `帮我评审这个电路`, and validated backend processing and artifact generation.
+- Result: `POST /api/v1/circuit-agent/orchestrate/review` returned HTTP 200 and the backend saved Markdown reports to `services/circuit-agent/services/circuit-agent/storage/artifacts/` (latest: `2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`).
+- Minimal fix applied: a small keep-alive / timeout improvement in `services/circuit-agent/src/infra/http/OpenRouterClient.ts` to improve upstream request stability during E2E runs.
+- Note: On Windows, if `npm run dev` errors complaining that `tsx` is not found, install project devDependencies with `npm install` or add `tsx` locally: `npm install -D tsx`.
+
 ## Architecture (updated)
 
 - `frontend/` — Vite + React + TypeScript + Tailwind (dev port 3000).
