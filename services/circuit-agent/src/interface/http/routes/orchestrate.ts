@@ -7,6 +7,7 @@ import { DirectReviewUseCase } from '../../../app/usecases/DirectReviewUseCase.j
 import { StructuredRecognitionUseCase } from '../../../app/usecases/StructuredRecognitionUseCase.js'
 import { MultiModelReviewUseCase } from '../../../app/usecases/MultiModelReviewUseCase.js'
 import { FinalAggregationUseCase } from '../../../app/usecases/FinalAggregationUseCase.js'
+import { PromptLoader } from '../../../infra/prompts/PromptLoader.js'
 
 // 中文注释：统一编排入口，根据 directReview=false/true 选择流程
 export function makeOrchestrateRouter(deps: {
@@ -37,14 +38,31 @@ export function makeOrchestrateRouter(deps: {
         const parsedHistory = (() => { try { return body.history ? (typeof body.history === 'string' ? JSON.parse(body.history) : body.history) : [] } catch { return [] } })()
         const enableSearchFlag = String(body.enableSearch || 'false').toLowerCase() === 'true'
         const searchTopN = Number(body.searchTopN || 5)
-        // 支持解析前端可能提交的 systemPrompts 复合字段（兼容前端发送的 JSON 字段）
-        let systemPromptToUse = String(body.systemPrompt || '')
+
+        // 中文注释：读取 language 参数（默认 'zh'），验证合法性
+        const language = String(body.language || 'zh')
+        if (!['zh', 'en'].includes(language)) {
+          return res.status(400).json({ error: 'Invalid language parameter. Must be "zh" or "en".' })
+        }
+
+        // 中文注释：判断是否为修订轮
+        const isRevision = Array.isArray(parsedHistory) && parsedHistory.length > 0
+
+        // 中文注释：使用 PromptLoader 加载对应提示词
+        let systemPromptToUse: string
         try {
-          if (!systemPromptToUse && body.systemPrompts) {
-            const sp = typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts
-            if (sp && sp.systemPrompt) systemPromptToUse = String(sp.systemPrompt || '')
-          }
-        } catch {}
+          systemPromptToUse = PromptLoader.loadPrompt(
+            'circuit-agent',
+            'system',
+            language as 'zh' | 'en',
+            isRevision ? 'revision' : 'initial'
+          )
+        } catch (error: any) {
+          return res.status(500).json({
+            error: 'Failed to load system prompt',
+            details: error?.message || String(error)
+          })
+        }
 
         const out = await deps.direct.execute({
           apiUrl,
@@ -56,10 +74,11 @@ export function makeOrchestrateRouter(deps: {
             specs: String(body.specs || ''),
             dialog: String(body.dialog || ''),
             history: parsedHistory,
-            // 将 enableSearch 与搜索数量传递给 usecase
-            enableSearch: enableSearchFlag,
-            searchTopN,
-            options: { progressId }
+            options: {
+              progressId,
+              enableSearch: enableSearchFlag,
+              searchTopN
+            }
           },
           authHeader
         })

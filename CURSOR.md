@@ -174,3 +174,14 @@ npm run dev
   - 前端：时间线"请求信息"区新增展示模型名/API/消息条数/历史/附件；懒加载 `Request/Response` artifacts；已支持 `llm.request`/`llm.response` 的 AI 高亮。
   - 部署：前端端口最终改为 5173（Vite 默认端口，3002/3003 在 Windows 下均受权限限制）；CORS 白名单同步新增 5173；新增 `start-services.bat`（Windows CMD 脚本）与 `scripts/start-services.ps1`（PowerShell）实现一键释放端口并分窗口启动三个服务；删除旧的空 `start-all.bat`。
   - 验收：在"电路图单agent评审"提交后，时间线展开 `llm.request`/`llm.response` 可见完整请求/返回 JSON（不脱敏）与关键统计。
+- 2025-10-01: 提示词系统优化与重构（由 AI 助手 claude 4.5 sonnet 实施）：
+  - PRD：新增 `doc/prd/prompt-optimization-prd.md`（中文），定义单/多 agent 提示词隔离体系、首轮/修订轮差异化、中英文语义等效、运行时加载机制。
+  - 提示词文件重组：
+    - 新建 `ReviewAIPrompt/circuit-agent/`，包含 4 个单 agent 提示词（`system_prompt_initial_zh/en.md`、`system_prompt_revision_zh/en.md`），移除结构化解析与问题清单步骤，直接输出【评审报告】。
+    - 新建 `ReviewAIPrompt/circuit-fine-agent/`，移入 6 个多 agent 提示词（`macro/ic/rc/net/verify/consolidation_prompt.md`），新增系统级提示词（`system_prompt_zh/en.md`）说明协作流程与优先级规则。
+  - 代码适配：
+    - 新增 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`，支持按 agent 名称、语言（zh/en）、评审轮次（initial/revision）动态加载提示词，静态缓存，文件缺失时 fail-fast。
+    - 修改 `services/circuit-agent/src/interface/http/routes/directReview.ts` 与 `orchestrate.ts`，增加 `language` 参数验证（默认 'zh'），根据 `history.length` 自动判断首轮/修订轮并加载对应提示词。
+    - 复制 `PromptLoader.ts` 到 `services/circuit-fine-agent/src/infra/prompts/`。
+  - 修订轮机制：修订轮提示词在报告开头增加"## 本轮修订摘要"章节（表格：变更点、原结论、新结论、变更理由、依据来源），无最大轮数限制。
+  - 文档更新：同步更新 `CURSOR.md`、`README.md`、`README.zh.md`（待完成）。

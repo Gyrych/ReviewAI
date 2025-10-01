@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { PromptLoader } from '../../../infra/prompts/PromptLoader.js';
 // 中文注释：统一编排入口，根据 directReview=false/true 选择流程
 export function makeOrchestrateRouter(deps) {
     const uploadDir = path.join(deps.storageRoot, 'tmp');
@@ -31,16 +32,24 @@ export function makeOrchestrateRouter(deps) {
                 } })();
                 const enableSearchFlag = String(body.enableSearch || 'false').toLowerCase() === 'true';
                 const searchTopN = Number(body.searchTopN || 5);
-                // 支持解析前端可能提交的 systemPrompts 复合字段（兼容前端发送的 JSON 字段）
-                let systemPromptToUse = String(body.systemPrompt || '');
-                try {
-                    if (!systemPromptToUse && body.systemPrompts) {
-                        const sp = typeof body.systemPrompts === 'string' ? JSON.parse(body.systemPrompts) : body.systemPrompts;
-                        if (sp && sp.systemPrompt)
-                            systemPromptToUse = String(sp.systemPrompt || '');
-                    }
+                // 中文注释：读取 language 参数（默认 'zh'），验证合法性
+                const language = String(body.language || 'zh');
+                if (!['zh', 'en'].includes(language)) {
+                    return res.status(400).json({ error: 'Invalid language parameter. Must be "zh" or "en".' });
                 }
-                catch { }
+                // 中文注释：判断是否为修订轮
+                const isRevision = Array.isArray(parsedHistory) && parsedHistory.length > 0;
+                // 中文注释：使用 PromptLoader 加载对应提示词
+                let systemPromptToUse;
+                try {
+                    systemPromptToUse = PromptLoader.loadPrompt('circuit-agent', 'system', language, isRevision ? 'revision' : 'initial');
+                }
+                catch (error) {
+                    return res.status(500).json({
+                        error: 'Failed to load system prompt',
+                        details: error?.message || String(error)
+                    });
+                }
                 const out = await deps.direct.execute({
                     apiUrl,
                     model,
@@ -51,10 +60,11 @@ export function makeOrchestrateRouter(deps) {
                         specs: String(body.specs || ''),
                         dialog: String(body.dialog || ''),
                         history: parsedHistory,
-                        // 将 enableSearch 与搜索数量传递给 usecase
-                        enableSearch: enableSearchFlag,
-                        searchTopN,
-                        options: { progressId }
+                        options: {
+                            progressId,
+                            enableSearch: enableSearchFlag,
+                            searchTopN
+                        }
                     },
                     authHeader
                 });

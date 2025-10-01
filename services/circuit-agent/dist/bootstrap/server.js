@@ -38,7 +38,7 @@ const BASE_PATH = cfg.basePath;
 const app = express();
 // 中文注释：启用严格来源白名单的 CORS，允许前端开发站点访问，并放行 Authorization/Content-Type 头
 const corsOptions = {
-    origin: ['http://localhost:3002', 'http://127.0.0.1:3002'],
+    origin: ['http://localhost:3002', 'http://127.0.0.1:3002', 'http://localhost:3003', 'http://127.0.0.1:3003', 'http://localhost:5173', 'http://127.0.0.1:5173'],
     methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
     optionsSuccessStatus: 204,

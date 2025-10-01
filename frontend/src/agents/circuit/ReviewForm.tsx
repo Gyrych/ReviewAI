@@ -62,35 +62,44 @@ export default function CircuitReviewForm(props: any) {
   }
 
   return (
-    <div>
+    <div className="relative">
       <div className="mb-2 flex gap-2">
         <button onClick={() => handleSave()} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm">{t('form.save')}</button>
         <button onClick={() => openSessionList()} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm">{t('app.sessions.load')}</button>
       </div>
 
       {listVisible && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-cursorPanel rounded p-4 w-3/4 max-h-3/4 overflow-y-auto text-gray-900 dark:text-gray-100">
-            <div className="flex justify-between items-center mb-2">
-              <div className="font-medium">{t('app.sessions.list')}</div>
-              <button onClick={() => setListVisible(false)} className="text-sm">{t('common.close')}</button>
+        <>
+          {/* 背景遮罩 */}
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setListVisible(false)} />
+          {/* 弹出窗口：定位在按钮下方 */}
+          <div className="absolute left-0 top-12 z-50 w-[400px] max-w-[90vw]">
+            <div className="bg-white dark:bg-gray-900 rounded-lg shadow-2xl border-2 border-gray-300 dark:border-gray-600 p-4 max-h-[500px] overflow-y-auto">
+              <div className="flex justify-between items-center mb-3 border-b-2 pb-2 border-gray-300 dark:border-gray-600">
+                <div className="font-bold text-base text-black dark:text-white">{t('app.sessions.list')}</div>
+                <button onClick={() => setListVisible(false)} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300">{t('common.close')}</button>
+              </div>
+              {sessions.length === 0 ? (
+                <div className="text-center py-8 text-gray-600 dark:text-gray-300 font-medium">暂无会话</div>
+              ) : (
+                <ul className="space-y-3">
+                  {sessions.map((it: any) => (
+                    <li key={it.id} className="flex flex-col gap-2 border-b-2 border-gray-200 dark:border-gray-700 pb-3 last:border-b-0">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-black dark:text-white truncate">{it.createdAt}</div>
+                        <div className="text-xs text-gray-700 dark:text-gray-300 truncate mt-1">{it.apiHost} · {it.model || ''}</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => loadById(it.id)} className="flex-1 px-3 py-1.5 text-xs font-medium rounded border-2 border-blue-600 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-900 dark:text-blue-200 hover:bg-blue-100 dark:hover:bg-blue-800">{t('app.sessions.load')}</button>
+                        <button onClick={() => deleteSession(it.id)} className="flex-1 px-3 py-1.5 text-xs font-medium rounded border-2 border-red-600 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-900 dark:text-red-200 hover:bg-red-100 dark:hover:bg-red-800">{t('app.sessions.delete')}</button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <ul className="space-y-2">
-              {sessions.map((it: any) => (
-                <li key={it.id} className="flex items-center justify-between border-b pb-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium dark:text-cursorText truncate">{it.createdAt}</div>
-                    <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{it.apiHost} · {it.model || ''}</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => loadById(it.id)} className="px-2 py-1 text-xs rounded border">{t('app.sessions.load')}</button>
-                    <button onClick={() => deleteSession(it.id)} className="px-2 py-1 text-xs rounded border text-red-600">{t('app.sessions.delete')}</button>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </div>
-        </div>
+        </>
       )}
 
       <ReviewForm ref={ref} {...props} initialMode="direct" />

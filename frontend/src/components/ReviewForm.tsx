@@ -126,7 +126,6 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   const [saving, setSaving] = useState<boolean>(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false)
   const isHydratingRef = useRef<boolean>(false)
-  const [noSystemPromptWarning, setNoSystemPromptWarning] = useState<boolean>(false)
   // 进度轮询：使用 progressId 与后端同步实时 timeline
   const [progressId, setProgressId] = useState<string | null>(null)
   const progressPollRef = useRef<number | null>(null)
@@ -384,39 +383,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
       const fd = new FormData()
       // 将 progressId 传给后端以关联进度（使用 ref 确保立即可用）
       if (progressIdRef.current) fd.append('progressId', progressIdRef.current)
-      // fetch latest system prompt from backend and prepend to prompts
-      try {
-        const spRes = await fetch(`${agentBase}/system-prompt?lang=${encodeURIComponent(lang)}`)
-        if (spRes.ok) {
-          const spTxt = await spRes.text()
-          // prepend system prompt content to the three system prompt fields
-          if (spTxt && spTxt.trim()) {
-            // ensure system prompt content appears before user-provided fields
-            // we store combined text in requirements field (backend will use them)
-            // format: systemPrompt + \n\n + original requirements/specs
-            // combine into a single 'systemPrompts' field serialized as JSON
-            const systemPromptCombined: { systemPrompt: string; requirements: string; specs: string } = {
-              systemPrompt: spTxt,
-              requirements,
-              specs,
-            }
-            // attach as JSON string for backend to parse
-            // backend currently expects string fields; send a JSON string as 'systemPrompts'
-            // so backend can split systemPrompt and the three prompts
-            // preserve original individual fields as well
-            // (backend changes may be needed to fully support this)
-            // set a hidden form field below
-            // We'll append combined later after fd exists
-            // append combined JSON directly to form data
-            fd.append('systemPrompts', JSON.stringify(systemPromptCombined))
-          }
-        } else {
-          // 未找到对应语言的系统提示词：设置警告，但不阻断提交
-          setNoSystemPromptWarning(true)
-        }
-      } catch (e) {
-        // ignore system prompt fetch failure and proceed
-      }
+      // 中文注释：后端路由层已通过 PromptLoader 自动加载提示词，前端只需传递 language 参数
+      fd.append('language', lang)
       // 如果已有后端返回的 enrichedJson（图片已解析为描述），则不需要重复上传图片
       if (!localEnrichedJson) {
         setProgressStep('uploading_files')
@@ -914,13 +882,6 @@ const ReviewForm = React.forwardRef(function ReviewForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 glass-soft">
-      {/* 无系统提示词环境告警（可关闭，不阻断） */}
-      {noSystemPromptWarning && (
-        <div className="p-2 border border-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700 rounded text-sm text-yellow-800 dark:text-yellow-200 flex items-start justify-between gap-2">
-          <div>{t('warning.noSystemPrompt')}</div>
-          <button type="button" className="text-xs underline" onClick={() => setNoSystemPromptWarning(false)}>{t('common.close')}</button>
-        </div>
-      )}
       {/* 在 App 中统一渲染模型 API / 模型名称 / API Key，ReviewForm 中仅保留文件上传与提示 */}
       <div>
         <div>

@@ -1,0 +1,56 @@
+import { AnonymizationService } from '../services/AnonymizationService.js';
+// 中文注释：直接评审模式——将图片/PDF 等附件与系统提示词/需求/规范直接发给视觉模型，产出 Markdown 报告
+export class DirectReviewUseCase {
+    constructor(vision, artifact, timeline) {
+        this.vision = vision;
+        this.artifact = artifact;
+        this.timeline = timeline;
+    }
+    async execute(params) {
+        const { apiUrl, model } = params;
+        const progressId = params.request.options?.progressId;
+        const anonymizer = new AnonymizationService();
+        // 1) 准备富消息：system + user(parts: text + images as data URLs)
+        const sys = params.request.systemPrompt || '';
+        const texts = [];
+        if (params.request.requirements)
+            texts.push(`Design requirements:\n${params.request.requirements}`);
+        if (params.request.specs)
+            texts.push(`Design specs:\n${params.request.specs}`);
+        if (params.request.dialog)
+            texts.push(`User dialog:\n${params.request.dialog}`);
+        const parts = [];
+        if (sys)
+            parts.push({ role: 'system', content: sys });
+        const userParts = [];
+        if (texts.length > 0)
+            userParts.push({ type: 'text', text: texts.join('\n\n') });
+        // 附件：转换为 data URL（注意可能很大；此处为 MVP 实现）
+        const files = params.request.files || [];
+        for (const f of files) {
+            try {
+                const b64 = Buffer.from(f.bytes).toString('base64');
+                const url = `data:${f.mime || 'application/octet-stream'};base64,${b64}`;
+                userParts.push({ type: 'image_url', image_url: { url } });
+            }
+            catch { }
+        }
+        parts.push({ role: 'user', content: userParts });
+        // 2) 时间线：请求入队
+        const tlReq = this.timeline.make('llm.request', { model, apiUrl });
+        await this.timeline.push(progressId, tlReq);
+        // 3) 调用上游
+        const headers = {};
+        if (params.authHeader)
+            headers['Authorization'] = params.authHeader;
+        // 匿名化（仅文本类）
+        const scrubbedParts = anonymizer.scrubInput(parts);
+        const resp = await this.vision.chatRich({ apiUrl, model, messages: scrubbedParts, headers, timeoutMs: Number(process.env.LLM_TIMEOUT_MS || 7200000) });
+        // 4) 报告与工件
+        const reportA = await this.artifact.save(resp.text || '', 'direct_review_report', { ext: '.md', contentType: 'text/markdown' });
+        const tlResp = this.timeline.make('llm.response', { snippet: String(resp.text || '').slice(0, 1000), artifacts: { result: reportA } });
+        await this.timeline.push(progressId, tlResp);
+        return { markdown: resp.text, timeline: [tlReq, tlResp] };
+    }
+}
+// 已在本文件定义并导出 DirectReviewUseCase，移除对外部同名导出的重复引用以避免构建时冲突

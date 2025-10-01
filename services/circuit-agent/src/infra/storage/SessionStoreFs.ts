@@ -40,7 +40,41 @@ export class SessionStoreFs implements SessionStore {
     this.ensureDir(dir)
     const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).map(f => ({ f, mtime: fs.statSync(path.join(dir,f)).mtimeMs }))
       .sort((a,b)=> b.mtime - a.mtime).slice(0, Math.max(1, Math.min(100, limit||10)))
-    return files.map(x => ({ id: path.basename(x.f, '.json'), filename: x.f }))
+
+    // 中文注释：读取每个会话文件的内容，提取关键信息用于列表展示
+    return files.map(x => {
+      try {
+        const fullPath = path.join(dir, x.f)
+        const raw = fs.readFileSync(fullPath, 'utf8')
+        const data = JSON.parse(raw)
+
+        // 从文件名提取创建时间（格式：session_2025-10-01T14-30-45-123_abcd.json）
+        const match = x.f.match(/session_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/)
+        const createdAt = match ? match[1].replace(/T(\d{2})-(\d{2})-(\d{2})/, ' $1:$2:$3') : x.f
+
+        // 从会话数据中提取 API URL 和模型信息
+        const apiUrl = data.apiUrl || ''
+        const apiHost = apiUrl ? new URL(apiUrl).hostname : 'Unknown'
+        const model = data.model || data.customModelName || 'Unknown'
+
+        return {
+          id: path.basename(x.f, '.json'),
+          filename: x.f,
+          createdAt,
+          apiHost,
+          model
+        }
+      } catch (e) {
+        // 如果读取失败，返回基本信息
+        return {
+          id: path.basename(x.f, '.json'),
+          filename: x.f,
+          createdAt: x.f,
+          apiHost: 'Unknown',
+          model: 'Unknown'
+        }
+      }
+    })
   }
 
   async remove(id: string): Promise<void> {
