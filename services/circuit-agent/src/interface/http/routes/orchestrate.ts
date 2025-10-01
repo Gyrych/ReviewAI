@@ -45,8 +45,46 @@ export function makeOrchestrateRouter(deps: {
           return res.status(400).json({ error: 'Invalid language parameter. Must be "zh" or "en".' })
         }
 
-        // 中文注释：判断是否为修订轮
-        const isRevision = Array.isArray(parsedHistory) && parsedHistory.length > 0
+        // 中文注释：根据报告片段与非空消息判断是否为修订轮，并记录摘要日志
+        function isRevisionByHistory(h: any[]): boolean {
+          if (!Array.isArray(h)) return false
+          const toString = (v: any) => { try { return typeof v === 'string' ? v : (v?.toString?.() ?? '') } catch { return '' } }
+          const lower = (s: string) => toString(s).toLowerCase()
+          const reportMarkers = ['## 元信息','## 本轮修订摘要','## 评审报告','【评审报告】','## metadata','## revision summary','## review report'].map(m => m.toLowerCase())
+          let nonEmpty = 0
+          for (const item of h) {
+            const role = toString((item as any)?.role)
+            const content = toString((item as any)?.content)
+            if (['user','assistant'].includes(role) && content.trim().length >= 1) nonEmpty++
+            const lc = lower(content)
+            if (reportMarkers.some(m => lc.includes(m))) return true
+          }
+          return nonEmpty > 0
+        }
+
+        // 中文注释：记录 history 概览与样例（用于问题排查）
+        try {
+          const h = Array.isArray(parsedHistory) ? parsedHistory : []
+          const roles = h.map((x: any) => (typeof x?.role === 'string' ? x.role : '')).join(',')
+          const nonEmptyCount = h.reduce((acc: number, x: any) => {
+            const c = typeof x?.content === 'string' ? x.content : ''
+            return acc + (c.trim().length >= 1 && (x?.role === 'user' || x?.role === 'assistant') ? 1 : 0)
+          }, 0)
+          console.log(`[history] length=${h.length}, nonEmpty=${nonEmptyCount}, roles=[${roles}]`)
+          const preview = (s: string, n = 200) => (typeof s === 'string' ? (s.length > n ? s.slice(0, n) + '...' : s) : '')
+          const printItem = (idx: number, item: any) => {
+            const role = typeof item?.role === 'string' ? item.role : ''
+            const content = typeof item?.content === 'string' ? item.content : ''
+            console.log(`[history] sample[${idx}].role=${role}, content="${preview(content)}"`)
+          }
+          if (h.length <= 6) { h.forEach((it, i) => printItem(i, it)) }
+          else {
+            h.slice(0, 3).forEach((it, i) => printItem(i, it))
+            h.slice(-3).forEach((it, i) => printItem(h.length - 3 + i, it))
+          }
+        } catch {}
+
+        const isRevision = isRevisionByHistory(parsedHistory)
 
         // 中文注释：使用 PromptLoader 加载对应提示词
         let systemPromptToUse: string

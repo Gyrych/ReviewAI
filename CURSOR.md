@@ -185,3 +185,10 @@ npm run dev
     - 复制 `PromptLoader.ts` 到 `services/circuit-fine-agent/src/infra/prompts/`。
   - 修订轮机制：修订轮提示词在报告开头增加"## 本轮修订摘要"章节（表格：变更点、原结论、新结论、变更理由、依据来源），无最大轮数限制。
   - 文档更新：同步更新 `CURSOR.md`、`README.md`、`README.zh.md`（待完成）。
+ - 2025-10-01: 修订轮判定与日志增强（由 AI 助手 GPT-5 Mini 实施）：
+   - 路由改动：`services/circuit-agent/src/interface/http/routes/directReview.ts` 与 `orchestrate.ts` 新增 `isRevisionByHistory` 逻辑：
+     - 若 `history` 中检测到报告片段标识（"## 元信息"、"## 本轮修订摘要"、"## 评审报告"/"【评审报告】"，或英文等价）则视为修订轮；
+     - 否则当存在至少一条 `role∈{user,assistant}` 且 `content.trim().length≥1` 的消息时视为修订轮；
+     - 解析失败或不满足以上条件则为首轮。
+   - 日志增强：在两处路由中输出 `history` 摘要日志（长度、非空计数、角色序列、内容预览，预览长度 200 字符；当条目>6 时仅显示前 3 与后 3 条）。
+   - 新增 PRD：`doc/prd/history-revision-detection-prd.md`，记录需求与实现规则。
