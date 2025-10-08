@@ -118,3 +118,6 @@
 - 2025-09-30: 新增多轮对话式单 agent 评审（`DirectReviewUseCase` 支持 `history`；前端支持多轮提交与会话保存）。
 - 2025-10-01: 引入基于 agent/language/variant 的 `PromptLoader`（强制校验提示词文件存在性）并在 `orchestrate` 中使用修订轮判定逻辑；同时整理 `ReviewAIPrompt/` 目录结构（`circuit-agent` 与 `circuit-fine-agent` 子目录）。
 - 2025-10-08: 重写并同步 `CURSOR.md`，与代码实现一致，目标读者：外部/内部开发者、演示客户与维护人员。
+ - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
+ - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
+ - 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。

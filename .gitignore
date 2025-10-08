@@ -78,3 +78,23 @@ coverage/
 services/**/.env
 *.pem
 secrets/
+
+# =========================
+# 附加忽略规则：防止将生成的日志、会话与大模型对话记录提交到版本库
+# =========================
+# 后端/服务日志与会话
+/backend/logs/
+/services/**/storage/sessions/
+/services/**/logs/
+/services/**/sessions/
+
+# 前端上传与报告（包含大文件/对话记录）
+/frontend/uploads/
+/ReviewAIReport/
+/services/**/uploads/
+
+# 临时/私密配置
+.env
+.env.*
+*.key
+*.secret
