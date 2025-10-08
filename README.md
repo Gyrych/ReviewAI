@@ -91,6 +91,11 @@ Configuration & environment variables
 Security & privacy
 - The services avoid persisting Authorization headers and strip secrets from logs where possible; however, by design request/response artifacts may contain raw LLM JSON for debugging—treat artifacts as sensitive if deploying to shared environments.
 
+Client-side API Key behavior
+
+- The frontend persists the API Key in the browser `localStorage` under the `apiKey` key and will automatically load it on startup. Updating the API Key in the top-right input immediately updates `localStorage` so the key is shared across agents within the same browser.
+- Security note: The API Key is stored in plain text in browser storage. Do not store sensitive keys on shared machines or expose them in logs or artifacts.
+
 License
 - MIT (see `LICENSE` file)
 

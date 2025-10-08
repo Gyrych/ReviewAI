@@ -51,7 +51,9 @@ export default function App() {
   const [model, setModel] = useState<string>(OPENROUTER_MODEL_PRESETS[0])
   const [customModelName, setCustomModelName] = useState<string>('')
   const [modelOptions, setModelOptions] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner'])
-  const [apiKey, setApiKey] = useState<string>('')
+  const [apiKey, setApiKey] = useState<string>(() => {
+    try { return localStorage.getItem('apiKey') || '' } catch (e) { return '' }
+  })
   // 中文注释：会话加载相关状态
   const [sessionsVisible, setSessionsVisible] = useState<boolean>(false)
   const [sessionListMap, setSessionListMap] = useState<Record<string, SessionListItem[]>>(() => AGENTS.reduce((m, a) => (m[a.id] = [], m), {} as Record<string, SessionListItem[]>))
@@ -159,16 +161,19 @@ export default function App() {
       setOverlayMap((m) => ({ ...m, [activeTab]: s.overlay || null }))
 
       // 给子组件的种子数据（按 agent 存储）
-      setSessionSeedMap((m) => ({ ...m, [activeTab]: {
-        requirements: s.requirements || '',
-        specs: s.specs || '',
-        questionConfirm: s.questionConfirm || '',
-        dialog: s.dialog || '',
-        history: Array.isArray(s.history) ? s.history : [],
-        timeline: Array.isArray(s.timeline) ? s.timeline : [],
-        files: Array.isArray(s.files) ? s.files : [],
-        enrichedJson: s.enrichedJson,
-      } }))
+      setSessionSeedMap((m) => ({
+        ...m,
+        [activeTab]: {
+          requirements: s.requirements || '',
+          specs: s.specs || '',
+          // questionConfirm 字段已移除，使用 history 存储用户与 assistant 条目
+          dialog: s.dialog || '',
+          history: Array.isArray(s.history) ? s.history : [],
+          timeline: Array.isArray(s.timeline) ? s.timeline : [],
+          files: Array.isArray(s.files) ? s.files : [],
+          enrichedJson: s.enrichedJson,
+        },
+      }))
       // 不改变 activeTab（保留用户当前选中）
     } catch (e) {
       // 忽略映射异常，避免影响主流程
@@ -219,7 +224,7 @@ export default function App() {
               <select value={model} onChange={(e) => setModel(e.target.value)} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm">
                 {modelOptions.map((m) => (<option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>))}
               </select>
-              <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder={t('app.apiKey.placeholder') || 'API Key'} title={t('app.apiKey.hint') || '输入 API Key'} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm" />
+              <input value={apiKey} onChange={(e) => { const v = e.target.value; setApiKey(v); try { localStorage.setItem('apiKey', v) } catch(e){} }} placeholder={t('app.apiKey.placeholder') || 'API Key'} title={t('app.apiKey.hint') || '输入 API Key'} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm" />
               <button
                 onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
                 className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"

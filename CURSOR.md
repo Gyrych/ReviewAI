@@ -93,12 +93,18 @@
 - 工件包含完整请求/响应 JSON（用于调试）：在共享/生产环境中请限制 artifact 访问或启用额外的脱敏策略。
 - 服务在日志中尽量不记录 Authorization 头，但上游调用仍使用客户端传入的 `Authorization`（前端/部署时请妥善保存密钥）。
 
-九、开发/贡献建议
+
+九、前端本地配置持久化
+
+- 为改善用户体验，API Key 支持在浏览器端持久化为默认值，存储在 `localStorage` 的 `apiKey` 键下。应用在启动时会尝试从 `localStorage` 读取该键并回填顶部的 API Key 输入框；当用户在顶部输入框修改 Key 时，新的 Key 会立即写回 `localStorage`，以便不同 agent/页面间共享同一 Key（全局作用域）。
+- 请注意安全风险：该 Key 以明文保存在浏览器本地存储中。禁止在日志或工件中记录该 Key；在共享环境或公共计算机上请务必清除浏览器存储或使用私有浏览器会话。
+
+十、开发/贡献建议
 
 - 本项目为多服务结构，建议在本地使用 `node start-all.js` 启动并逐服务调试。
 - 提示词管理：请在 `ReviewAIPrompt/` 下用 Git 管理提示词变更，并在重大变动后同步更新本文件的变更记录。
 
-十、文件索引（重要实现文件参考）
+十一、文件索引（重要实现文件参考）
 
 - `services/circuit-agent/src/infra/prompts/PromptLoader.ts` — prompt 加载逻辑（按 agent/language/variant）
 - `services/circuit-agent/src/interface/http/routes/orchestrate.ts` — 编排路由（direct/structured）
