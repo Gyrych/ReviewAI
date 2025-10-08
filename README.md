@@ -6,80 +6,109 @@ For Chinese documentation, see `README.zh.md`.
 
 ## Critical requirement
 
-Provide system prompts in the `schematic-ai-review-prompt/` directory (preferred) or at the repository root for compatibility:
+Provide system prompts and per-pass vision prompts in the `ReviewAIPrompt/` directory (preferred). These prompt files are required at runtime; the backend will throw an Error and fail fast if any required file is missing or empty.
 
-- **Preferred**: `./schematic-ai-review-prompt/系统提示词.md` (Chinese) and `./schematic-ai-review-prompt/SystemPrompt.md` (English)
-- **Fallback (backward compatible)**: `./系统提示词.md` and `./SystemPrompt.md` at repository root
+Required files (must exist and be non-empty):
 
-The backend serves them via `GET /api/system-prompt?lang=zh|en`. It will first attempt to read from `schematic-ai-review-prompt/` and fall back to the repository root for compatibility.
+- `ReviewAIPrompt/系统提示词.md` (Chinese) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/SystemPrompt.md` (English) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/single_pass_vision_prompt.md` — general single-pass vision prompt
+- `ReviewAIPrompt/macro_prompt.md` — macro pass (pass=1)
+- `ReviewAIPrompt/ic_prompt.md` — IC specialized pass (pass=2)
+- `ReviewAIPrompt/rc_prompt.md` — Resistor & Capacitor pass (pass=3)
+- `ReviewAIPrompt/net_prompt.md` — Net-tracing pass (pass=4)
+- `ReviewAIPrompt/verify_prompt.md` — Verification pass (pass=5)
+- `ReviewAIPrompt/consolidation_prompt.md` — Consolidation prompt used by the backend merger
 
-- If neither location contains the requested language file, the endpoint returns 404. The frontend will display a non-blocking warning (“running without a system prompt”) but still allows normal conversation with the model.
+Backward compatibility: the backend will still fall back to root-level `系统提示词.md` / `SystemPrompt.md` only for the system prompt endpoints; specialized vision prompts must be present in `ReviewAIPrompt/`.
 
-If you prefer a ready-to-use version of this system prompt, contact the author for a paid copy: gyrych@gmail.com
+If you prefer a ready-to-use system prompt, contact the author for a paid copy: `gyrych@gmail.com`
 
 ## Features
 
 - Circuit extraction from images into structured JSON following `backend/schemas/circuit-schema.json`
 - SVG overlay + mapping to highlight components, pins, and nets for manual review
 - LLM-powered Markdown review with timeline, requirements/specs, history, and system prompts
-- Web search enrichment for ambiguous parameters (DuckDuckGo by default, optional Bing)
+- Web search enrichment for ambiguous parameters (DuckDuckGo by default)
 - Local session save/load (files as base64, JSON, overlay) without persisting secrets
 - File-based logging for diagnostics
 
-## Architecture
+## Recent updates
 
-- `frontend/` — Vite + React + TypeScript + Tailwind (dev port 3000). Proxies `/api` to the backend.
-- `backend/` — Node.js + Express + TypeScript (default port 3001). Exposes review, system prompt, sessions, and logs APIs.
+- 2025-09-30: Added multi-turn dialog mode for single-agent schematic review. Key changes:
+  - Backend `DirectReviewUseCase` now accepts and merges `history` into LLM messages and supports `enableSearch` to include web search summaries in LLM context.
+  - Frontend `ReviewForm` now supports multi-round submissions, preserves history, allows abort/resume, and can export final Markdown as a `.doc` file. `FileUpload` max files increased to 20.
 
-## Quick start
+## E2E automated test run (2025-09-30)
+
+- Summary: Performed an end-to-end automated test using Chrome DevTools: uploaded a local image (`C:\Users\MACCURA\OneDrive\Desktop\实例电路.png`) via the frontend `ReviewForm`, submitted the direct single-agent review with the dialog `帮我评审这个电路`, and validated backend processing and artifact generation.
+- Result: `POST /api/v1/circuit-agent/orchestrate/review` returned HTTP 200 and the backend saved Markdown reports to `services/circuit-agent/services/circuit-agent/storage/artifacts/` (latest: `2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`).
+- Minimal fix applied: a small keep-alive / timeout improvement in `services/circuit-agent/src/infra/http/OpenRouterClient.ts` to improve upstream request stability during E2E runs.
+- Note: On Windows, if `npm run dev` errors complaining that `tsx` is not found, install project devDependencies with `npm install` or add `tsx` locally: `npm install -D tsx`.
+
+## Architecture (updated)
+
+- `frontend/` — Vite + React + TypeScript + Tailwind (dev port 3000).
+- `services/circuit-agent/` — Standalone backend microservice (default port 4001). All APIs are under `/api/v1/circuit-agent/*`.
+- `backend/` — Deprecated. Legacy endpoints have been removed. Use the sub-service instead.
+
+## Quick start (new service)
 
 Prerequisites: Node.js >= 18
 
-1) Backend
+1. Circuit Agent Service
 
-```bash
-cd backend
+```
+cd services/circuit-agent
 npm install
-# default: 3001 (override with PORT)
+# default: 4001 (override with PORT)
 npm run dev
 ```
 
-2) Frontend (separate terminal)
+2. Frontend (separate terminal)
 
-```bash
+```
 cd frontend
 npm install
 npm run dev
 ```
 
-Visit `http://localhost:3000`. The dev server proxies `/api` to `http://localhost:3001`.
+Visit http://localhost:3000 (development). Frontend calls the sub-service at `/api/v1/circuit-agent/*`.
 
 Windows one-click: run `start-all.bat` at repo root (or `node start-all.js`).
 
 ## Configuration
 
-- System prompt: root-level `系统提示词.md` (required). For a paid, prewritten copy email: gyrych@gmail.com
-- Upstream models: DeepSeek, OpenRouter, or custom API endpoints. Choose in the UI or input custom API/model; the backend routes accordingly.
-- Environment variables (optional):
-  - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `DEEPSEEK_TIMEOUT_MS`
-  - `FETCH_RETRIES`, `KEEP_ALIVE_MSECS`
-  - `SEARCH_PROVIDER` (`duckduckgo` | `bing`), `BING_API_KEY` (when using Bing)
-  - `OPENROUTER_HTTP_REFERER`, `OPENROUTER_X_TITLE` (for OpenRouter best practices)
+- System prompt: see `ReviewAIPrompt/` (required). Root fallbacks for system prompt only.
+- Upstream models: OpenRouter endpoints (recommended). The service forwards to OpenRouter with your Authorization header.
+- Environment variables (service): see `services/circuit-agent/.env.example`
+  - `PORT`, `OPENROUTER_BASE`, `REDIS_URL`
+  - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `FETCH_RETRIES`, `KEEP_ALIVE_MSECS`
+  - `STORAGE_ROOT`
 
-## API summary
+## API summary (sub-service)
 
-- `GET /api/system-prompt?lang=zh|en` — returns the content of the root system prompt file for the requested language. 404 if that language file is missing.
-- `POST /api/review` — accepts images (multipart) or `enrichedJson`, plus `model`, `apiUrl`, optional `systemPrompts` JSON `{ systemPrompt, requirements, specs }`, and `history`. Returns `{ markdown, enrichedJson, overlay, metadata, timeline }`. If low-confidence nets are detected, responds with HTTP 422 but still includes the payload for manual verification.
-- Sessions: `POST /api/sessions/save`, `GET /api/sessions/list`, `GET /api/sessions/:id`, `DELETE /api/sessions/:id`
-- Logs (local dev): `GET /api/logs`
-- DeepSeek test: `POST /api/deepseek`
+Base path: `/api/v1/circuit-agent`
+
+- Health: `GET /health`
+- Progress: `GET /progress/:id`
+- Artifacts (static): `GET /artifacts/:filename`
+- Logo (static): `GET /logo/*`
+- System prompt: `GET /system-prompt?lang=zh|en`
+- Orchestrate review: `POST /orchestrate/review` (multipart) — switches between direct and structured modes by `directReview` flag
+- Structured recognize: `POST /modes/structured/recognize` (multipart)
+- Structured multi-model review: `POST /modes/structured/review` (json)
+- Final aggregation (gpt-5): `POST /modes/structured/aggregate` (multipart)
+- Sessions: `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
+
+Note: OCR functionality has been removed. If OCR is required, perform it externally before submitting inputs.
 
 ## Troubleshooting
 
-- Missing system prompt file: create `系统提示词.md` at repo root (or email `gyrych@gmail.com` for a paid copy). Otherwise `/api/system-prompt` is 404.
-- Upstream HTML/404 errors: verify endpoint paths and model names (e.g., OpenRouter `.../api/v1/chat/completions`). The backend surfaces friendly messages.
-- Port conflicts: frontend 3000, backend 3001. Update ports and the proxy config in `frontend/vite.config.ts` if you change them.
-- HTTP 422 on review: indicates low confidence or conflicts; use the overlay and JSON to manually verify and resubmit.
+- Missing system prompt file: ensure required files in `ReviewAIPrompt/` exist and are non-empty.
+- Upstream HTML/404 errors: verify endpoint paths and model names (e.g., OpenRouter `/api/v1/chat/completions`).
+- Port conflicts: frontend 3000, sub-service 4001.
+- HTTP 422 in structured review: indicates low confidence or conflicts.
 
 ## Security & privacy
 

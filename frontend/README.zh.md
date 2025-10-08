@@ -6,7 +6,7 @@
 
 ## 重要必读（强提醒）
 
-- **首选位置**：将系统提示词放在 `./schematic-ai-review-prompt/` 子目录：`schematic-ai-review-prompt/系统提示词.md`（中文）和 `schematic-ai-review-prompt/SystemPrompt.md`（英文）。
+- **首选位置**：将系统提示词放在 `./ReviewAIPrompt/` 子目录：`ReviewAIPrompt/系统提示词.md`（中文）和 `ReviewAIPrompt/SystemPrompt.md`（英文）。
 - **兼容回退**：若子目录中找不到对应文件，后端会回退读取仓库根目录下的 `系统提示词.md` / `SystemPrompt.md`。
 - 若在两处均未找到目标语言文件，接口返回 404，UI 将显示非阻断警示“无系统提示词环境”，但仍允许与大模型正常对话。
 - 如需现成的系统提示词内容，可联系作者付费索取：gyrych@gmail.com

@@ -6,12 +6,21 @@ For Chinese documentation, see `frontend/README.zh.md`.
 
 ## Critical requirement
 
-Provide system prompts in the `schematic-ai-review-prompt/` directory (preferred) or at the repository root for compatibility:
+The frontend relies on system prompts and per-pass vision prompts located in `ReviewAIPrompt/`. These files must be present and non-empty; the backend will throw an Error and fail fast if any required specialized prompt file is missing or empty. For system prompts only, the backend will fall back to root-level files if needed.
 
-- **Preferred**: `./schematic-ai-review-prompt/系统提示词.md` (Chinese) and `./schematic-ai-review-prompt/SystemPrompt.md` (English)
-- **Fallback (backward compatible)**: `./系统提示词.md` and `./SystemPrompt.md` at repository root
+Required files (must exist and be non-empty):
 
-The frontend requests `GET /api/system-prompt?lang=zh|en` based on the current UI language. The backend will first attempt to read from `schematic-ai-review-prompt/` and fall back to the repository root. If the target language file is missing in both locations, the endpoint returns 404 and the UI shows a non-blocking warning but still allows normal conversation with the model.
+- `ReviewAIPrompt/系统提示词.md` (Chinese) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/SystemPrompt.md` (English) — system-level prompt (fallback supported at repo root)
+- `ReviewAIPrompt/single_pass_vision_prompt.md` — general single-pass vision prompt
+- `ReviewAIPrompt/macro_prompt.md` — macro pass (pass=1)
+- `ReviewAIPrompt/ic_prompt.md` — IC specialized pass (pass=2)
+- `ReviewAIPrompt/rc_prompt.md` — Resistor & Capacitor pass (pass=3)
+- `ReviewAIPrompt/net_prompt.md` — Net-tracing pass (pass=4)
+- `ReviewAIPrompt/verify_prompt.md` — Verification pass (pass=5)
+- `ReviewAIPrompt/consolidation_prompt.md` — Consolidation prompt used by the backend merger
+
+If the system prompt (language file) is missing in both locations, the frontend shows a non-blocking warning but continues to operate; however specialized vision prompts must be present in `ReviewAIPrompt/` to avoid runtime errors.
 
 ## Dev server
 
@@ -49,6 +58,29 @@ npm run dev
   - Optional overlay: inline SVG + mapping count
   - Collapsible `enrichedJson` for manual inspection
 
+### Artifact viewer in Timeline
+
+- When viewing the **步骤历史 (Timeline)**, timeline entries that contain artifact references (for example `requestArtifact` or `responseArtifact`) now expose an inline artifact viewer.
+- Click the timeline entry to expand details, then open the artifact detail ("Request" or "Response") and click **加载内容** to lazily fetch the artifact from the backend (`/api/artifacts/<filename>`).
+- Supported artifact types:
+  - JSON: rendered formatted and pretty-printed
+  - Plain text/markdown: rendered inside a scrollable block
+  - Images (png/jpg/webp): shown inline as an image preview
+- The artifact content is fetched only on demand and cached in memory for the current session to avoid repeated network calls.
+- If artifact fetch fails, an error message is shown in the artifact block.
+
+Testing the artifact viewer:
+
+1. Submit a review with image files so the backend produces `vision_model_request` and `vision_model_response` artifacts.
+2. After the backend returns, open the **步骤历史** panel and expand the `vision_model_request` / `vision_model_response` entries.
+3. Click the artifact `Request` or `Response` detail and press **加载内容** to view the full payload or model return.
+4. If needed, open the artifact URL in a new tab by copying the provided artifact URL (format: `/api/artifacts/<filename>`).
+
+Notes:
+
+- The artifact viewer does not change backend behavior; artifacts are served statically under `/api/artifacts/` by the backend.
+- Large artifacts are constrained by a maximum displayed height; use the download link (artifact path) to retrieve full files if necessary.
+
 ## Data flow
 
 1) On submit, the app attempts `GET /api/system-prompt`. If found, it sends `{ systemPrompt, requirements, specs }` as `systemPrompts` to the backend.
@@ -58,7 +90,7 @@ npm run dev
 
 ## Configuration
 
-- `VITE_CLIENT_TIMEOUT_MS` (optional): frontend request timeout to the backend (default 1800000 ms).
+- `VITE_CLIENT_TIMEOUT_MS` (optional): frontend request timeout to the backend (default 7200000 ms).
 
 ## Troubleshooting
 

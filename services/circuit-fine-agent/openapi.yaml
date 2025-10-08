@@ -1,0 +1,88 @@
+openapi: 3.0.1
+info:
+  title: Circuit Fine Agent API
+  version: 0.1.0
+servers:
+  - url: http://localhost:4002/api/v1/circuit-fine-agent
+paths:
+  /orchestrate/review:
+    post:
+      summary: Submit orchestrated review (direct or structured)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Successful review result (JSON)
+  /sessions/list:
+    get:
+      summary: List recent sessions
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: sessions list
+  /sessions/{id}:
+    get:
+      summary: Read saved session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: session content
+    delete:
+      summary: Delete session
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: deleted
+  /sessions/save:
+    post:
+      summary: Save session payload
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: ok
+  /system-prompt:
+    get:
+      summary: Get agent-specific system prompt
+      parameters:
+        - in: query
+          name: lang
+          schema:
+            type: string
+      responses:
+        '200':
+          description: prompt text
+  /progress/{id}:
+    get:
+      summary: Get timeline for progress id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: timeline
+
+

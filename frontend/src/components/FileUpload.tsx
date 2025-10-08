@@ -8,7 +8,7 @@ type FileUploadProps = {
   maxSizeMB?: number
 }
 
-export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB = 10 }: FileUploadProps) {
+export default function FileUpload({ files, onChange, maxFiles = 20, maxSizeMB = 10 }: FileUploadProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [previews, setPreviews] = useState<{ id: string; url?: string; name: string; type: string }[]>([])
   const { t } = useI18n()
@@ -54,20 +54,20 @@ export default function FileUpload({ files, onChange, maxFiles = 10, maxSizeMB =
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <input
+          id="file-input"
           ref={inputRef}
           type="file"
           multiple
           accept="image/jpeg,image/png,application/pdf"
           onChange={(e) => handleFiles(e.target.files)}
-          className="hidden"
+          className="sr-only"
         />
-        <button
-          type="button"
-          className="px-3 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded shadow-sm hover:bg-gray-50 dark:hover:bg-[#121215]"
-          onClick={() => inputRef.current?.click()}
+        <label
+          htmlFor="file-input"
+          className="px-3 py-2 bg-white dark:bg-cursorPanel dark:text-cursorText border dark:border-cursorBorder rounded shadow-sm hover:bg-gray-50 dark:hover:bg-[#121215] cursor-pointer"
         >
           {t('upload.select')}
-        </button>
+        </label>
         <div className="text-sm text-gray-500 dark:text-gray-300">{t('upload.selected', { count: files.length, max: maxFiles })}</div>
       </div>
 
