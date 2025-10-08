@@ -1,117 +1,100 @@
 # schematic-ai-review
 
-电路图片 → 结构化电路 JSON → LLM 生成 Markdown 评审报告，并在前端以 SVG overlay 进行人工复核的人机协同工作流。本项目为本地开发骨架，前后端分离，便于快速集成与二次开发。
+本项目为本地开发的 AI 辅助电路原理图评审骨架：图片 → 结构化电路 JSON → LLM 生成 Markdown 评审报告，并在前端以 SVG overlay 进行人工复核。
 
-## 重要必读（强提醒）
+仓库包含一个 Vite/React 前端和两个后端子服务（`circuit-agent` 与 `circuit-fine-agent`），实现图像解析、多轮识别与 LLM 评审/整合。
 
-请将系统提示词和每轮视觉识别的专用提示词放入 `ReviewAIPrompt/` 目录（首选）。这些提示词文件在运行时为必需且不得为空；若任一必需提示词文件缺失或为空，后端将抛出 Error 并快速失败（fail fast）。
+重要：运行时要求 `ReviewAIPrompt/` 下存在一组提示词文件（见“提示词”一节）。缺失提示词会导致后端 fail-fast。
 
-必需文件（必须存在且非空）：
+前置条件
+- Node.js >= 18
+- 可选：Docker（用于 Redis）
 
-- `ReviewAIPrompt/系统提示词.md`（中文） — 系统级提示词（系统提示词接口支持回退到仓库根目录）
-- `ReviewAIPrompt/SystemPrompt.md`（英文） — 系统级提示词（系统提示词接口支持回退到仓库根目录）
-- `ReviewAIPrompt/single_pass_vision_prompt.md` — 单轮通用视觉提示词
-- `ReviewAIPrompt/macro_prompt.md` — 宏观识别（pass=1）
-- `ReviewAIPrompt/ic_prompt.md` — IC 专项识别（pass=2）
-- `ReviewAIPrompt/rc_prompt.md` — 阻容识别（pass=3）
-- `ReviewAIPrompt/net_prompt.md` — 网路追踪（pass=4）
-- `ReviewAIPrompt/verify_prompt.md` — 验证/整合（pass=5）
-- `ReviewAIPrompt/consolidation_prompt.md` — 整合提示词（由后端合并器使用）
+快速开始（开发）
 
-向后兼容：仅系统提示词接口在 `ReviewAIPrompt/` 缺失时会回退到根目录 `系统提示词.md` / `SystemPrompt.md`；但专用视觉提示词必须位于 `ReviewAIPrompt/`。
+1. 启动所有服务（跨平台）
 
-如需可直接使用的系统提示词，请联系作者付费获取：`gyrych@gmail.com`
-
-## 特性
-
-- 将电路图片解析为结构化 JSON，遵循 `backend/schemas/circuit-schema.json`
-- 提供 SVG overlay 与映射，前端可高亮组件/引脚/网络便于人工核对
-- 结合 LLM 生成 Markdown 评审报告，支持 timeline、requirements/specs、history 与 system prompt 注入
-- 对不确定参数进行 Web 搜索丰富化（默认 DuckDuckGo）
-- 支持本地会话保存/加载（包含文件 base64、enrichedJson、overlay），不持久化敏感凭据
-- 文件日志便于诊断排错
-
-## 最近更新
-
-- 2025-09-30：新增单 agent 多轮对话评审模式，主要变更：
-  - 后端 `DirectReviewUseCase` 支持接收并合并 `history`，并在启用 `enableSearch` 时将 Web 检索摘要加入 LLM 上下文。
-  - 前端 `ReviewForm` 支持多轮提交、保留会话历史、可中止/恢复，并可以将最终 Markdown 导出为 `.doc` 文件；`FileUpload` 最大文件数上限已调整为 20。
-
-## E2E 自动化测试运行（2025-09-30）
-
-- 摘要：使用 Chrome DevTools 自动化：通过前端 `ReviewForm` 上传本地图片 `C:\Users\MACCURA\OneDrive\Desktop\实例电路.png`，在对话框中填写“帮我评审这个电路”，提交 direct single-agent review，校验后端 progress 与 artifact 输出。
-- 结果：`POST /api/v1/circuit-agent/orchestrate/review` 返回 200，后端在 `services/circuit-agent/services/circuit-agent/storage/artifacts/` 生成 Markdown 报告（最新：`2025-09-30T04-36-56.288Z_direct_review_report_92a8.md`）。
-- 已应用的最小修复：针对上游请求稳定性对 `services/circuit-agent/src/infra/http/OpenRouterClient.ts` 做了 keep-alive / 超时相关的小优化。
-- Windows 注意：若 `npm run dev` 报 `tsx` 未找到，请运行 `npm install` 或局部安装 `tsx`：`npm install -D tsx`。
-
-## 架构（已更新）
-
-- `frontend/` — Vite + React + TypeScript + Tailwind（开发端口 3000）。
-- `services/circuit-agent/` — 独立后端子服务（默认端口 4001），所有接口统一在 `/api/v1/circuit-agent/*`。
-- `backend/` — 已废弃。请改用子服务。
-
-## 快速开始（子服务）
-
-前置条件：Node.js ≥ 18
-
-1）启动子服务
-
+```bash
+node start-all.js
 ```
+
+2. 或分服务启动
+
+```bash
 cd services/circuit-agent
 npm install
-# 默认端口：4001（可用 PORT 覆盖）
 npm run dev
-```
 
-2）启动前端（新终端）
+cd ../circuit-fine-agent
+npm install
+npm run dev
 
-```
-cd frontend
+cd ../../frontend
 npm install
 npm run dev
 ```
 
-访问 http://localhost:3000（开发环境）。前端将调用子服务 `/api/v1/circuit-agent/*`。
+默认开发时 frontend 代理到后端：
+- `circuit-agent`: http://localhost:4001
+- `circuit-fine-agent`: http://localhost:4002
 
-Windows 一键：在仓库根目录执行 `start-all.bat`（或 `node start-all.js`）。
+提示词
+-----
 
-## 配置
+运行时要求提示词文件按 agent 存放在 `ReviewAIPrompt/` 目录，代码会以 `ReviewAIPrompt/{agent}/{filename}` 路径加载，缺失或为空文件会导致服务返回 500 错误。
 
-- 系统提示词与每轮视觉提示词：请将必需文件放置于 `ReviewAIPrompt/`（参见上方“必需文件”）。仅当系统提示词缺失时，接口可能回退到根目录；但专用视觉提示词必须存在于 `ReviewAIPrompt/`。
-- 上游模型：推荐使用 OpenRouter，子服务会将你的 Authorization 头转发到 OpenRouter。
-- 环境变量（子服务）：见 `services/circuit-agent/.env.example`
-  - `PORT`, `OPENROUTER_BASE`, `REDIS_URL`
-  - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `FETCH_RETRIES`, `KEEP_ALIVE_MSECS`
-  - `STORAGE_ROOT`
+最低要求（仓库中含示例）：
 
-## API 概要（子服务）
+- `ReviewAIPrompt/circuit-agent/system_prompt_initial_zh.md`
+- `ReviewAIPrompt/circuit-agent/system_prompt_initial_en.md`
+- `ReviewAIPrompt/circuit-agent/system_prompt_revision_zh.md`
+- `ReviewAIPrompt/circuit-agent/system_prompt_revision_en.md`
+- `ReviewAIPrompt/circuit-fine-agent/system_prompt_zh.md`
+- `ReviewAIPrompt/circuit-fine-agent/system_prompt_en.md`
+- `ReviewAIPrompt/circuit-fine-agent/macro_prompt.md`, `ic_prompt.md`, `rc_prompt.md`, `net_prompt.md`, `verify_prompt.md`, `consolidation_prompt.md`
 
-基础路径：`/api/v1/circuit-agent`
+架构概览
+-------
 
-- 健康检查：`GET /health`
-- 进度：`GET /progress/:id`
-- 工件（静态）：`GET /artifacts/:filename`
-- Logo（静态）：`GET /logo/*`
-- 系统提示词：`GET /system-prompt?lang=zh|en`
-- 统一编排：`POST /orchestrate/review`（multipart）— 通过 `directReview` 切换直评/精细
-- 精细识别：`POST /modes/structured/recognize`（multipart）
-- 多模型评审：`POST /modes/structured/review`（json）
-- 最终整合（gpt-5）：`POST /modes/structured/aggregate`（multipart）
-- 会话：`POST /sessions/save`、`GET /sessions/list`、`GET /sessions/:id`、`DELETE /sessions/:id`
+- `frontend/` — Vite + React + TypeScript。Agent 选择与 API 配置在 App 级维护，两个 agent 表单在 `frontend/src/agents/` 下。
+- `services/circuit-agent/` — 主后端微服务，目录结构：
+  - `app/usecases` — 业务用例（`DirectReviewUseCase`、`StructuredRecognitionUseCase`、`MultiModelReviewUseCase`、`FinalAggregationUseCase`）。
+  - `infra` — 提供者、提示词加载、HTTP 客户端（OpenRouter 兼容）、存储、进度存储实现。
+  - `interface/http/routes` — express 路由（`orchestrate`、`directReview`、`structuredRecognize`、`structuredReview`、`aggregate`、`sessions`、`progress`、`health`）。
+- `services/circuit-fine-agent/` — 用于精细/多 agent 工作流的并行服务，结构与 `circuit-agent` 一致，遵循相同的 `PromptLoader` 约定。
 
-说明：OCR 功能已移除。如需要 OCR，请在提交前独立处理。
+关键接口（circuit-agent）
+- `GET /health` — 健康检查
+- `GET /progress/:id` — 进度
+- `GET /artifacts/:filename` — 静态工件
+- `GET /system-prompt?lang=zh|en` — 获取系统提示词
+- `POST /orchestrate/review` — 统一编排；当 `directReview=true` 时直接走直评模式（图片→LLM 评审），否则走结构化识别 + 并行评审 + 整合流程。
+- `POST /modes/structured/recognize` — 结构化识别
+- `POST /modes/structured/review` — 多模型评审
+- `POST /modes/structured/aggregate` — 最终整合
+- 会话管理：`POST /sessions/save`、`GET /sessions/list`、`GET /sessions/:id`、`DELETE /sessions/:id`
 
-## 故障排查
+运行时重要行为
+- `PromptLoader`（两个子服务）会强制校验提示词文件存在且非空，支持缓存与预热。
+- `orchestrate` 路由会根据 `history` 自动判断是否为修订轮，并选择 `system_prompt_initial` 或 `system_prompt_revision`。
+- `DirectReviewUseCase` 会构建富消息（system + user parts）并可在 `enableSearch=true` 时注入 DuckDuckGo 检索摘要；附件会被转换为 data URL 发送给上游视觉 LLM，且请求/响应完整 JSON 会以 artifact 形式保存便于回溯。
+- 工件存储为文件系统实现（`ArtifactStoreFs`），每个服务将其工件放在自身的 storage 根目录下并通过 `/artifacts` 暴露。
 
-- 缺少系统提示词：确认 `ReviewAIPrompt/` 下文件存在且非空。
-- 上游返回 HTML/404：检查 OpenRouter 路径与模型名（如 `/api/v1/chat/completions`）。
-- 端口冲突：前端 3000，子服务 4001。
-- 结构化识别返回 422：表示低置信或冲突，需要人工复核。
+配置与环境变量
+- `PORT` — 服务端口（默认 4001/4002）
+- `OPENROUTER_BASE` — 上游模型提供者基地址（OpenRouter 兼容）
+- `REDIS_URL` — 可选的 Redis 进度存储
+- `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `FETCH_RETRIES`, `KEEP_ALIVE_MSECS` — 网络与超时相关配置
 
-## 安全与隐私
+安全与隐私
+- 服务会尽量避免在日志中记录敏感授权头，但出于调试需要会保存完整的 LLM 请求/响应工件；在共享或生产环境中请谨慎处理 artifacts。
 
-- 会话保存会剔除敏感授权字段，日志不记录机密信息。主要用于本地开发与验证。
+许可证
+- MIT（见 `LICENSE` 文件）
 
-## 许可
+故障排查
+- 出现 `Failed to load system prompt` 错误：确认 `ReviewAIPrompt/{agent}/` 下是否存在且非空的提示词文件。
+- 前端无法在开发模式中访问后端：确认服务已在 4001/4002 端口运行，并检查 `frontend/src/App.tsx` 中的 AGENTS baseUrl 配置（DEV 模式下指向 `http://localhost:4001` / `4002`）。
 
-- 如需对外分发或开源，请补充合适的许可证（LICENSE）。
+联系方式
+- 项目维护者: gyrych@gmail.com

@@ -7,5 +7,6 @@
   },
   "dependencies": {
     "sharp": "^0.34.4"
-  }
+  },
+  "license": "MIT"
 }
