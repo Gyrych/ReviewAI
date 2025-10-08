@@ -31,7 +31,7 @@ function detectInitialLang(): Lang {
 const dictZh: Record<string, string> = {
   // app 层
   'app.title': '评审工具',
-  'app.brand.title_en': 'Review AI',
+  'app.brand.title_en': 'ReviewAI',
   'app.brand.title_cn': 'AI评审助手',
   'app.theme.toDark': '切换暗色',
   'app.theme.toLight': '切换亮色',

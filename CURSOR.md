@@ -7,7 +7,7 @@
 
 一、项目概览
 
-本仓库（schematic-ai-review）实现电路原理图的可视化识别与基于 LLM 的自动化评审流程，主要功能链：
+本仓库（ReviewAI）实现电路原理图的可视化识别与基于 LLM 的自动化评审流程，主要功能链：
 
 - 图像/附件（PNG/JPEG/PDF）输入 → 视觉模型识别（多轮/单轮）→ 结构化电路 JSON（components/nets）
 - 基于结构化结果与输入上下文，调用文本/视觉 LLM 生成 Markdown 格式的评审报告

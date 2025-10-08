@@ -1,4 +1,4 @@
-# schematic-ai-review
+# ReviewAI
 
 Local skeleton for AI-assisted schematic review: images → structured circuit JSON → Markdown review, with SVG overlay for human-in-the-loop verification.
 

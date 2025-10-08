@@ -1,6 +1,6 @@
 # Frontend（前端）
 
-`schematic-ai-review` 的前端（Vite + React + TypeScript + Tailwind）。负责与后端交互，展示 Markdown 评审与 SVG overlay，支持会话与进度显示。
+`ReviewAI` 的前端（Vite + React + TypeScript + Tailwind）。负责与后端交互，展示 Markdown 评审与 SVG overlay，支持会话与进度显示。
 
 英文说明见 `frontend/README.md`。
 

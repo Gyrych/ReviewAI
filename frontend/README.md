@@ -1,6 +1,6 @@
 # Frontend
 
-Vite + React + TypeScript + Tailwind UI for `schematic-ai-review`. It connects to the backend for circuit extraction and Markdown review, and renders an SVG overlay for human-in-the-loop verification.
+Vite + React + TypeScript + Tailwind UI for `ReviewAI`. It connects to the backend for circuit extraction and Markdown review, and renders an SVG overlay for human-in-the-loop verification.
 
 For Chinese documentation, see `frontend/README.zh.md`.
 

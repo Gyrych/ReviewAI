@@ -208,7 +208,7 @@ export default function App() {
               {/* 内联 SVG Logo（可替换为真实图片） */}
               <div className="w-10 h-10 rounded overflow-hidden bg-white flex items-center justify-center">
                 {/* 使用前端本地静态 logo 文件 */}
-                <img src="/logo.png" alt="Review AI logo" className="w-10 h-10 object-cover" />
+                <img src="/logo.png" alt="ReviewAI logo" className="w-10 h-10 object-cover" />
               </div>
               <div className="leading-tight">
                 <div className="text-xl font-semibold text-gray-400">{t('app.brand.title_en')}</div>

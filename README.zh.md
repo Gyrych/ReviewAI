@@ -1,4 +1,4 @@
-# schematic-ai-review
+# ReviewAI
 
 本项目为本地开发的 AI 辅助电路原理图评审骨架：图片 → 结构化电路 JSON → LLM 生成 Markdown 评审报告，并在前端以 SVG overlay 进行人工复核。
 
