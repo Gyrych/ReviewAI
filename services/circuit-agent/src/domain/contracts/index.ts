@@ -70,7 +70,7 @@ export interface Anonymizer {
 
 export const POLICIES = {
   VISION_PASSES: 5 as const,
-  SEARCH_PROVIDER: 'duckduckgo_html' as const
+  SEARCH_PROVIDER: 'openrouter_online' as const
 }
 
 

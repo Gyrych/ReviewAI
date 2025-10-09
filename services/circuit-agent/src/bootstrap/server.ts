@@ -16,7 +16,7 @@ import { TimelineService } from '../app/services/TimelineService'
 import { OpenRouterVisionChat } from '../infra/providers/OpenRouterVisionChat'
 import { DirectReviewUseCase } from '../app/usecases/DirectReviewUseCase'
 import { makeDirectReviewRouter } from '../interface/http/routes/directReview'
-import { DuckDuckGoHtmlSearch } from '../infra/search/DuckDuckGoHtmlSearch'
+import { OpenRouterSearch } from '../infra/search'
 import { OpenRouterVisionProvider } from '../infra/providers/OpenRouterVisionProvider'
 import { StructuredRecognitionUseCase } from '../app/usecases/StructuredRecognitionUseCase'
 import { makeStructuredRecognizeRouter } from '../interface/http/routes/structuredRecognize'
@@ -113,14 +113,14 @@ app.get(`${BASE_PATH}/system-prompt`, (req, res) => {
 const artifact = new ArtifactStoreFs(cfg.storageRoot)
 const timeline = new TimelineService(progressStore)
 const vision = new OpenRouterVisionChat(cfg.openRouterBase, cfg.timeouts.llmMs)
-// 将搜索提供者注入到 DirectReviewUseCase 以支持 enableSearch 标志
-const searchProvider = new DuckDuckGoHtmlSearch()
+// 将 OpenRouterSearch 注入到 DirectReviewUseCase 以支持 enableSearch 标志
+const searchProvider = new OpenRouterSearch(cfg.openRouterBase, cfg.timeouts.llmMs)
 const directReview = new DirectReviewUseCase(vision, artifact, timeline, searchProvider)
 const { upload, handler } = makeDirectReviewRouter({ usecase: directReview, artifact, storageRoot: cfg.storageRoot })
 app.post(`${BASE_PATH}/modes/direct/review`, upload.any(), handler)
 
-// 中文注释：挂载精细评审模式——固定5轮识别 + 可选 datasheet 搜索
-const search = new DuckDuckGoHtmlSearch()
+// 中文注释：挂载精细评审模式——固定5轮识别 + 可选 datasheet 搜索（使用 OpenRouterSearch）
+const search = new OpenRouterSearch(cfg.openRouterBase, cfg.timeouts.llmMs)
 const visionProvider = new OpenRouterVisionProvider(cfg.openRouterBase, cfg.timeouts.visionMs)
 const structured = new StructuredRecognitionUseCase(visionProvider, search, timeline)
 const sr = makeStructuredRecognizeRouter({ usecase: structured, storageRoot: cfg.storageRoot })

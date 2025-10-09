@@ -53,7 +53,8 @@
 - `orchestrate` 路由支持 `directReview` 切换直评/精细流程；在 direct 模式下会根据 `history` 判断是否为修订轮（`initial` vs `revision`）并加载对应 system prompt。
 - `DirectReviewUseCase` 会：
   - 将系统提示、requirements/specs/dialog 与历史合并成富消息（rich messages）发送给视觉/文本上游；
-  - 在 `enableSearch=true` 且注入了 `DuckDuckGoHtmlSearch` 时，将检索摘要作为 system 消息注入上下文；
+  - 在 `enableSearch=true` 且注入了搜索提供者时，将检索摘要作为 system 消息注入上下文；
+  - 默认搜索提供者已由 `DuckDuckGoHtmlSearch` 替换为基于 OpenRouter 的 `OpenRouterSearch`（使用 `:online` 模式）
   - 将附件转换为 data URL 后随消息发送（MVP 实现，注意 payload 大小）；
   - 保存完整的 LLM 请求/响应 JSON 与生成的 Markdown 报告为 artifact（便于回溯与审计）。
 - 视觉提供者（`OpenRouterVisionProvider`）尝试从上游返回文本中提取 JSON，并对常见字段做兼容性归一化（components/nets）。
@@ -93,7 +94,6 @@
 - 工件包含完整请求/响应 JSON（用于调试）：在共享/生产环境中请限制 artifact 访问或启用额外的脱敏策略。
 - 服务在日志中尽量不记录 Authorization 头，但上游调用仍使用客户端传入的 `Authorization`（前端/部署时请妥善保存密钥）。
 
-
 九、前端本地配置持久化
 
 - 为改善用户体验，API Key 支持在浏览器端持久化为默认值，存储在 `localStorage` 的 `apiKey` 键下。应用在启动时会尝试从 `localStorage` 读取该键并回填顶部的 API Key 输入框；当用户在顶部输入框修改 Key 时，新的 Key 会立即写回 `localStorage`，以便不同 agent/页面间共享同一 Key（全局作用域）。
@@ -103,7 +103,6 @@
 
 - 本项目为多服务结构，建议在本地使用 `node start-all.js` 启动并逐服务调试。
 - 提示词管理：请在 `ReviewAIPrompt/` 下用 Git 管理提示词变更，并在重大变动后同步更新本文件的变更记录。
-
 十一、文件索引（重要实现文件参考）
 
 - `services/circuit-agent/src/infra/prompts/PromptLoader.ts` — prompt 加载逻辑（按 agent/language/variant）
@@ -111,6 +110,7 @@
 - `services/circuit-agent/src/app/usecases/DirectReviewUseCase.ts` — 直评用例实现
 - `services/circuit-agent/src/infra/http/OpenRouterClient.ts` — 上游 HTTP 客户端
 - `services/*/src/infra/storage/ArtifactStoreFs.ts` — 工件保存实现
+- `services/circuit-agent/src/infra/search/OpenRouterSearch.ts` — OpenRouter 在线检索 provider（替代 DuckDuckGoHtmlSearch）
 
 变更记录（摘要）
 
@@ -118,6 +118,7 @@
 - 2025-09-30: 新增多轮对话式单 agent 评审（`DirectReviewUseCase` 支持 `history`；前端支持多轮提交与会话保存）。
 - 2025-10-01: 引入基于 agent/language/variant 的 `PromptLoader`（强制校验提示词文件存在性）并在 `orchestrate` 中使用修订轮判定逻辑；同时整理 `ReviewAIPrompt/` 目录结构（`circuit-agent` 与 `circuit-fine-agent` 子目录）。
 - 2025-10-08: 重写并同步 `CURSOR.md`，与代码实现一致，目标读者：外部/内部开发者、演示客户与维护人员。
- - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
- - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
- - 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。
+- 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
+- 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
+- 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。
+- 2025-10-09: 将搜索提供者替换为 OpenRouter 在线搜索实现 `OpenRouterSearch`，移除 `DuckDuckGoHtmlSearch`，并将 `POLICIES.SEARCH_PROVIDER` 值更新为 `openrouter_online`（后端注入点已替换，`CURSOR.md` 已同步更新）。

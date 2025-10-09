@@ -16,7 +16,7 @@ import { TimelineService } from '../app/services/TimelineService'
 import { OpenRouterVisionChat } from '../infra/providers/OpenRouterVisionChat'
 import { DirectReviewUseCase } from '../app/usecases/DirectReviewUseCase'
 import { makeDirectReviewRouter } from '../interface/http/routes/directReview'
-import { DuckDuckGoHtmlSearch } from '../infra/search/DuckDuckGoHtmlSearch'
+import { OpenRouterSearch } from '../infra/search/OpenRouterSearch'
 import { OpenRouterVisionProvider } from '../infra/providers/OpenRouterVisionProvider'
 import { StructuredRecognitionUseCase } from '../app/usecases/StructuredRecognitionUseCase'
 import { makeStructuredRecognizeRouter } from '../interface/http/routes/structuredRecognize'
@@ -91,7 +91,7 @@ const directReview = new DirectReviewUseCase(vision, artifact, timeline)
 const { upload, handler } = makeDirectReviewRouter({ usecase: directReview, artifact, storageRoot: cfg.storageRoot })
 app.post(`${BASE_PATH}/modes/direct/review`, upload.any(), handler)
 
-const search = new DuckDuckGoHtmlSearch()
+const search = new OpenRouterSearch(cfg.openRouterBase, cfg.timeouts.llmMs)
 const visionProvider = new OpenRouterVisionProvider(cfg.openRouterBase, cfg.timeouts.visionMs)
 const structured = new StructuredRecognitionUseCase(visionProvider, search, timeline)
 const sr = makeStructuredRecognizeRouter({ usecase: structured, storageRoot: cfg.storageRoot })
