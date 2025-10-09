@@ -1,0 +1,9 @@
+已删除文件/目录清单（由助手删除，用户将自行提交变更）：
+
+services/circuit-agent/services/circuit-agent/storage/artifacts/*  （全部删除）
+services/circuit-agent/services/circuit-agent/storage/sessions/*  （全部删除）
+services/circuit-agent/services/circuit-agent/storage/tmp/*  （部分删除，残留空目录）
+
+说明：这些文件包含 LLM 请求/响应、生成报告与会话 JSON，已从工作区删除以防止提交到 Git 历史。
+
+

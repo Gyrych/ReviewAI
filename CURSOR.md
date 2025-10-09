@@ -122,3 +122,18 @@
 - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
 - 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。
 - 2025-10-09: 将搜索提供者替换为 OpenRouter 在线搜索实现 `OpenRouterSearch`，移除 `DuckDuckGoHtmlSearch`，并将 `POLICIES.SEARCH_PROVIDER` 值更新为 `openrouter_online`（后端注入点已替换，`CURSOR.md` 已同步更新）。
+
+2025-10-09 变更记录（清理运行时工件）
+
+- **文件/目录删除（工作区）**: `services/circuit-agent/services/circuit-agent/storage/artifacts/*`、`services/circuit-agent/services/circuit-agent/storage/sessions/*`、`services/circuit-agent/services/circuit-agent/storage/tmp/*`
+- **目的**: 从工作区删除 LLM 请求/响应、生成报告与会话 JSON，防止这些可能包含敏感信息的文件被提交到 Git 历史。
+-- **注意**: 我只删除了工作区中的文件；如果需要彻底从 Git 历史中清除这些文件（bfg/git-filter-repo），请明确指示，操作会影响提交历史并需要你手动在本地执行或授权我为你生成操作步骤。
+
+2025-10-09 变更记录（提示词判定与日志增强）
+
+- **文件修改**: `services/circuit-agent/src/interface/http/routes/directReview.ts`、`services/circuit-agent/src/interface/http/routes/orchestrate.ts`
+- **目的**: 修复首轮评审被误判为修订轮的问题；增加决策日志用于排查未来类似问题。
+- **主要改动**:
+  - 收紧 `isRevisionByHistory` 判定逻辑：仅在历史中存在 `assistant` 消息或显式包含报告/修订标记时，才视为修订轮；避免仅因为 history 中存在 user 条目就误判为修订。
+  - 在判定命中报告标记或 assistant 消息时写入详细日志（`console.log`），并在未命中时也写入推断为首轮的信息日志。
+-- **影响**: 修复会导致后端在首轮错误使用修订提示词的 bug；提高日志可读性以便审计与回溯。

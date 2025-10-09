@@ -47,19 +47,35 @@ export function makeOrchestrateRouter(deps: {
 
         // 中文注释：根据报告片段与非空消息判断是否为修订轮，并记录摘要日志
         function isRevisionByHistory(h: any[]): boolean {
+          // 更严格的修订判定：仅当历史包含 assistant 消息或显式报告标记时
           if (!Array.isArray(h)) return false
           const toString = (v: any) => { try { return typeof v === 'string' ? v : (v?.toString?.() ?? '') } catch { return '' } }
           const lower = (s: string) => toString(s).toLowerCase()
           const reportMarkers = ['## 元信息','## 本轮修订摘要','## 评审报告','【评审报告】','## metadata','## revision summary','## review report'].map(m => m.toLowerCase())
-          let nonEmpty = 0
+
+          let hasAssistantMessage = false
           for (const item of h) {
-            const role = toString((item as any)?.role)
-            const content = toString((item as any)?.content)
-            if (['user','assistant'].includes(role) && content.trim().length >= 1) nonEmpty++
-            const lc = lower(content)
-            if (reportMarkers.some(m => lc.includes(m))) return true
+            try {
+              const role = (item as any)?.role
+              const content = toString((item as any)?.content)
+              if (role === 'assistant' && content.trim().length > 0) {
+                hasAssistantMessage = true
+              }
+              const lc = lower(content)
+              if (reportMarkers.some(m => lc.includes(m))) {
+                console.log('[isRevisionByHistory] matched report marker in history item, treating as revision')
+                return true
+              }
+            } catch (e) {}
           }
-          return nonEmpty > 0
+
+          if (hasAssistantMessage) {
+            console.log('[isRevisionByHistory] found assistant message in history, treating as revision')
+            return true
+          }
+
+          console.log('[isRevisionByHistory] no assistant messages or report markers found; treating as initial')
+          return false
         }
 
         // 中文注释：记录 history 概览与样例（用于问题排查）

@@ -1,3 +1,27 @@
+# 忽略运行时生成的 LLM 对话工件、会话与临时文件
+/services/**/storage/
+/services/**/storage/**
+
+# artifacts / sessions / tmp (显式)
+/services/**/storage/artifacts/
+/services/**/storage/sessions/
+/services/**/storage/tmp/
+
+# uploads（网络检索 & 解析工件）
+**/uploads/
+
+# 日志文件
+*.log
+**/*.log
+
+# 本地 env
+.env
+.env.*
+
+# 可选：构建产物（如团队不提交）
+/dist/
+/build/
+
 # =========================
 # 隐私与安全（敏感信息）
 # =========================
