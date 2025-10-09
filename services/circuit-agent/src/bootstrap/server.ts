@@ -136,7 +136,7 @@ const ag = makeAggregateRouter({ usecase: finalAgg, storageRoot: cfg.storageRoot
 app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
 
 // 中文注释：统一编排入口（便于前端仅调用一个端点）
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, direct: directReview, structured, multi: multiReview, aggregate: finalAgg })
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
 function fsExists(p: string): boolean { try { return fs.existsSync(p) } catch { return false } }

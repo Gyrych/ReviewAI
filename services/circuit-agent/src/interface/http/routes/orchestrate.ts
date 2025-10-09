@@ -1,17 +1,21 @@
 import type { Request, Response } from 'express'
+// multer types may be unavailable in some environments; import as any to avoid TS type error
+// multer types may be unavailable in some environments; import as any to avoid TS type error
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import type { Attachment, CircuitGraph } from '../../../domain/contracts/index.js'
+import type { Attachment, CircuitGraph, ArtifactStore } from '../../../domain/contracts/index.js'
 import { DirectReviewUseCase } from '../../../app/usecases/DirectReviewUseCase.js'
 import { StructuredRecognitionUseCase } from '../../../app/usecases/StructuredRecognitionUseCase.js'
 import { MultiModelReviewUseCase } from '../../../app/usecases/MultiModelReviewUseCase.js'
 import { FinalAggregationUseCase } from '../../../app/usecases/FinalAggregationUseCase.js'
 import { PromptLoader } from '../../../infra/prompts/PromptLoader.js'
+import { ArtifactStoreFs } from '../../../infra/storage/ArtifactStoreFs.js'
 
 // 中文注释：统一编排入口，根据 directReview=false/true 选择流程
 export function makeOrchestrateRouter(deps: {
   storageRoot: string
+  artifact: ArtifactStore
   direct: DirectReviewUseCase
   structured: StructuredRecognitionUseCase
   multi: MultiModelReviewUseCase
@@ -118,6 +122,59 @@ export function makeOrchestrateRouter(deps: {
           })
         }
 
+        // 若启用了 enableSearch，则先执行结构化识别并尝试抓取 datasheet
+        if (enableSearchFlag) {
+          try {
+            // 调用 StructuredRecognitionUseCase（复用已注入的 structured via deps）
+            const rec = await deps.structured.execute({ apiUrl, visionModel: String(process.env.DEFAULT_VISION_MODEL || 'openai/gpt-5-mini'), images: attachments, enableSearch: true, searchTopN, progressId })
+            // 将结构化结果保存到请求的 enrichedJson 中，供后续 DirectReviewUseCase 使用
+            const enrichedJson: any = { circuit: rec.circuit }
+            // 收集 datasheet URLs
+            const urls: string[] = []
+            try {
+              if (rec.circuit && Array.isArray((rec.circuit as any).datasheetMeta)) {
+                for (const d of (rec.circuit as any).datasheetMeta) {
+                  try { if (d && d.sourceUrl) urls.push(String(d.sourceUrl)) } catch {}
+                }
+              }
+            } catch {}
+
+            // 若有 urls，尝试抓取并保存为 artifact（非阻塞失败）
+            if (urls.length > 0) {
+              try {
+                const { fetchAndSaveDatasheets } = await import('../../../infra/datasheet/DatasheetFetcher.js')
+                const artifactStore = deps.artifact
+                if (typeof fetchAndSaveDatasheets === 'function' && artifactStore) {
+                  const saved = await fetchAndSaveDatasheets(urls, artifactStore, { timeoutMs: Number(process.env.DATASHEET_FETCH_TIMEOUT_MS || 15000), maxBytes: Number(process.env.DATASHEET_MAX_BYTES || 5000000) })
+                  if (Array.isArray(saved) && saved.length > 0) enrichedJson.datasheets = saved
+                }
+              } catch (e) {
+                console.log('[orchestrate] datasheet fetch failed: ' + String((e as any)?.message || e))
+              }
+            }
+
+            const requestObj: any = {
+              files: attachments,
+              systemPrompt: systemPromptToUse,
+              requirements: String(body.requirements || ''),
+              specs: String(body.specs || ''),
+              dialog: String(body.dialog || ''),
+              history: parsedHistory,
+              options: {
+                progressId,
+                enableSearch: enableSearchFlag,
+                searchTopN
+              }
+            }
+            if (enrichedJson) requestObj.enrichedJson = enrichedJson
+            const out = await deps.direct.execute({ apiUrl, model, request: requestObj, authHeader })
+            return res.json(out)
+          } catch (e) {
+            console.log('[orchestrate] structured+fetch path failed: ' + String((e as any)?.message || e))
+          }
+        }
+
+        // 若未启用 enableSearch 或上述路径失败，回退到原始 direct 执行
         const out = await deps.direct.execute({
           apiUrl,
           model,
