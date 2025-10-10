@@ -1,23 +1,31 @@
 import type { SearchProvider } from '../../domain/contracts/index.js'
 import { OpenRouterTextProvider } from '../providers/OpenRouterTextProvider.js'
+import { logger } from '../log/logger.js'
 
 // 中文注释：基于 OpenRouter 的在线检索 provider，使用 openrouter 的 :online 模型
 export class OpenRouterSearch implements SearchProvider {
   private provider: OpenRouterTextProvider
   private model: string
+  private headers?: Record<string,string>
 
-  constructor(baseUrl: string, defaultTimeoutMs: number) {
+  constructor(baseUrl: string, defaultTimeoutMs: number, headers?: Record<string,string>) {
     this.provider = new OpenRouterTextProvider(baseUrl, defaultTimeoutMs)
-    this.model = String(process.env.OPENROUTER_SEARCH_MODEL || 'openai/gpt-4o:online')
+    this.model = String(process.env.OPENROUTER_SEARCH_MODEL || 'openrouter/auto')
+    this.headers = headers
   }
 
   // query -> 调用 openrouter 在线模型，要求返回 JSON 数组 [{title,url}] 或以行为单位的条目
   async search(query: string, topN: number): Promise<{ title: string; url: string }[]> {
     try {
+      logger.info('web.search.start', { query: query.slice(0, 120), topN })
       const system = `You are a web search tool. Given the user query, return a JSON array of up to ${topN} items, each an object with keys \"title\" and \"url\". Return only the JSON array and no extra text.`
       const userMsg = query
-      const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }] })
+      // 显式启用 web 插件进行真实搜索
+      const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
+      const plugins = [{ id: 'web', engine, max_results: Math.max(1, Number(topN || 5)) }]
+      const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
       const txt = (resp && resp.text) ? resp.text.trim() : ''
+      logger.info('web.search.done', { length: txt.length })
       if (!txt) return []
       // 尝试解析为 JSON
       try {
@@ -41,9 +49,33 @@ export class OpenRouterSearch implements SearchProvider {
           results.push({ title, url })
         }
       }
-      return results.slice(0, topN)
+      const out = results.slice(0, topN)
+      logger.info('web.search.parsed', { count: out.length })
+      return out
     } catch (e) {
+      logger.warn('web.search.error', { message: (e as Error)?.message })
       return []
+    }
+  }
+
+  // 中文注释：对 URL 进行在线抓取并在上游汇总为指定语言与词数上限的纯文本摘要
+  async summarizeUrl(url: string, wordLimit: number, lang: 'zh'|'en'): Promise<string> {
+    try {
+      logger.info('web.summary.start', { url, wordLimit, lang })
+      const limit = Math.max(64, Math.min(2048, Number(wordLimit || 512)))
+      const system = `You are a web reader and summarizer. Fetch the given URL and write a concise summary in ${lang === 'zh' ? 'Chinese' : 'English'} within ${limit} words. Return plain text only.`
+      const userMsg = `URL: ${url}`
+      // 显式启用 web 插件；engine 可通过环境变量覆盖（native/exa）
+      const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
+      const maxResults = Number(process.env.OPENROUTER_WEB_MAX_RESULTS || 1)
+      const plugins = [{ id: 'web', engine, max_results: maxResults, search_prompt: 'Some relevant web results:' }]
+      const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
+      const txt = (resp && resp.text) ? resp.text.trim() : ''
+      logger.info('web.summary.done', { length: txt.length })
+      return txt
+    } catch (e) {
+      logger.warn('web.summary.error', { url, message: (e as Error)?.message })
+      return ''
     }
   }
 }

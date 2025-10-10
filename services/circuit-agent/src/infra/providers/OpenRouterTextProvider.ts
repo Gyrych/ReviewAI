@@ -4,13 +4,15 @@ import { postJson, extractTextFromOpenAICompat } from '../http/OpenRouterClient.
 export class OpenRouterTextProvider implements LlmProvider {
   constructor(private baseUrl: string, private defaultTimeoutMs: number) {}
 
-  async chat(params: { apiUrl: string; model: string; system: string; messages: Conversation[]; timeoutMs?: number; headers?: Record<string,string> }): Promise<{ text: string; raw: string }> {
+  async chat(params: { apiUrl: string; model: string; system: string; messages: Conversation[]; timeoutMs?: number; headers?: Record<string,string>; plugins?: any[]; extraBody?: Record<string, any> }): Promise<{ text: string; raw: string }> {
     const url = params.apiUrl || this.baseUrl
     const headers = Object.assign({}, params.headers || {})
     const msgs = [] as any[]
     if (params.system && params.system.trim()) msgs.push({ role: 'system', content: params.system })
     for (const m of params.messages || []) msgs.push({ role: m.role, content: m.content })
-    const body = { model: params.model, messages: msgs, stream: false }
+    const body: any = { model: params.model, messages: msgs, stream: false }
+    if (Array.isArray(params.plugins) && params.plugins.length > 0) body.plugins = params.plugins
+    if (params.extraBody && typeof params.extraBody === 'object') Object.assign(body, params.extraBody)
     const resp = await postJson(url, body, headers, params.timeoutMs || this.defaultTimeoutMs)
     if (!resp.ok) throw new Error(`upstream ${resp.status}`)
     const text = extractTextFromOpenAICompat(resp.text)

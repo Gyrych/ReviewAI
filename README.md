@@ -79,7 +79,11 @@ Key endpoints (circuit-agent)
 Important runtime behaviors
 - The `PromptLoader` (in both services) enforces presence and non-emptiness of prompt files. It supports caching and `preloadPrompts` for startup pre-warming.
 - `orchestrate` route auto-detects whether a request is a revision based on `history` content and loads `system_prompt_initial` or `system_prompt_revision` accordingly.
-- `DirectReviewUseCase` prepares rich messages (system + user parts), may include web search summaries (DuckDuckGo provider) when `enableSearch=true`, converts attachments to data URLs for upstream LLM vision providers, and stores full request/response artifacts.
+- `DirectReviewUseCase` prepares rich messages (system + user parts). When `enableSearch=true` in direct mode:
+  - Runs an identify stage to extract key components and key technical routes (JSON)
+  - Performs online search per keyword and generates per-URL summaries (≤512 words each), injecting each summary as a separate system message
+  - Converts attachments to data URLs for upstream vision LLM
+  - Stores full request/response artifacts for debugging.
 - Artifact storage is file-based (`ArtifactStoreFs`) under each service's storage root and exposed via `/artifacts`.
 
 Configuration & environment variables

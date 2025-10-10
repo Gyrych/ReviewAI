@@ -17,6 +17,7 @@ import { OpenRouterVisionChat } from '../infra/providers/OpenRouterVisionChat'
 import { DirectReviewUseCase } from '../app/usecases/DirectReviewUseCase'
 import { makeDirectReviewRouter } from '../interface/http/routes/directReview'
 import { OpenRouterSearch } from '../infra/search'
+import { IdentifyKeyFactsUseCase } from '../app/usecases/IdentifyKeyFactsUseCase'
 import { OpenRouterVisionProvider } from '../infra/providers/OpenRouterVisionProvider'
 import { StructuredRecognitionUseCase } from '../app/usecases/StructuredRecognitionUseCase'
 import { makeStructuredRecognizeRouter } from '../interface/http/routes/structuredRecognize'
@@ -136,7 +137,9 @@ const ag = makeAggregateRouter({ usecase: finalAgg, storageRoot: cfg.storageRoot
 app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
 
 // 中文注释：统一编排入口（便于前端仅调用一个端点）
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg })
+// 识别轮用例：与 orchestrate 中动态使用保持一致
+const identifyFacts = new IdentifyKeyFactsUseCase(vision, artifact, timeline)
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
 function fsExists(p: string): boolean { try { return fs.existsSync(p) } catch { return false } }

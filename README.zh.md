@@ -77,7 +77,11 @@ npm run dev
 运行时重要行为
 - `PromptLoader`（两个子服务）会强制校验提示词文件存在且非空，支持缓存与预热。
 - `orchestrate` 路由会根据 `history` 自动判断是否为修订轮，并选择 `system_prompt_initial` 或 `system_prompt_revision`。
-- `DirectReviewUseCase` 会构建富消息（system + user parts）并可在 `enableSearch=true` 时注入 DuckDuckGo 检索摘要；附件会被转换为 data URL 发送给上游视觉 LLM，且请求/响应完整 JSON 会以 artifact 形式保存便于回溯。
+- `DirectReviewUseCase` 会构建富消息（system + user parts），在 `enableSearch=true` 时：
+  - 先执行“识别轮”抽取关键元器件与技术路线清单
+  - 对每个关键词进行在线检索并逐 URL 生成 ≤512 词摘要，各自注入一条 system 消息
+  - 附件会被转换为 data URL 发送给上游视觉 LLM
+  - 请求/响应完整 JSON 会以 artifact 形式保存便于回溯。
 - 工件存储为文件系统实现（`ArtifactStoreFs`），每个服务将其工件放在自身的 storage 根目录下并通过 `/artifacts` 暴露。
 
 配置与环境变量

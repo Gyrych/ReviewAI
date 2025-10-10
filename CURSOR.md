@@ -53,8 +53,8 @@
 - `orchestrate` 路由支持 `directReview` 切换直评/精细流程；在 direct 模式下会根据 `history` 判断是否为修订轮（`initial` vs `revision`）并加载对应 system prompt。
 - `DirectReviewUseCase` 会：
   - 将系统提示、requirements/specs/dialog 与历史合并成富消息（rich messages）发送给视觉/文本上游；
-  - 在 `enableSearch=true` 且注入了搜索提供者时，将检索摘要作为 system 消息注入上下文；
-  - 默认搜索提供者已由 `DuckDuckGoHtmlSearch` 替换为基于 OpenRouter 的 `OpenRouterSearch`（使用 `:online` 模式）
+  - 在 `enableSearch=true` 时，先执行“识别轮”提取关键元器件与技术路线清单；随后对每个关键词进行在线检索并逐 URL 生成 ≤512 词摘要，将每条摘要作为独立的 system 消息注入上下文；
+  - 默认搜索提供者为基于 OpenRouter 的 `OpenRouterSearch`（使用 `:online` 模式，支持 `search()` 与 `summarizeUrl()`）
   - 将附件转换为 data URL 后随消息发送（MVP 实现，注意 payload 大小）；
   - 保存完整的 LLM 请求/响应 JSON 与生成的 Markdown 报告为 artifact（便于回溯与审计）。
 - 视觉提供者（`OpenRouterVisionProvider`）尝试从上游返回文本中提取 JSON，并对常见字段做兼容性归一化（components/nets）。
@@ -122,6 +122,22 @@
 - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
 - 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。
 - 2025-10-09: 将搜索提供者替换为 OpenRouter 在线搜索实现 `OpenRouterSearch`，移除 `DuckDuckGoHtmlSearch`，并将 `POLICIES.SEARCH_PROVIDER` 值更新为 `openrouter_online`（后端注入点已替换，`CURSOR.md` 已同步更新）。
+
+2025-10-09 变更记录（单 agent 评审流程增强）
+
+- 文件修改：
+  - `services/circuit-agent/src/domain/contracts/index.ts` — `ReviewRequest` 增加 `extraSystems?: string[]`，`SearchProvider` 增加 `summarizeUrl()`。
+  - `services/circuit-agent/src/app/usecases/DirectReviewUseCase.ts` — 修复 `{role,content}` 历史注入；支持注入 `extraSystems`。
+  - `services/circuit-agent/src/app/usecases/IdentifyKeyFactsUseCase.ts` — 新增识别轮用例，输出 `{ keyComponents[], keyTechRoutes[] }`。
+  - `services/circuit-agent/src/infra/search/OpenRouterSearch.ts` — 新增 `summarizeUrl(url, wordLimit, lang)`。
+  - `services/circuit-agent/src/interface/http/routes/orchestrate.ts` — 直评分支串联 识别→检索→逐URL 摘要→注入 `extraSystems`→直评。
+  - `ReviewAIPrompt/circuit-agent/identify_prompt_zh.md|identify_prompt_en.md` — 新增识别轮提示词。
+- 文件删除：
+  - `services/circuit-agent/src/infra/search/DuckDuckGoHtmlSearch.js`
+- 目的：
+  - 完整实现“单 agent 评审”流程中可选的器件搜索与资料注入环节；
+  - 修复历史未正确纳入上下文的问题；
+  - 提升报告的可用性与可追溯性。
 
 2025-10-09 变更记录（清理运行时工件）
 

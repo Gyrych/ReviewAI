@@ -10,6 +10,10 @@ import { StructuredRecognitionUseCase } from '../../../app/usecases/StructuredRe
 import { MultiModelReviewUseCase } from '../../../app/usecases/MultiModelReviewUseCase.js'
 import { FinalAggregationUseCase } from '../../../app/usecases/FinalAggregationUseCase.js'
 import { PromptLoader } from '../../../infra/prompts/PromptLoader.js'
+import { IdentifyKeyFactsUseCase } from '../../../app/usecases/IdentifyKeyFactsUseCase.js'
+import { OpenRouterSearch } from '../../../infra/search/OpenRouterSearch.js'
+import type { SearchProvider } from '../../../domain/contracts/index.js'
+import { logger } from '../../../infra/log/logger.js'
 import { ArtifactStoreFs } from '../../../infra/storage/ArtifactStoreFs.js'
 
 // 中文注释：统一编排入口，根据 directReview=false/true 选择流程
@@ -20,6 +24,8 @@ export function makeOrchestrateRouter(deps: {
   structured: StructuredRecognitionUseCase
   multi: MultiModelReviewUseCase
   aggregate: FinalAggregationUseCase
+  identify?: IdentifyKeyFactsUseCase
+  search?: SearchProvider
 }) {
   const uploadDir = path.join(deps.storageRoot, 'tmp')
   try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }) } catch {}
@@ -67,18 +73,18 @@ export function makeOrchestrateRouter(deps: {
               }
               const lc = lower(content)
               if (reportMarkers.some(m => lc.includes(m))) {
-                console.log('[isRevisionByHistory] matched report marker in history item, treating as revision')
+                logger.info('history.revision.marker', {})
                 return true
               }
             } catch (e) {}
           }
 
           if (hasAssistantMessage) {
-            console.log('[isRevisionByHistory] found assistant message in history, treating as revision')
+            logger.info('history.revision.assistant_found', {})
             return true
           }
 
-          console.log('[isRevisionByHistory] no assistant messages or report markers found; treating as initial')
+          logger.info('history.revision.initial', {})
           return false
         }
 
@@ -122,36 +128,66 @@ export function makeOrchestrateRouter(deps: {
           })
         }
 
-        // 若启用了 enableSearch，则先执行结构化识别并尝试抓取 datasheet
+        // 若启用了 enableSearch：执行识别轮→关键词检索→逐URL摘要→注入 extraSystems
         if (enableSearchFlag) {
           try {
-            // 调用 StructuredRecognitionUseCase（复用已注入的 structured via deps）
-            const rec = await deps.structured.execute({ apiUrl, visionModel: String(process.env.DEFAULT_VISION_MODEL || 'openai/gpt-5-mini'), images: attachments, enableSearch: true, searchTopN, progressId })
-            // 将结构化结果保存到请求的 enrichedJson 中，供后续 DirectReviewUseCase 使用
-            const enrichedJson: any = { circuit: rec.circuit }
-            // 收集 datasheet URLs
-            const urls: string[] = []
-            try {
-              if (rec.circuit && Array.isArray((rec.circuit as any).datasheetMeta)) {
-                for (const d of (rec.circuit as any).datasheetMeta) {
-                  try { if (d && d.sourceUrl) urls.push(String(d.sourceUrl)) } catch {}
-                }
+            logger.info('search.pipeline.start', { progressId, searchTopN })
+            const identifyUsecase = deps.identify
+            const identifyResult = identifyUsecase ? await identifyUsecase.execute({
+              apiUrl,
+              model,
+              request: { files: attachments, systemPrompt: systemPromptToUse, requirements: String(body.requirements || ''), specs: String(body.specs || ''), dialog: String(body.dialog || ''), options: { progressId }, language: language as 'zh'|'en' },
+              authHeader
+            }) : { keyComponents: [], keyTechRoutes: [], timeline: [] }
+            logger.info('search.pipeline.identify.done', { keys: (identifyResult.keyComponents||[]).length + (identifyResult.keyTechRoutes||[]).length })
+            // 根据识别出的关键词进行检索与摘要
+            const searchHeaders: Record<string,string> = {}
+            if (authHeader) searchHeaders['Authorization'] = authHeader
+            const search = deps.search || new OpenRouterSearch(String(process.env.OPENROUTER_BASE || ''), Number(process.env.LLM_TIMEOUT_MS || 7200000), searchHeaders)
+            const keywords = ([] as string[]).concat(identifyResult.keyComponents || [], identifyResult.keyTechRoutes || [])
+            const extraSystems: string[] = []
+            const perKeywordLimit = Math.max(1, Math.min(5, searchTopN))
+            const globalMax = Math.max(1, Math.min(10, Number(process.env.SEARCH_SUMMARY_MAX || 10)))
+            if (keywords.length > 0) {
+              for (const kw of keywords) {
+                if (extraSystems.length >= globalMax) break
+                try {
+                  logger.info('search.pipeline.query', { kw })
+                  const hits = await search.search(String(kw), perKeywordLimit)
+                  for (const h of hits) {
+                    if (extraSystems.length >= globalMax) break
+                    logger.info('search.pipeline.summary', { url: h.url })
+                    const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
+                    if (summary && summary.trim()) {
+                      try { await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' }) } catch {}
+                      extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
+                    }
+                  }
+                } catch {}
               }
-            } catch {}
-
-            // 若有 urls，尝试抓取并保存为 artifact（非阻塞失败）
-            if (urls.length > 0) {
-              try {
-                const { fetchAndSaveDatasheets } = await import('../../../infra/datasheet/DatasheetFetcher.js')
-                const artifactStore = deps.artifact
-                if (typeof fetchAndSaveDatasheets === 'function' && artifactStore) {
-                  const saved = await fetchAndSaveDatasheets(urls, artifactStore, { timeoutMs: Number(process.env.DATASHEET_FETCH_TIMEOUT_MS || 15000), maxBytes: Number(process.env.DATASHEET_MAX_BYTES || 5000000) })
-                  if (Array.isArray(saved) && saved.length > 0) enrichedJson.datasheets = saved
-                }
-              } catch (e) {
-                console.log('[orchestrate] datasheet fetch failed: ' + String((e as any)?.message || e))
+            } else {
+              // Fallback：识别轮为空时，使用 requirements/specs/dialog 合成检索语句
+              const req = String(body.requirements || '')
+              const sp = String(body.specs || '')
+              const dg = String(body.dialog || '')
+              const fallbackQ = [req, sp, dg].filter(Boolean).join('\n').slice(0, 2000)
+              logger.info('search.pipeline.fallback.query', { hasReq: !!req, hasSpecs: !!sp, hasDialog: !!dg })
+              if (fallbackQ) {
+                try {
+                  const hits = await search.search(fallbackQ, Math.max(1, perKeywordLimit))
+                  for (const h of hits) {
+                    if (extraSystems.length >= globalMax) break
+                    logger.info('search.pipeline.fallback.summary', { url: h.url })
+                    const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
+                    if (summary && summary.trim()) {
+                      try { await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' }) } catch {}
+                      extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
+                    }
+                  }
+                } catch {}
               }
             }
+            logger.info('search.pipeline.done', { injected: extraSystems.length })
 
             const requestObj: any = {
               files: attachments,
@@ -160,13 +196,13 @@ export function makeOrchestrateRouter(deps: {
               specs: String(body.specs || ''),
               dialog: String(body.dialog || ''),
               history: parsedHistory,
+              extraSystems,
               options: {
                 progressId,
                 enableSearch: enableSearchFlag,
                 searchTopN
               }
             }
-            if (enrichedJson) requestObj.enrichedJson = enrichedJson
             const out = await deps.direct.execute({ apiUrl, model, request: requestObj, authHeader })
             return res.json(out)
           } catch (e) {
@@ -185,6 +221,7 @@ export function makeOrchestrateRouter(deps: {
             specs: String(body.specs || ''),
             dialog: String(body.dialog || ''),
             history: parsedHistory,
+            // 关闭搜索路径下不注入 extraSystems
             options: {
               progressId,
               enableSearch: enableSearchFlag,

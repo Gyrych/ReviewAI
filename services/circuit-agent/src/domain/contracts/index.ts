@@ -18,6 +18,8 @@ export type ReviewRequest = {
   designDocs?: Attachment[]
   dialog?: string
   history?: Conversation[]
+  // 中文注释：为直评上下文注入额外的 system 消息（例如资料摘要）
+  extraSystems?: string[]
   options?: { enableSearch?: boolean; searchTopN?: number; progressId?: string; models?: string[] }
 }
 
@@ -43,7 +45,10 @@ export interface VisionChatProvider {
 }
 
 export interface SearchProvider {
+  // 中文注释：查询关键词，返回候选 URL 列表
   search(query: string, topN: number): Promise<{ title: string; url: string }[]>
+  // 中文注释：对指定 URL 进行在线抓取与摘要，返回纯文本（≤wordLimit 词）
+  summarizeUrl(url: string, wordLimit: number, lang: 'zh'|'en'): Promise<string>
 }
 
 export interface ArtifactStore {

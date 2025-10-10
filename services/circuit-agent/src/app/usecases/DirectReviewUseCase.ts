@@ -31,6 +31,15 @@ export class DirectReviewUseCase {
 
     const parts: RichMessage[] = []
     if (sys) parts.push({ role: 'system', content: sys })
+    // 注入额外的 system 消息（如资料摘要），放在主 systemPrompt 之后、用户消息之前
+    try {
+      const extraSystems = (params.request as any).extraSystems as string[] | undefined
+      if (Array.isArray(extraSystems) && extraSystems.length > 0) {
+        for (const s of extraSystems) {
+          try { if (typeof s === 'string' && s.trim().length > 0) parts.push({ role: 'system', content: s }) } catch {}
+        }
+      }
+    } catch {}
 
     const userParts: any[] = []
     if (texts.length > 0) userParts.push({ type: 'text', text: texts.join('\n\n') })
@@ -53,12 +62,16 @@ export class DirectReviewUseCase {
         for (const h of history) {
           try {
             const hh = h as any
-            if (hh.modelMarkdown) {
-              parts.push({ role: 'assistant', content: String(hh.modelMarkdown) })
+            const role = typeof hh?.role === 'string' ? hh.role : undefined
+            const content = typeof hh?.content === 'string' ? hh.content : undefined
+            if (role && content) {
+              const r = role === 'assistant' ? 'assistant' : 'user'
+              parts.push({ role: r, content })
+              continue
             }
-            if (hh.dialog) {
-              parts.push({ role: 'user', content: String(hh.dialog) })
-            }
+            // 兼容历史字段
+            if (hh.modelMarkdown) parts.push({ role: 'assistant', content: String(hh.modelMarkdown) })
+            if (hh.dialog) parts.push({ role: 'user', content: String(hh.dialog) })
           } catch {}
         }
       }
