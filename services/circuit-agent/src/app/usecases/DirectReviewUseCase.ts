@@ -89,11 +89,36 @@ export class DirectReviewUseCase {
         if (q) {
           try {
             const topN = Number((params.request as any).searchTopN || ((params.request.options as any) && (params.request.options as any).searchTopN) || 5)
+            logger.info('direct.search.start', { progressId, query: q.slice(0, 120), topN })
             const hits = await this.searchProvider.search(q, topN)
+            logger.info('direct.search.hits', { count: Array.isArray(hits) ? hits.length : 0 })
             if (Array.isArray(hits) && hits.length > 0) {
               const summary = hits.map((s: any, i: number) => `${i + 1}. ${s.title} — ${s.url}`).join('\n')
               parts.unshift({ role: 'system', content: `Search results summary:\n${summary}` })
+              try { await this.timeline.push(progressId, this.timeline.make('search.results', { count: hits.length, query: q }, { origin: 'backend', category: 'search' })) } catch {}
             }
+            // 对每个命中尝试抓取并保存摘要，记录到 timeline
+            try {
+              let idx = 0
+              for (const h of (Array.isArray(hits) ? hits : [])) {
+                if (idx++ >= topN) break
+                try {
+                  logger.info('direct.search.summarize', { url: h.url })
+                  const s = await this.searchProvider.summarizeUrl(h.url, 512, (params.request as any).language || 'zh')
+                  if (s && s.trim()) {
+                    try {
+                      const saved = await this.artifact.save(s, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
+                      try { await this.timeline.push(progressId, this.timeline.make('search.summary.saved', { title: h.title, url: h.url, artifact: saved }, { origin: 'backend', category: 'search' })) } catch {}
+                      parts.unshift({ role: 'system', content: `External source summary (${h.title} - ${h.url}):\n${s}` })
+                    } catch (e) {
+                      logger.warn('direct.search.save_failed', { url: h.url, error: (e as any)?.message || String(e) })
+                    }
+                  }
+                } catch (e) {
+                  logger.warn('direct.search.summarize_failed', { url: h.url, error: (e as any)?.message || String(e) })
+                }
+              }
+            } catch (e) { logger.warn('direct.search.summary_loop_failed', { error: (e as any)?.message || String(e) }) }
           } catch {}
         }
       }

@@ -13,7 +13,7 @@ export class TimelineService {
 
   async push(progressId: string|undefined, item: TimelineItem) {
     if (!progressId) return
-    try { await this.progress.push(progressId, item) } catch {}
+    try { await this.progress.push(progressId, item) } catch (e) { try { console.warn('[timeline.push.failed]', (e as any)?.message || String(e)) } catch {} }
   }
 }
 

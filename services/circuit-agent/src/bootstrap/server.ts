@@ -76,6 +76,20 @@ try {
   // 注意：此路由放在 try 块之外，避免静态资源挂载异常导致路由未注册
 } catch {}
 
+// 中文注释：兼容性路由：在某些运行时或构建产物缺失时，显式处理 artifacts 路由的 404/信息响应
+app.get(`${BASE_PATH}/artifacts`, (req, res) => {
+  try {
+    const storageRoot = cfg.storageRoot
+    const artifactsDir = path.join(storageRoot, 'artifacts')
+    if (!fs.existsSync(artifactsDir)) return res.status(404).json({ error: 'artifacts not found' })
+    // 简单列出 artifacts（仅文件名），便于调试与前端展示
+    const items = fs.readdirSync(artifactsDir).map((f) => ({ filename: f, url: `${BASE_PATH}/artifacts/${f}` }))
+    return res.json({ items })
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed to list artifacts' })
+  }
+})
+
 // 中文注释：进度查询端点（默认使用内存实现；后续可切换为 Redis 实例）
 // 中文注释：优先使用 Redis（若可用），否则回退内存
 let progressStore: any = new ProgressMemoryStore()
@@ -139,8 +153,21 @@ app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
 // 中文注释：统一编排入口（便于前端仅调用一个端点）
 // 识别轮用例：与 orchestrate 中动态使用保持一致
 const identifyFacts = new IdentifyKeyFactsUseCase(vision, artifact, timeline)
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts })
+// 将 timeline 注入到 orchestrate router，使得搜索过程中能直接把事件写入进度存储（progress）
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts, timeline })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
+
+// 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）
+app.get(`${BASE_PATH}/artifacts`, (req, res) => {
+  try {
+    const artifactsDir = path.join(cfg.storageRoot, 'artifacts')
+    if (!fs.existsSync(artifactsDir)) return res.status(404).json({ error: 'artifacts not found' })
+    const items = fs.readdirSync(artifactsDir).map((f) => ({ filename: f, url: `${BASE_PATH}/artifacts/${f}` }))
+    return res.json({ items })
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || 'failed to list artifacts' })
+  }
+})
 
 function fsExists(p: string): boolean { try { return fs.existsSync(p) } catch { return false } }
 

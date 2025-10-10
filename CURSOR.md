@@ -153,3 +153,15 @@
   - 收紧 `isRevisionByHistory` 判定逻辑：仅在历史中存在 `assistant` 消息或显式包含报告/修订标记时，才视为修订轮；避免仅因为 history 中存在 user 条目就误判为修订。
   - 在判定命中报告标记或 assistant 消息时写入详细日志（`console.log`），并在未命中时也写入推断为首轮的信息日志。
 -- **影响**: 修复会导致后端在首轮错误使用修订提示词的 bug；提高日志可读性以便审计与回溯。
+
+2025-10-10 变更记录（移除旧产物与添加兼容 artifacts 列表路由）
+
+- 文件删除（工作区）:
+  - `services/circuit-fine-agent/dist/infra/search/DuckDuckGoHtmlSearch.js` — 已删除，原因：旧的 dist 导出产物，已被 `OpenRouterSearch` 替代。
+
+- 文件修改：
+  - `services/circuit-agent/src/bootstrap/server.ts` — 新增兼容 `GET /artifacts` 路由（返回 artifacts 列表 JSON），用于在静态 artifacts 目录缺失或需要程序化列出 artifacts 时提供可用信息；该路由仅用于调试与兼容性，不改变静态文件访问路径 `${BASE_PATH}/artifacts/:filename`。
+
+- 目的：
+  - 清理仓库中不再使用的 dist 产物，减少混淆。
+  - 在运行时下增加一个列出 artifacts 的兼容路由，便于前端或运维查看可用工件列表。

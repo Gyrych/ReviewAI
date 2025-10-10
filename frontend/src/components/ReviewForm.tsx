@@ -173,6 +173,17 @@ const ReviewForm = React.forwardRef(function ReviewForm({
     }
   }
 
+  // 在组件首次加载时，尝试从 localStorage 恢复上一次保存的 timeline（若存在）
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('lastTimeline')
+      if (s) {
+        const parsed = JSON.parse(s)
+        if (Array.isArray(parsed)) setTimeline(parsed)
+      }
+    } catch (e) {}
+  }, [])
+
   // 中文注释：渲染单个 artifact 的内联预览（JSON/文本；图片内联 <img>）
   function ArtifactInline({ label, art }: { label: string; art?: any }) {
     if (!art) return null
@@ -675,6 +686,29 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         window.clearInterval(progressPollRef.current)
         progressPollRef.current = null
       }
+
+      // 在清理 progressId 前，尝试拉取一次最终的 progress timeline 并持久化到 localStorage
+      try {
+        const finalPid = progressIdRef.current || progressId
+        if (finalPid) {
+          try {
+            const rfinal = await fetch(`${agentBase}/progress/${encodeURIComponent(finalPid)}`)
+            if (rfinal.ok) {
+              const jfinal = await rfinal.json()
+              if (jfinal && Array.isArray(jfinal.timeline)) {
+                const remoteFinal = jfinal.timeline.map((x: any) => ({ step: x.step, ts: x.ts, origin: x.origin || 'backend', category: x.category || (x.meta && x.meta.modelType) || 'other', meta: x.meta || {}, artifacts: x.artifacts || {}, tags: x.tags || [] }))
+                setTimeline((t) => {
+                  const localPrefix = (t || []).filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
+                  const merged = localPrefix.concat(remoteFinal).sort((a: any, b: any) => (a.ts || 0) - (b.ts || 0))
+                  try { localStorage.setItem('lastTimeline', JSON.stringify(merged)) } catch {}
+                  return merged
+                })
+              }
+            }
+          } catch (e) {}
+        }
+      } catch (e) {}
+
       // 清除 progressId
       setProgressId(null)
       progressIdRef.current = null

@@ -26,6 +26,8 @@ export function makeOrchestrateRouter(deps: {
   aggregate: FinalAggregationUseCase
   identify?: IdentifyKeyFactsUseCase
   search?: SearchProvider
+  // 新增：注入 timeline 服务以便在生成 search timeline 时直接写入进度存储
+  timeline?: any
 }) {
   const uploadDir = path.join(deps.storageRoot, 'tmp')
   try { if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true }) } catch {}
@@ -141,6 +143,10 @@ export function makeOrchestrateRouter(deps: {
             }) : { keyComponents: [], keyTechRoutes: [], timeline: [] }
             logger.info('search.pipeline.identify.done', { keys: (identifyResult.keyComponents||[]).length + (identifyResult.keyTechRoutes||[]).length })
             // 根据识别出的关键词进行检索与摘要
+            // 同时收集 searchTimelineEntries，用于在最终响应中返回给前端以便展示搜索与摘要步骤
+            const searchTimelineEntries: any[] = []
+            // 追踪文件名数组，用于把每次 searchTimelineEntries 写入 artifact
+            const searchTraceFiles: string[] = []
             const searchHeaders: Record<string,string> = {}
             if (authHeader) searchHeaders['Authorization'] = authHeader
             const search = deps.search || new OpenRouterSearch(String(process.env.OPENROUTER_BASE || ''), Number(process.env.LLM_TIMEOUT_MS || 7200000), searchHeaders)
@@ -153,17 +159,45 @@ export function makeOrchestrateRouter(deps: {
                 if (extraSystems.length >= globalMax) break
                 try {
                   logger.info('search.pipeline.query', { kw })
+                  const qEntry = { step: 'search.query', ts: Date.now(), origin: 'backend', meta: { kw } }
+                  searchTimelineEntries.push(qEntry)
+                  // 同步写入进度 timeline（若注入 timeline 服务）以便前端 progress API 实时可见
+                  try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, qEntry).catch(() => {}) } } catch {}
+                  // 异步保存 trace，便于离线分析（不阻塞主流程）
+                  try { const fn: any = await deps.artifact.save(JSON.stringify(qEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
                   const hits = await search.search(String(kw), perKeywordLimit)
                   for (const h of hits) {
                     if (extraSystems.length >= globalMax) break
                     logger.info('search.pipeline.summary', { url: h.url })
+                    // 记录查询命中步骤
+                    const hitEntry = { step: 'search.hit', ts: Date.now(), origin: 'backend', meta: { title: h.title, url: h.url } }
+                    searchTimelineEntries.push(hitEntry)
+                    try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, hitEntry).catch(() => {}) } } catch {}
+                    try { const fn: any = await deps.artifact.save(JSON.stringify(hitEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
                     const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
                     if (summary && summary.trim()) {
-                      try { await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' }) } catch {}
+                      try {
+                        const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
+                        // 把保存的摘要 artifact 引用加入 timeline
+                        const sumEntry = { step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title }, artifacts: { search_summary: saved } }
+                        searchTimelineEntries.push(sumEntry)
+                        try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, sumEntry).catch(() => {}) } } catch {}
+                        try { const fn: any = await deps.artifact.save(JSON.stringify(sumEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
+                      } catch (e) {
+                        // 忽略保存失败，但仍记录未保存的摘要事件
+                        const sumFailEntry = { step: 'search.summary', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title, error: (e as any)?.message || String(e) } }
+                        searchTimelineEntries.push(sumFailEntry)
+                        try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, sumFailEntry).catch(() => {}) } } catch {}
+                        try { const fn: any = await deps.artifact.save(JSON.stringify(sumFailEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
+                      }
                       extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
                     }
                   }
-                } catch {}
+                } catch (e) {
+                    try { logger.warn('search.pipeline.error', { kw, error: (e as any)?.message || String(e) }) } catch {}
+                    // 保存异常上下文到 trace
+                    try { const ex = { step: 'search.pipeline.error', ts: Date.now(), origin: 'backend', meta: { kw, error: (e as any)?.message || String(e) } }; const fn: any = await deps.artifact.save(JSON.stringify(ex), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
+                }
               }
             } else {
               // Fallback：识别轮为空时，使用 requirements/specs/dialog 合成检索语句
@@ -174,24 +208,58 @@ export function makeOrchestrateRouter(deps: {
               logger.info('search.pipeline.fallback.query', { hasReq: !!req, hasSpecs: !!sp, hasDialog: !!dg })
               if (fallbackQ) {
                 try {
+                  searchTimelineEntries.push({ step: 'search.fallback.query', ts: Date.now(), origin: 'backend', meta: { query: fallbackQ } })
                   const hits = await search.search(fallbackQ, Math.max(1, perKeywordLimit))
                   for (const h of hits) {
                     if (extraSystems.length >= globalMax) break
                     logger.info('search.pipeline.fallback.summary', { url: h.url })
+                    searchTimelineEntries.push({ step: 'search.hit', ts: Date.now(), origin: 'backend', meta: { title: h.title, url: h.url } })
                     const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
                     if (summary && summary.trim()) {
-                      try { await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' }) } catch {}
+                      try {
+                        const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
+                        searchTimelineEntries.push({ step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title }, artifacts: { search_summary: saved } })
+                      } catch {
+                        searchTimelineEntries.push({ step: 'search.summary', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title } })
+                      }
                       extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
                     }
                   }
-                } catch {}
+                } catch (e) {
+                  try { logger.warn('search.pipeline.fallback.error', { query: fallbackQ, error: (e as any)?.message || String(e) }) } catch {}
+                  try { const ex = { step: 'search.pipeline.fallback.error', ts: Date.now(), origin: 'backend', meta: { query: fallbackQ, error: (e as any)?.message || String(e) } }; const fn: any = await deps.artifact.save(JSON.stringify(ex), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
+                }
               }
             }
             logger.info('search.pipeline.done', { injected: extraSystems.length })
+            // 确保所有收集到的 searchTimelineEntries 都被写入进度存储（progress），以便前端轮询能看到这些步骤
+            try {
+              if (deps.timeline && typeof deps.timeline.push === 'function') {
+                for (const e of searchTimelineEntries) {
+                  try { await deps.timeline.push(progressId, e) } catch {}
+                }
+              }
+            } catch {}
+            // 将本次关键词检索的 trace 汇总为一个 artifact，便于前端或运维下载分析
+            try {
+              if (searchTraceFiles.length > 0) {
+                try {
+                  const savedSummary: any = await deps.artifact.save(JSON.stringify({ ts: Date.now(), traceFiles: searchTraceFiles, count: searchTraceFiles.length }), 'search_trace_summary', { ext: '.json', contentType: 'application/json' })
+                  // 把 trace summary 引用加入到 searchTimelineEntries，便于返回给前端
+                  searchTimelineEntries.push({ step: 'search.trace.summary.saved', ts: Date.now(), origin: 'backend', artifacts: { search_trace_summary: savedSummary } })
+                } catch {}
+              }
+            } catch {}
+
+            // 为确保检索得到的摘要一定注入到发送给上游的 system prompt 中，
+            // 同时保留 extraSystems 字段供下游用例使用。
+            const injectedSystemPrompt = (Array.isArray(extraSystems) && extraSystems.length > 0)
+              ? `${systemPromptToUse}\n\n${extraSystems.join('\n\n')}`
+              : systemPromptToUse
 
             const requestObj: any = {
               files: attachments,
-              systemPrompt: systemPromptToUse,
+              systemPrompt: injectedSystemPrompt,
               requirements: String(body.requirements || ''),
               specs: String(body.specs || ''),
               dialog: String(body.dialog || ''),
@@ -204,9 +272,17 @@ export function makeOrchestrateRouter(deps: {
               }
             }
             const out = await deps.direct.execute({ apiUrl, model, request: requestObj, authHeader })
+            try {
+              // 将识别轮与检索轮生成的 timeline 合并入最终响应，便于前端展示完整的步骤历史
+              const mergedTimeline = [] as any[]
+              if (identifyResult && Array.isArray((identifyResult as any).timeline)) mergedTimeline.push(...(identifyResult as any).timeline)
+              if (searchTimelineEntries.length > 0) mergedTimeline.push(...searchTimelineEntries)
+              if (out && Array.isArray((out as any).timeline)) mergedTimeline.push(...(out as any).timeline)
+              if (out) (out as any).timeline = mergedTimeline
+            } catch (e) { try { logger.warn('orchestrate.merge_timeline_failed', { error: (e as any)?.message || String(e) }) } catch {} }
             return res.json(out)
           } catch (e) {
-            console.log('[orchestrate] structured+fetch path failed: ' + String((e as any)?.message || e))
+            try { logger.error('orchestrate.structured_fetch_failed', { error: (e as any)?.message || String(e) }) } catch {}
           }
         }
 

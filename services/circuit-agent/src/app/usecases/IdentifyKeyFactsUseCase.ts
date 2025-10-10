@@ -82,7 +82,23 @@ export class IdentifyKeyFactsUseCase {
       const j = m ? JSON.parse(m[0]) : JSON.parse(text)
       if (Array.isArray(j?.keyComponents)) keyComponents = j.keyComponents.map((x: any) => String(x)).filter(Boolean)
       if (Array.isArray(j?.keyTechRoutes)) keyTechRoutes = j.keyTechRoutes.map((x: any) => String(x)).filter(Boolean)
-    } catch {}
+    } catch (e) {
+      // 记录解析失败的详细信息，便于排查非 JSON 或格式不符合的问题
+      try { logger.warn('identify.parse.failed', { error: (e as Error)?.message || String(e), snippet: String(resp.text || '').slice(0, 1000) }) } catch {}
+      // 同时保存完整响应与上下文到 artifact 以便离线分析
+      try {
+        const ctx = {
+          ts: Date.now(),
+          error: (e as Error)?.message || String(e),
+          respText: String(resp.text || ''),
+          requestSnippet: String(JSON.stringify(parts || []).slice(0, 2000))
+        }
+        try {
+          const fn: any = await this.artifact.save(JSON.stringify(ctx, null, 2), 'identify_parse_failure', { ext: '.json', contentType: 'application/json' })
+          try { await this.timeline.push(progressId, this.timeline.make('identify.parse.failure.saved', { artifact: fn }, { origin: 'backend', category: 'search' })) } catch {}
+        } catch (se) { try { logger.warn('identify.parse.failure.save_failed', { error: (se as any)?.message || String(se) }) } catch {} }
+      } catch {}
+    }
 
     return { keyComponents, keyTechRoutes, timeline: [tlReq, tlResp] }
   }
