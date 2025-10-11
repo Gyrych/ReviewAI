@@ -53,7 +53,7 @@
 - `orchestrate` 路由支持 `directReview` 切换直评/精细流程；在 direct 模式下会根据 `history` 判断是否为修订轮（`initial` vs `revision`）并加载对应 system prompt。
 - `DirectReviewUseCase` 会：
   - 将系统提示、requirements/specs/dialog 与历史合并成富消息（rich messages）发送给视觉/文本上游；
-  - 在 `enableSearch=true` 时，先执行“识别轮”提取关键元器件与技术路线清单；随后对每个关键词进行在线检索并逐 URL 生成 ≤512 词摘要，将每条摘要作为独立的 system 消息注入上下文；
+  - 在 `enableSearch=true` 时，先执行“识别轮”提取关键元器件与技术路线清单；随后对每个关键词进行在线检索并逐 URL 生成摘要（默认≤1024词，结构化要点），进行关键词与 URL 去重，过滤失败短语（如“无法直接访问该网页内容”等）后再注入，将合格摘要各自作为独立的 system 消息注入上下文；
   - 默认搜索提供者为基于 OpenRouter 的 `OpenRouterSearch`（使用 `:online` 模式，支持 `search()` 与 `summarizeUrl()`）
   - 将附件转换为 data URL 后随消息发送（MVP 实现，注意 payload 大小）；
   - 保存完整的 LLM 请求/响应 JSON 与生成的 Markdown 报告为 artifact（便于回溯与审计）。
@@ -70,7 +70,7 @@
 - `GET /system-prompt?lang=zh|en` — 获取 system prompt（供前端展示/下载）
 - `POST /orchestrate/review` — 统一编排入口（multipart），参数：`apiUrl`、`model`、`directReview`、`language`、`history`、`enableSearch` 等；直评模式会自动加载对应 system prompt 并走 `DirectReviewUseCase`。
 
-说明：当 `enableSearch=true` 且检索摘要生成成功时，后端除了在 `timeline` 中附带 `search.summary.saved`（含 artifact 引用），还会在响应对象上直接返回 `searchSummaries: string[]` 字段（内容与注入的 `extraSystems` 同源），以便前端即使在 artifact 拉取失败时也能稳定显示“检索摘要”。
+说明：当 `enableSearch=true` 且检索摘要生成成功时，后端除了在 `timeline` 中附带 `search.summary.saved`（含 artifact 引用与 `summarySnippet`），还会在 `timeline` 写入 `search.llm.request/response`（附 `bodySnippet` 与完整 artifact）。响应对象上也会直接返回 `searchSummaries: string[]`（与注入的 `extraSystems` 同源），以便前端兜底展示“检索摘要”。
 - `POST /modes/structured/recognize` — 结构化识别（multipart）
 - `POST /modes/structured/review` — 结构化多模型评审（json）
 - `POST /modes/structured/aggregate` — 最终整合

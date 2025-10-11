@@ -71,7 +71,7 @@ Key endpoints (circuit-agent)
 - `GET /artifacts/:filename` — static artifacts
 - `GET /system-prompt?lang=zh|en` — returns system prompt (used by frontend)
 - `POST /orchestrate/review` — unified orchestrator; `directReview=true` triggers direct mode (images → LLM review), otherwise structured mode runs multi-pass recognition + review + aggregation.
-  - When `enableSearch=true` in direct mode, the backend performs an identify → search → per-URL summarize pipeline. In addition to adding timeline events (e.g., `search.summary.saved` with artifact links), the response now also includes a `searchSummaries: string[]` field (same content source as injected `extraSystems`) so the frontend can reliably display summaries even if artifact fetching fails.
+  - When `enableSearch=true` in direct mode, the backend performs an identify → search → per-URL summarize pipeline with keyword and URL de-duplication. Summaries default to ≤1024 words with structured key points, and failed/too-short texts are recorded as `search.summary.failed` and not injected. Timeline includes `search.llm.request/response` with body snippets and full artifacts. The response also includes a `searchSummaries: string[]` field (same source as injected `extraSystems`) so the frontend can reliably display summaries even if artifact fetching fails. The orchestrator disables a second search pass inside the direct review use-case to avoid duplicate queries.
 - `POST /modes/structured/recognize` — structured recognition
 - `POST /modes/structured/review` — structured multi-model review
 - `POST /modes/structured/aggregate` — aggregation (final merge)

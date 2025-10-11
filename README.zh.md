@@ -69,7 +69,7 @@ npm run dev
 - `GET /artifacts/:filename` — 静态工件
 - `GET /system-prompt?lang=zh|en` — 获取系统提示词
 - `POST /orchestrate/review` — 统一编排；当 `directReview=true` 时直接走直评模式（图片→LLM 评审），否则走结构化识别 + 并行评审 + 整合流程。
-  - 直评模式下当 `enableSearch=true` 时，后端执行 识别→检索→逐URL摘要 流程。除在 `timeline` 中加入 `search.summary.saved` 等事件（含 artifact 链接）外，响应体还会直接返回 `searchSummaries: string[]` 字段（与注入的 `extraSystems` 同源），以便在 artifact 拉取失败时前端仍能稳定显示“检索摘要”。
+  - 直评模式下当 `enableSearch=true` 时，后端执行 识别→检索→逐URL摘要 流程，并对关键词与 URL 去重；摘要默认≤1024词并要求结构化要点。若摘要文本命中失败短语或过短（<50字），记录为 `search.summary.failed` 而不注入。时间线会包含 `search.llm.request/response`（带正文片段与完整工件）。响应体同时返回 `searchSummaries: string[]`（与注入的 `extraSystems` 同源），前端可兜底展示。为避免重复检索，编排阶段完成检索后会在直评用例中显式禁用二次检索。
 - `POST /modes/structured/recognize` — 结构化识别
 - `POST /modes/structured/review` — 多模型评审
 - `POST /modes/structured/aggregate` — 最终整合

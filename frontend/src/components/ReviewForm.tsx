@@ -1623,6 +1623,11 @@ const ReviewForm = React.forwardRef(function ReviewForm({
                           <div className="mt-3 border-t border-gray-200 dark:border-gray-600 pt-2 space-y-2">
                             {it.artifacts.request && (<ArtifactInline label="Request" art={it.artifacts.request} />)}
                             {it.artifacts.response && (<ArtifactInline label="Response" art={it.artifacts.response} />)}
+                            {/* 新增：检索阶段原始交互与摘要全文展示 */}
+                            {it.artifacts.search_llm_request && (<ArtifactInline label="检索LLM请求（原文）" art={it.artifacts.search_llm_request} />)}
+                            {it.artifacts.search_llm_response && (<ArtifactInline label="检索LLM响应（原文）" art={it.artifacts.search_llm_response} />)}
+                            {it.artifacts.search_summary && (<ArtifactInline label="检索摘要全文" art={it.artifacts.search_summary} />)}
+                            {it.artifacts.search_trace_summary && (<ArtifactInline label="检索追踪汇总" art={it.artifacts.search_trace_summary} />)}
                             {it.artifacts.parsed && (<ArtifactInline label="Parsed JSON" art={it.artifacts.parsed} />)}
                             {it.artifacts.multiPassSummary && (<ArtifactInline label="Multi-pass Summary" art={it.artifacts.multiPassSummary} />)}
                             {it.artifacts.finalCircuit && (<ArtifactInline label="Final Circuit JSON" art={it.artifacts.finalCircuit} />)}

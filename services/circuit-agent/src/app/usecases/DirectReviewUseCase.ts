@@ -1,4 +1,5 @@
 import type { ReviewRequest, ReviewReport, VisionChatProvider, ArtifactStore, RichMessage, SearchProvider } from '../../domain/contracts/index.js'
+import { logger } from '../../infra/log/logger.js'
 import { AnonymizationService } from '../services/AnonymizationService.js'
 import { TimelineService } from '../services/TimelineService.js'
 
@@ -104,11 +105,17 @@ export class DirectReviewUseCase {
                 if (idx++ >= topN) break
                 try {
                   logger.info('direct.search.summarize', { url: h.url })
-                  const s = await this.searchProvider.summarizeUrl(h.url, 512, (params.request as any).language || 'zh')
+                  const s = await this.searchProvider.summarizeUrl(h.url, 1024, (params.request as any).language || 'zh')
+                  const lower = String(s || '').toLowerCase()
+                  const failed = (!s || s.trim().length < 50 || ['无法直接访问', 'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out'].some(m => lower.includes(m)))
+                  if (failed) {
+                    try { await this.timeline.push(progressId, this.timeline.make('search.summary.failed', { title: h.title, url: h.url, textSnippet: String(s||'').slice(0,200) }, { origin: 'backend', category: 'search' })) } catch {}
+                    continue
+                  }
                   if (s && s.trim()) {
                     try {
                       const saved = await this.artifact.save(s, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
-                      try { await this.timeline.push(progressId, this.timeline.make('search.summary.saved', { title: h.title, url: h.url, artifact: saved }, { origin: 'backend', category: 'search' })) } catch {}
+                      try { await this.timeline.push(progressId, this.timeline.make('search.summary.saved', { title: h.title, url: h.url, artifact: saved, summarySnippet: String(s).slice(0, 1000) }, { origin: 'backend', category: 'search' })) } catch {}
                       parts.unshift({ role: 'system', content: `External source summary (${h.title} - ${h.url}):\n${s}` })
                     } catch (e) {
                       logger.warn('direct.search.save_failed', { url: h.url, error: (e as any)?.message || String(e) })

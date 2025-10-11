@@ -74,8 +74,8 @@ export class OpenRouterSearch implements SearchProvider {
   async summarizeUrl(url: string, wordLimit: number, lang: 'zh'|'en'): Promise<string> {
     try {
       logger.info('web.summary.start', { url, wordLimit, lang })
-      const limit = Math.max(64, Math.min(2048, Number(wordLimit || 512)))
-      const system = `You are a web reader and summarizer. Fetch the given URL and write a concise summary in ${lang === 'zh' ? 'Chinese' : 'English'} within ${limit} words. Return plain text only.`
+      const limit = Math.max(64, Math.min(2048, Number(wordLimit || 1024)))
+      const system = `You are a web reader and summarizer. Fetch the given URL and write a concise, well-structured summary in ${lang === 'zh' ? 'Chinese' : 'English'} within ${limit} words. Focus on: vendor/source, device/model, key electrical parameters (ratings), recommended application circuits, pros/cons, cautions, and a brief conclusion. Return plain text only.`
       const userMsg = `URL: ${url}`
       // 显式启用 web 插件；engine 可通过环境变量覆盖（native/exa）
       const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')

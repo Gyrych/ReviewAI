@@ -163,25 +163,48 @@ export function makeOrchestrateRouter(deps: {
                 const target = String(evt?.target || 'query') // query | summary
                 const step = isReq ? 'search.llm.request' : (isResp ? 'search.llm.response' : 'search.llm.event')
                 let saved: any = null
+                let bodySnippet = ''
                 try {
                   if (isReq) {
                     const toSave = JSON.stringify({ system: evt?.body?.system || '', messages: evt?.body?.messages || [], plugins: evt?.body?.plugins || [] })
+                    bodySnippet = String(toSave || '').slice(0, 2000)
                     saved = await deps.artifact.save(toSave, 'search_llm_request', { ext: '.json', contentType: 'application/json' })
                   } else if (isResp) {
                     const raw = String((evt?.body?.raw || evt?.body?.text || '') || '')
+                    bodySnippet = String(evt?.body?.text || '').slice(0, 2000)
                     saved = await deps.artifact.save(raw, 'search_llm_response', { ext: '.txt', contentType: 'text/plain' })
                   }
                 } catch {}
-                const entry = { step, ts: Date.now(), origin: 'backend', meta: { target, model: String(evt?.meta?.model || '') }, artifacts: saved ? { [isReq ? 'search_llm_request' : 'search_llm_response']: saved } : undefined }
+                const entry = { step, ts: Date.now(), origin: 'backend', meta: { target, model: String(evt?.meta?.model || ''), bodySnippet }, artifacts: saved ? { [isReq ? 'search_llm_request' : 'search_llm_response']: saved } : undefined }
                 searchLlmTraceEntries.push(entry)
                 try { if (deps.timeline && typeof deps.timeline.push === 'function') { await deps.timeline.push(progressId, entry) } } catch {}
               } catch {}
             }
             const search = new OpenRouterSearch(String(apiUrl || cfg2.openRouterBase || ''), Number(cfg2.timeouts?.llmMs || 7200000), searchHeaders, { modelOverride: model, forceOnline: false, trace })
-            const keywords = ([] as string[]).concat(identifyResult.keyComponents || [], identifyResult.keyTechRoutes || [])
+            // 关键词去重（忽略大小写与前后空白）
+            const keywordsRaw = ([] as string[]).concat(identifyResult.keyComponents || [], identifyResult.keyTechRoutes || [])
+            const kwMap = new Map<string, string>()
+            for (const k of keywordsRaw) {
+              const norm = String(k || '').trim().toLowerCase()
+              if (norm && !kwMap.has(norm)) kwMap.set(norm, String(k).trim())
+            }
+            const keywords = Array.from(kwMap.values())
             const extraSystems: string[] = []
             const perKeywordLimit = Math.max(1, Math.min(5, searchTopN))
             const globalMax = Math.max(1, Math.min(10, Number(process.env.SEARCH_SUMMARY_MAX || 10)))
+            // URL 去重集合
+            const seenUrls = new Set<string>()
+            // 统一的 URL 归一化
+            const normalizeUrl = (u: string) => String(u || '').trim().replace(/[#?].*$/,'').replace(/\/$/,'').toLowerCase()
+            // 失败短语检测（摘要文本无效时不注入）
+            const isFailedSummary = (s: string) => {
+              try {
+                const t = String(s || '').toLowerCase()
+                if (t.replace(/\s+/g,' ').trim().length < 50) return true
+                const marks = ['无法直接访问', 'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out']
+                return marks.some(m => t.includes(m))
+              } catch { return true }
+            }
             if (keywords.length > 0) {
               for (const kw of keywords) {
                 if (extraSystems.length >= globalMax) break
@@ -202,12 +225,16 @@ export function makeOrchestrateRouter(deps: {
                     searchTimelineEntries.push(hitEntry)
                     try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, hitEntry).catch(() => {}) } } catch {}
                     try { const fn: any = await deps.artifact.save(JSON.stringify(hitEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
-                    const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
-                    if (summary && summary.trim()) {
+                    // URL 去重：同一 URL 仅处理一次
+                    const norm = normalizeUrl(h.url)
+                    if (seenUrls.has(norm)) { continue }
+                    seenUrls.add(norm)
+                    const summary = await search.summarizeUrl(h.url, 1024, language as 'zh'|'en')
+                    if (summary && summary.trim() && !isFailedSummary(summary)) {
                       try {
                         const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
                         // 把保存的摘要 artifact 引用加入 timeline
-                        const sumEntry = { step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title }, artifacts: { search_summary: saved } }
+                        const sumEntry = { step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title, summarySnippet: String(summary).slice(0, 1000) }, artifacts: { search_summary: saved } }
                         searchTimelineEntries.push(sumEntry)
                         try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, sumEntry).catch(() => {}) } } catch {}
                         try { const fn: any = await deps.artifact.save(JSON.stringify(sumEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
@@ -219,6 +246,11 @@ export function makeOrchestrateRouter(deps: {
                         try { const fn: any = await deps.artifact.save(JSON.stringify(sumFailEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
                       }
                       extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
+                    } else {
+                      // 失败短语或过短文本：记录失败，不注入
+                      const failEntry = { step: 'search.summary.failed', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title, textSnippet: String(summary || '').slice(0, 200) } }
+                      searchTimelineEntries.push(failEntry)
+                      try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, failEntry).catch(() => {}) } } catch {}
                     }
                   }
                 } catch (e) {
@@ -242,15 +274,22 @@ export function makeOrchestrateRouter(deps: {
                     if (extraSystems.length >= globalMax) break
                     logger.info('search.pipeline.fallback.summary', { url: h.url })
                     searchTimelineEntries.push({ step: 'search.hit', ts: Date.now(), origin: 'backend', meta: { title: h.title, url: h.url } })
-                    const summary = await search.summarizeUrl(h.url, 512, language as 'zh'|'en')
-                    if (summary && summary.trim()) {
+                    const norm = normalizeUrl(h.url)
+                    if (seenUrls.has(norm)) { continue }
+                    seenUrls.add(norm)
+                    const summary = await search.summarizeUrl(h.url, 1024, language as 'zh'|'en')
+                    if (summary && summary.trim() && !isFailedSummary(summary)) {
                       try {
                         const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
-                        searchTimelineEntries.push({ step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title }, artifacts: { search_summary: saved } })
+                        searchTimelineEntries.push({ step: 'search.summary.saved', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title, summarySnippet: String(summary).slice(0, 1000) }, artifacts: { search_summary: saved } })
                       } catch {
                         searchTimelineEntries.push({ step: 'search.summary', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title } })
                       }
                       extraSystems.push((language === 'zh') ? `外部资料摘要（${h.title} - ${h.url}）：\n${summary}` : `External source summary (${h.title} - ${h.url}):\n${summary}`)
+                    } else {
+                      const failEntry = { step: 'search.summary.failed', ts: Date.now(), origin: 'backend', meta: { url: h.url, title: h.title, textSnippet: String(summary || '').slice(0, 200) } }
+                      searchTimelineEntries.push(failEntry)
+                      try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, failEntry).catch(() => {}) } } catch {}
                     }
                   }
                 } catch (e) {
@@ -298,7 +337,8 @@ export function makeOrchestrateRouter(deps: {
               extraSystems,
               options: {
                 progressId,
-                enableSearch: enableSearchFlag,
+                // 此处显式关闭直评用例中的二次检索，避免重复搜索与摘要
+                enableSearch: false,
                 searchTopN
               }
             }
