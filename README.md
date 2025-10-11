@@ -73,7 +73,7 @@ Architecture overview
   - `app/usecases` — business use-cases (`DirectReviewUseCase`, `StructuredRecognitionUseCase`, `MultiModelReviewUseCase`, `FinalAggregationUseCase`).
   - `infra` — providers, prompt loader, HTTP client (OpenRouter-compatible), storage, progress store.
   - `interface/http/routes` — express routes (`orchestrate`, `directReview`, `structuredRecognize`, `structuredReview`, `aggregate`, `sessions`, `progress`, `health`).
-- `services/circuit-fine-agent/` — parallel service for multi-pass/multi-agent workflows; structure mirrors `circuit-agent` and reuses the same `PromptLoader` conventions.
+- `services/circuit-fine-agent/` — parallel service for multi-pass/电路图评审（委员会架构） workflows; structure mirrors `circuit-agent` and reuses the same `PromptLoader` conventions.
 
 Key endpoints (circuit-agent)
 - `GET /health` — health check

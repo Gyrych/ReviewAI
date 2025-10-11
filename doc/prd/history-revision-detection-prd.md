@@ -1,8 +1,8 @@
-# 单 Agent 历史记录修订轮判定与日志增强 PRD（中文）
+# 电路图评审（主副模型架构）历史记录修订轮判定与日志增强 PRD（中文）
 
 ## 背景
 
-在“电路图单 agent 评审”流程中，系统需在首轮与修订轮之间做出正确判定，以决定加载 `system_prompt_initial_*.md` 或 `system_prompt_revision_*.md`。当前实现仅以 `history.length > 0` 判定为修订轮，存在误触发风险（例如空占位项、无意义历史导致误判）。
+在“电路圖評審（主副模型架構）”流程中，系统需在首轮与修订轮之间做出正确判定，以决定加载 `system_prompt_initial_*.md` 或 `system_prompt_revision_*.md`。当前实现仅以 `history.length > 0` 判定为修订轮，存在误触发风险（例如空占位项、无意义历史导致误判）。
 
 ## 目标
 

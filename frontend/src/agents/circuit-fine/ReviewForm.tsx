@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react'
 import ReviewForm from '../../components/ReviewForm'
 import { useI18n } from '../../i18n'
-// 电路图多agent评审（initialMode: fine），Agent 层渲染会话操作按钮并显示会话列表 modal
+// 电路图评审（委员会架构）（initialMode: fine），Agent 层渲染会话操作按钮并显示会话列表 modal
 export default function CircuitFineReviewForm(props: any) {
   const ref = useRef<any>(null)
   const [listVisible, setListVisible] = useState(false)

@@ -1,8 +1,8 @@
-# PRD: 多轮对话式单 agent 电路图评审
+# PRD: 多轮对话式电路图评审（主副模型架构）
 
 ## 背景与目标
-- 目标：将现有的“电路图单 agent 评审（direct single-agent review）”从一次性问题确认流程改为**对话式多轮评审**，支持用户在前端反复与模型交互，逐步修正与完善评审报告，最终导出为 Word 文档。
-- 范围限制：仅改造 `电路图单agent评审`（frontend: `frontend/src/agents/circuit/ReviewForm.tsx` 与通用 `frontend/src/components/ReviewForm.tsx`、`ResultView.tsx`、`FileUpload.tsx`；backend: `services/circuit-agent` 下 `DirectReviewUseCase` 与 orchestrate 路由及 sessions 持久化相关代码）。
+- 目标：将现有的“电路图评审（主副模型架构）”从一次性问题确认流程改为**对话式多轮评审**，支持用户在前端反复与模型交互，逐步修正与完善评审报告，最终导出为 Word 文档。
+- 范围限制：仅改造 `电路图评审（主副模型架构）`（frontend: `frontend/src/agents/circuit/ReviewForm.tsx` 与通用 `frontend/src/components/ReviewForm.tsx`、`ResultView.tsx`、`FileUpload.tsx`；backend: `services/circuit-agent` 下 `DirectReviewUseCase` 与 orchestrate 路由及 sessions 持久化相关代码）。
 
 ## 用户故事
 1. 作为工程师，我可以上传图片或 PDF（最多 20 个文件，单文件大小限制沿用现有或前端默认）并填写“设计需求”、“设计规范”和“对话内容”（纯文本）。

@@ -1,4 +1,4 @@
-# 多 Agent PRD：多 Agent 前后端解耦设计
+# PRD：电路图评审（委员会架构）前后端解耦设计
 # 文件名：doc/prd/multi-agent-prd.md
 # 创建者: GPT-5 Mini
 # 创建日期: 2025-09-29

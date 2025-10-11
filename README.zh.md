@@ -71,7 +71,7 @@ npm run dev
   - `app/usecases` — 业务用例（`DirectReviewUseCase`、`StructuredRecognitionUseCase`、`MultiModelReviewUseCase`、`FinalAggregationUseCase`）。
   - `infra` — 提供者、提示词加载、HTTP 客户端（OpenRouter 兼容）、存储、进度存储实现。
   - `interface/http/routes` — express 路由（`orchestrate`、`directReview`、`structuredRecognize`、`structuredReview`、`aggregate`、`sessions`、`progress`、`health`）。
-- `services/circuit-fine-agent/` — 用于精细/多 agent 工作流的并行服务，结构与 `circuit-agent` 一致，遵循相同的 `PromptLoader` 约定。
+- `services/circuit-fine-agent/` — 用于精细/电路图评审（委员会架构）工作流的并行服务，结构与 `circuit-agent` 一致，遵循相同的 `PromptLoader` 约定。
 
 关键接口（circuit-agent）
 - `GET /health` — 健康检查

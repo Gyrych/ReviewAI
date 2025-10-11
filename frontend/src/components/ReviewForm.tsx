@@ -266,8 +266,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   }
   // 直接 LLM 评审与多轮识别和搜索配置
   // 根据 initialMode 初始化：
-  // - 'direct'（单agent评审）：不展示高级的 direct/multi 选项（由模式固定行为）
-  // - 'fine'（多agent评审）：默认启用多轮识别
+  // - 'direct'（电路图评审（主副模型架构））：不展示高级的 direct/multi 选项（由模式固定行为）
+  // - 'fine'（电路图评审（委员会架构））：默认启用多轮识别
   const [directReview, setDirectReview] = useState<boolean>(() => (initialMode === 'fine' ? false : true))
   const [multiPassRecognition, setMultiPassRecognition] = useState<boolean>(() => (initialMode === 'fine' ? true : false))
   const [enableSearch, setEnableSearch] = useState<boolean>(true)
@@ -1016,7 +1016,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>
           <div className="space-y-3">
-            {/* 当 initialMode !== 'direct' 时，显示多轮识别相关（多agent 模式保留多轮与搜索） */}
+            {/* 当 initialMode !== 'direct' 时，显示多轮识别相关（电路图评审（委员会架构）模式保留多轮与搜索） */}
             {initialMode === 'fine' && (
               <>
                 <div className="flex items-center space-x-4">
@@ -1071,7 +1071,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         </div>
       )}
 
-      {/* 单agent（direct）模式：保留启用器件搜索的选项（仅搜索开关） */}
+      {/* 电路图评审（主副模型架构）（direct）模式：保留启用器件搜索的选项（仅搜索开关） */}
       {initialMode === 'direct' && (
         <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-3">{t('form.advanced.label')}</div>

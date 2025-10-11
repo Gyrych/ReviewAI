@@ -17,7 +17,7 @@
 
 - `frontend/`：Vite + React + TypeScript 客户端，包含通用组件与按 agent 划分的表单（`frontend/src/agents/*`）。
 - `services/circuit-agent/`：主后端微服务，负责识别、直评、并行评审与整合流程（默认端口 4001，基路径 `/api/v1/circuit-agent`）。
-- `services/circuit-fine-agent/`：用于精细/多 agent 工作流的后端，结构与 `circuit-agent` 对应（默认端口 4002）。
+- `services/circuit-fine-agent/`：用于精细/电路图评审（委员会架构）工作流的后端，结构与 `circuit-agent` 对应（默认端口 4002）。
 - `ReviewAIPrompt/`：项目运行时依赖的提示词集合（按 agent/语言/轮次组织），缺失或为空将导致后端 fail-fast。
 
 二、快速启动（开发）
@@ -118,7 +118,8 @@
 变更记录（摘要）
 
 - 2025-09-29: 初始创建，AI 助手生成基础项目说明与早期 PRD 记录。
-- 2025-09-30: 新增多轮对话式单 agent 评审（`DirectReviewUseCase` 支持 `history`；前端支持多轮提交与会话保存）。
+- 2025-09-30: 新增多轮对话式电路图评审（主副模型架构）（`DirectReviewUseCase` 支持 `history`；前端支持多轮提交与会话保存）。
+ - 术语统一：将“电路图单agent评审”对外命名为“电路图评审（主副模型架构）”，并在前端、PRD 与 `CURSOR.md` 中同步更新（见 2025-10-11 变更记录）。
 - 2025-10-01: 引入基于 agent/language/variant 的 `PromptLoader`（强制校验提示词文件存在性）并在 `orchestrate` 中使用修订轮判定逻辑；同时整理 `ReviewAIPrompt/` 目录结构（`circuit-agent` 与 `circuit-fine-agent` 子目录）。
 - 2025-10-08: 重写并同步 `CURSOR.md`，与代码实现一致，目标读者：外部/内部开发者、演示客户与维护人员。
 - 2025-10-08: 在前端页眉中添加版本号与作者联系方式显示（`frontend/src/App.tsx`），并新增 PRD 文档 `doc/prd/header-version-contact-prd.md`。
@@ -126,7 +127,7 @@
 - 2025-10-08: 调整页眉显示：将版本固定为 `v0.2.21`，并在第三行左对齐显示 `联系作者：gyrych@gmail.com`（`frontend/src/App.tsx`、`doc/prd/header-version-contact-prd.md` 已更新）。
 - 2025-10-09: 将搜索提供者替换为 OpenRouter 在线搜索实现 `OpenRouterSearch`，移除 `DuckDuckGoHtmlSearch`，并将 `POLICIES.SEARCH_PROVIDER` 值更新为 `openrouter_online`（后端注入点已替换，`CURSOR.md` 已同步更新）。
 
-2025-10-09 变更记录（单 agent 评审流程增强）
+2025-10-09 变更记录（电路图评审（主副模型架构）评审流程增强）
 
 - 文件修改：
   - `services/circuit-agent/src/domain/contracts/index.ts` — `ReviewRequest` 增加 `extraSystems?: string[]`，`SearchProvider` 增加 `summarizeUrl()`。
@@ -138,7 +139,7 @@
 - 文件删除：
   - `services/circuit-agent/src/infra/search/DuckDuckGoHtmlSearch.js`
 - 目的：
-  - 完整实现“单 agent 评审”流程中可选的器件搜索与资料注入环节；
+  - 完整实现“电路图评审（主副模型架构）”流程中可选的器件搜索与资料注入环节；
   - 修复历史未正确纳入上下文的问题；
   - 提升报告的可用性与可追溯性。
 
@@ -187,3 +188,15 @@
   - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 将在线检索与页面摘要提示词提取并翻译为中文，供 `DirectReviewUseCase` 在 `enableSearch` 场景下注入。
 :- 目的：
   - 将原先内联在 `OpenRouterSearch.ts` 的英文 system 文本外部化并本地化，便于管理与审阅；同时满足 `PromptLoader` 的加载约定，避免运行时因缺失提示词导致 fail-fast。
+
+2025-10-11 变更记录（命名统一）
+
+- 文件修改：
+  - 将前端与文档中的“电路图单agent评审”统一更名为“电路图评审（主副模型架构）”。
+  - 将前端与文档中的“电路图多agent评审”统一更名为“电路图评审（委员会架构）”。
+
+- 影响范围：
+  - 更新文件：`frontend/src/i18n.tsx`、`frontend/src/components/ReviewForm.tsx`、`frontend/src/agents/circuit/ReviewForm.tsx`、`frontend/src/agents/circuit-fine/ReviewForm.tsx`、`doc/prd/*.md`、`ReviewAIPrompt/circuit-fine-agent/system_prompt_zh.md`、`README.zh.md`、`CURSOR.md`。
+
+- 目的：
+  - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
