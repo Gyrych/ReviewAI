@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson, timeline }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void, timeline?: { step: string; ts?: number; meta?: any }[] }) {
+export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson, timeline, searchSummaries }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void, timeline?: { step: string; ts?: number; meta?: any }[], searchSummaries?: string[] }) {
   const { t } = useI18n()
   const [expanded, setExpanded] = React.useState<Record<number, boolean>>({})
   function toggleExpand(i: number) { setExpanded((s) => ({ ...s, [i]: !s[i] })) }
@@ -48,6 +48,22 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
     )
   }
 
+  function renderSearchSummaries() {
+    if (!Array.isArray(searchSummaries) || searchSummaries.length === 0) return null
+    return (
+      <details className="mt-4 p-2 border rounded bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder">
+        <summary className="cursor-pointer">检索摘要（Search Summaries）</summary>
+        <div className="mt-2 text-xs space-y-2">
+          {searchSummaries.map((s, i) => (
+            <div key={i} className="p-2 bg-white dark:bg-cursorPanel rounded border dark:border-cursorBorder">
+              <pre className="whitespace-pre-wrap">{s}</pre>
+            </div>
+          ))}
+        </div>
+      </details>
+    )
+  }
+
   return (
     <div className="prose dark:prose-invert max-w-none bg-white dark:bg-cursorPanel p-4 rounded border dark:border-cursorBorder dark:text-cursorText glass">
       {renderOverlay()}
@@ -76,6 +92,7 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
           <pre className="mt-2 text-xs">{JSON.stringify(enrichedJson, null, 2)}</pre>
         </details>
       )}
+      {renderSearchSummaries()}
     </div>
   )
 }

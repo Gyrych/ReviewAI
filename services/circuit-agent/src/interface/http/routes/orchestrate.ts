@@ -15,6 +15,7 @@ import { OpenRouterSearch } from '../../../infra/search/OpenRouterSearch.js'
 import type { SearchProvider } from '../../../domain/contracts/index.js'
 import { logger } from '../../../infra/log/logger.js'
 import { ArtifactStoreFs } from '../../../infra/storage/ArtifactStoreFs.js'
+import { loadConfig } from '../../../config/config.js'
 
 // 中文注释：统一编排入口，根据 directReview=false/true 选择流程
 export function makeOrchestrateRouter(deps: {
@@ -144,12 +145,39 @@ export function makeOrchestrateRouter(deps: {
             logger.info('search.pipeline.identify.done', { keys: (identifyResult.keyComponents||[]).length + (identifyResult.keyTechRoutes||[]).length })
             // 根据识别出的关键词进行检索与摘要
             // 同时收集 searchTimelineEntries，用于在最终响应中返回给前端以便展示搜索与摘要步骤
-            const searchTimelineEntries: any[] = []
+            // 搜索与 LLM 交互的细粒度日志
+            const searchLlmTraceEntries: any[] = []
             // 追踪文件名数组，用于把每次 searchTimelineEntries 写入 artifact
             const searchTraceFiles: string[] = []
             const searchHeaders: Record<string,string> = {}
             if (authHeader) searchHeaders['Authorization'] = authHeader
-            const search = deps.search || new OpenRouterSearch(String(process.env.OPENROUTER_BASE || ''), Number(process.env.LLM_TIMEOUT_MS || 7200000), searchHeaders)
+            // 统一使用「用户请求中传入的 apiUrl 与 model」作为检索轮上游参数；
+            // 同时保留全局超时配置，并透传 Authorization 头。
+            const cfg2 = loadConfig()
+            const searchTimelineEntries: any[] = []
+            // 追踪器：把检索轮发送/返回的原始信息落盘为 artifact，并写入进度 timeline
+            const trace = async (evt: any) => {
+              try {
+                const isReq = String(evt?.direction || '') === 'request'
+                const isResp = String(evt?.direction || '') === 'response'
+                const target = String(evt?.target || 'query') // query | summary
+                const step = isReq ? 'search.llm.request' : (isResp ? 'search.llm.response' : 'search.llm.event')
+                let saved: any = null
+                try {
+                  if (isReq) {
+                    const toSave = JSON.stringify({ system: evt?.body?.system || '', messages: evt?.body?.messages || [], plugins: evt?.body?.plugins || [] })
+                    saved = await deps.artifact.save(toSave, 'search_llm_request', { ext: '.json', contentType: 'application/json' })
+                  } else if (isResp) {
+                    const raw = String((evt?.body?.raw || evt?.body?.text || '') || '')
+                    saved = await deps.artifact.save(raw, 'search_llm_response', { ext: '.txt', contentType: 'text/plain' })
+                  }
+                } catch {}
+                const entry = { step, ts: Date.now(), origin: 'backend', meta: { target, model: String(evt?.meta?.model || '') }, artifacts: saved ? { [isReq ? 'search_llm_request' : 'search_llm_response']: saved } : undefined }
+                searchLlmTraceEntries.push(entry)
+                try { if (deps.timeline && typeof deps.timeline.push === 'function') { await deps.timeline.push(progressId, entry) } } catch {}
+              } catch {}
+            }
+            const search = new OpenRouterSearch(String(apiUrl || cfg2.openRouterBase || ''), Number(cfg2.timeouts?.llmMs || 7200000), searchHeaders, { modelOverride: model, forceOnline: false, trace })
             const keywords = ([] as string[]).concat(identifyResult.keyComponents || [], identifyResult.keyTechRoutes || [])
             const extraSystems: string[] = []
             const perKeywordLimit = Math.max(1, Math.min(5, searchTopN))
@@ -232,10 +260,13 @@ export function makeOrchestrateRouter(deps: {
               }
             }
             logger.info('search.pipeline.done', { injected: extraSystems.length })
-            // 确保所有收集到的 searchTimelineEntries 都被写入进度存储（progress），以便前端轮询能看到这些步骤
+            // 确保所有收集到的 searchTimelineEntries 与 searchLlmTraceEntries 都被写入进度存储（progress），以便前端轮询能看到这些步骤
             try {
               if (deps.timeline && typeof deps.timeline.push === 'function') {
                 for (const e of searchTimelineEntries) {
+                  try { await deps.timeline.push(progressId, e) } catch {}
+                }
+                for (const e of searchLlmTraceEntries) {
                   try { await deps.timeline.push(progressId, e) } catch {}
                 }
               }
@@ -279,6 +310,12 @@ export function makeOrchestrateRouter(deps: {
               if (searchTimelineEntries.length > 0) mergedTimeline.push(...searchTimelineEntries)
               if (out && Array.isArray((out as any).timeline)) mergedTimeline.push(...(out as any).timeline)
               if (out) (out as any).timeline = mergedTimeline
+              // 同步附加检索摘要（即使 artifact 保存失败也能在前端展示）
+              try {
+                if (Array.isArray(extraSystems) && extraSystems.length > 0) {
+                  (out as any).searchSummaries = extraSystems.slice()
+                }
+              } catch {}
             } catch (e) { try { logger.warn('orchestrate.merge_timeline_failed', { error: (e as any)?.message || String(e) }) } catch {} }
             return res.json(out)
           } catch (e) {

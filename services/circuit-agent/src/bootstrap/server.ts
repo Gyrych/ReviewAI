@@ -154,7 +154,8 @@ app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
 // 识别轮用例：与 orchestrate 中动态使用保持一致
 const identifyFacts = new IdentifyKeyFactsUseCase(vision, artifact, timeline)
 // 将 timeline 注入到 orchestrate router，使得搜索过程中能直接把事件写入进度存储（progress）
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts, timeline })
+// 同时显式注入统一配置的 searchProvider，避免路由内回退到未配置的环境变量导致搜索不可用
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts, timeline, search: searchProvider })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
 // 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）

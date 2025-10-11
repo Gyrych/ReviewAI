@@ -69,6 +69,7 @@ npm run dev
 - `GET /artifacts/:filename` — 静态工件
 - `GET /system-prompt?lang=zh|en` — 获取系统提示词
 - `POST /orchestrate/review` — 统一编排；当 `directReview=true` 时直接走直评模式（图片→LLM 评审），否则走结构化识别 + 并行评审 + 整合流程。
+  - 直评模式下当 `enableSearch=true` 时，后端执行 识别→检索→逐URL摘要 流程。除在 `timeline` 中加入 `search.summary.saved` 等事件（含 artifact 链接）外，响应体还会直接返回 `searchSummaries: string[]` 字段（与注入的 `extraSystems` 同源），以便在 artifact 拉取失败时前端仍能稳定显示“检索摘要”。
 - `POST /modes/structured/recognize` — 结构化识别
 - `POST /modes/structured/review` — 多模型评审
 - `POST /modes/structured/aggregate` — 最终整合
@@ -82,6 +83,7 @@ npm run dev
   - 对每个关键词进行在线检索并逐 URL 生成 ≤512 词摘要，各自注入一条 system 消息
   - 附件会被转换为 data URL 发送给上游视觉 LLM
   - 请求/响应完整 JSON 会以 artifact 形式保存便于回溯。
+  - orchestration 会在 JSON 响应中镜像这些摘要到 `searchSummaries`，作为前端兜底数据源。
 - 工件存储为文件系统实现（`ArtifactStoreFs`），每个服务将其工件放在自身的 storage 根目录下并通过 `/artifacts` 暴露。
 
 配置与环境变量
@@ -104,6 +106,7 @@ npm run dev
 故障排查
 - 出现 `Failed to load system prompt` 错误：确认 `ReviewAIPrompt/{agent}/` 下是否存在且非空的提示词文件。
 - 前端无法在开发模式中访问后端：确认服务已在 4001/4002 端口运行，并检查 `frontend/src/App.tsx` 中的 AGENTS baseUrl 配置（DEV 模式下指向 `http://localhost:4001` / `4002`）。
+ - 若启用搜索但“检索摘要”面板为空：确认上游允许 `web` 插件用于抓取/摘要；前端同时会从响应体的 `searchSummaries` 兜底显示，避免仅依赖 artifact 下载。
 
 联系方式
 - 项目维护者: gyrych@gmail.com

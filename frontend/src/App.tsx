@@ -60,6 +60,8 @@ export default function App() {
   const [sessionSeedMap, setSessionSeedMap] = useState<Record<string, SessionSeed | null>>(() => AGENTS.reduce((m, a) => (m[a.id] = null, m), {} as Record<string, SessionSeed | null>))
   // 新增：实时 timeline 状态，用于 ResultView 在没有 sessionSeed 时展示最近一次的 timeline
   const [liveTimelineMap, setLiveTimelineMap] = useState<Record<string, { step: string; ts?: number; meta?: any }[] | undefined>>(() => AGENTS.reduce((m, a) => (m[a.id] = undefined, m), {} as Record<string, { step: string; ts?: number; meta?: any }[] | undefined>))
+  // 存储每个 agent 的检索摘要（来自后端 artifacts / extraSystems）
+  const [searchSummariesMap, setSearchSummariesMap] = useState<Record<string, string[]>>(() => AGENTS.reduce((m, a) => (m[a.id] = [], m), {} as Record<string, string[]>))
 
   // 根据选中的 API 自动切换可选模型列表（OpenRouter 使用特定候选）
   // 仅提供 OpenRouter 预设模型
@@ -287,6 +289,7 @@ export default function App() {
                       sessionSeed={sessionSeedMap[activeTab] || undefined}
                       onTimeline={(tl: any) => setLiveTimelineMap((m) => ({ ...m, [activeTab]: Array.isArray(tl) ? tl : undefined }))}
                       onLoadSession={handleLoadSession}
+                      onSearchSummaries={(summaries: string[]) => setSearchSummariesMap((m) => ({ ...m, [activeTab]: Array.isArray(summaries) ? summaries : [] }))}
                     />
                   )
                 })()
@@ -297,7 +300,7 @@ export default function App() {
         </div>
         <div className="col-span-7">
           <h2 className="text-lg font-semibold mb-4 dark:text-cursorText">{t('app.result.title')}</h2>
-          <ResultView markdown={markdownMap[activeTab] || t('app.result.waiting')} enrichedJson={enrichedJsonMap[activeTab]} overlay={overlayMap[activeTab]} setEnrichedJson={(j:any)=>setEnrichedJsonMap((m)=>({...m,[activeTab]:j}))} timeline={liveTimelineMap[activeTab] || (sessionSeedMap[activeTab] && (sessionSeedMap[activeTab] as any).timeline ? (sessionSeedMap[activeTab] as any).timeline : undefined)} />
+          <ResultView markdown={markdownMap[activeTab] || t('app.result.waiting')} enrichedJson={enrichedJsonMap[activeTab]} overlay={overlayMap[activeTab]} setEnrichedJson={(j:any)=>setEnrichedJsonMap((m)=>({...m,[activeTab]:j}))} timeline={liveTimelineMap[activeTab] || (sessionSeedMap[activeTab] && (sessionSeedMap[activeTab] as any).timeline ? (sessionSeedMap[activeTab] as any).timeline : undefined)} searchSummaries={searchSummariesMap[activeTab]} />
         </div>
       </div>
     </div>

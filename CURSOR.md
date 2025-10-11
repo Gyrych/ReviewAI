@@ -69,6 +69,8 @@
 - `GET /artifacts/:filename` — 静态工件访问
 - `GET /system-prompt?lang=zh|en` — 获取 system prompt（供前端展示/下载）
 - `POST /orchestrate/review` — 统一编排入口（multipart），参数：`apiUrl`、`model`、`directReview`、`language`、`history`、`enableSearch` 等；直评模式会自动加载对应 system prompt 并走 `DirectReviewUseCase`。
+
+说明：当 `enableSearch=true` 且检索摘要生成成功时，后端除了在 `timeline` 中附带 `search.summary.saved`（含 artifact 引用），还会在响应对象上直接返回 `searchSummaries: string[]` 字段（内容与注入的 `extraSystems` 同源），以便前端即使在 artifact 拉取失败时也能稳定显示“检索摘要”。
 - `POST /modes/structured/recognize` — 结构化识别（multipart）
 - `POST /modes/structured/review` — 结构化多模型评审（json）
 - `POST /modes/structured/aggregate` — 最终整合
@@ -165,3 +167,15 @@
 - 目的：
   - 清理仓库中不再使用的 dist 产物，减少混淆。
   - 在运行时下增加一个列出 artifacts 的兼容路由，便于前端或运维查看可用工件列表。
+
+2025-10-10 变更记录（编排路由注入统一搜索提供者）
+
+- 文件修改：
+  - `services/circuit-agent/src/bootstrap/server.ts` — 调用 `makeOrchestrateRouter` 时显式传入 `search: searchProvider`，使编排路由复用与 `DirectReviewUseCase` 相同的 `OpenRouterSearch`（使用统一的 `cfg.openRouterBase` 与超时配置），避免回退到未配置或不一致的 `OPENROUTER_BASE` 环境变量导致搜索/摘要不可用。
+- 影响：
+  - 直评启用搜索（`enableSearch=true`）时，识别→检索→摘要链路更稳定；若上游允许 web 插件，摘要将以 artifact 与 `searchSummaries` 字段返回，前端“检索摘要”区域可稳定显示。
+
+2025-10-10 变更记录（i18n 与检索摘要兜底显示增强）
+
+- 文件修改：
+  - `frontend/src/i18n.tsx` — 补齐 `

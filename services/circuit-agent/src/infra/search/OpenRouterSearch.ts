@@ -7,24 +7,36 @@ export class OpenRouterSearch implements SearchProvider {
   private provider: OpenRouterTextProvider
   private model: string
   private headers?: Record<string,string>
+  private trace?: (evt: any) => Promise<void> | void
 
-  constructor(baseUrl: string, defaultTimeoutMs: number, headers?: Record<string,string>) {
+  constructor(baseUrl: string, defaultTimeoutMs: number, headers?: Record<string,string>, options?: { modelOverride?: string, forceOnline?: boolean, trace?: (evt: any) => Promise<void> | void }) {
     this.provider = new OpenRouterTextProvider(baseUrl, defaultTimeoutMs)
-    this.model = String(process.env.OPENROUTER_SEARCH_MODEL || 'openrouter/auto')
+    const configured = String(options?.modelOverride || process.env.OPENROUTER_SEARCH_MODEL || '').trim()
+    const fallback = 'perplexity/sonar'
+    const raw = configured || fallback
+    const forceOnline = (options?.forceOnline === true) || (String(process.env.OPENROUTER_FORCE_ONLINE || '').trim() === '1')
+    // 若是 Perplexity 系列，一般自带联网能力，无需 :online；其它模型在需要时追加 :online 后缀
+    const needsOnlineSuffix = forceOnline && !/perplexity\//i.test(raw) && !/:online$/i.test(raw)
+    this.model = needsOnlineSuffix ? `${raw}:online` : raw
     this.headers = headers
+    this.trace = options?.trace
   }
 
   // query -> 调用 openrouter 在线模型，要求返回 JSON 数组 [{title,url}] 或以行为单位的条目
   async search(query: string, topN: number): Promise<{ title: string; url: string }[]> {
     try {
       logger.info('web.search.start', { query: query.slice(0, 120), topN })
-      const system = `You are a web search tool. Given the user query, return a JSON array of up to ${topN} items, each an object with keys \"title\" and \"url\". Return only the JSON array and no extra text.`
+      const system = `You are a web search tool. Given the user query, return a JSON array of up to ${topN} items, each an object with keys \"title\" and \"url\". Prefer authoritative sources (original vendors, datasheets, application notes). Return only the JSON array and no extra text.`
       const userMsg = query
       // 显式启用 web 插件进行真实搜索
       const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
       const plugins = [{ id: 'web', engine, max_results: Math.max(1, Number(topN || 5)) }]
+      // 记录原始请求
+      try { await this.trace?.({ phase: 'search', target: 'query', direction: 'request', meta: { model: this.model, engine, topN }, body: { system, messages: [{ role: 'user', content: userMsg }], plugins } }) } catch {}
       const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
       const txt = (resp && resp.text) ? resp.text.trim() : ''
+      // 记录原始响应
+      try { await this.trace?.({ phase: 'search', target: 'query', direction: 'response', meta: { model: this.model }, body: { raw: resp?.raw || '', text: txt } }) } catch {}
       logger.info('web.search.done', { length: txt.length })
       if (!txt) return []
       // 尝试解析为 JSON
@@ -69,8 +81,12 @@ export class OpenRouterSearch implements SearchProvider {
       const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
       const maxResults = Number(process.env.OPENROUTER_WEB_MAX_RESULTS || 1)
       const plugins = [{ id: 'web', engine, max_results: maxResults, search_prompt: 'Some relevant web results:' }]
+      // 记录原始请求
+      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'request', meta: { model: this.model, engine, url, wordLimit: limit, lang }, body: { system, messages: [{ role: 'user', content: userMsg }], plugins } }) } catch {}
       const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
       const txt = (resp && resp.text) ? resp.text.trim() : ''
+      // 记录原始响应
+      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'response', meta: { model: this.model, url }, body: { raw: resp?.raw || '', text: txt } }) } catch {}
       logger.info('web.summary.done', { length: txt.length })
       return txt
     } catch (e) {

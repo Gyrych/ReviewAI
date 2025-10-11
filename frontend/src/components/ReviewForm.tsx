@@ -10,6 +10,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   initialMode,
   // 新增：当后端返回 timeline 时，回调父组件以便统一展示
   onTimeline,
+  // 新增：当后端返回检索摘要（search summaries）时，将摘要数组回传给父组件以便展示
+  onSearchSummaries,
   setEnrichedJson,
   setOverlay,
   overlay,
@@ -28,6 +30,7 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   initialMode?: 'direct' | 'fine'
   onResult: (markdown: string) => void
   onTimeline?: (timeline: { step: string; ts?: number; meta?: any }[]) => void
+  onSearchSummaries?: (summaries: string[]) => void
   setEnrichedJson?: (j: any) => void
   setOverlay?: (o: any) => void
   overlay?: any
@@ -558,6 +561,41 @@ const ReviewForm = React.forwardRef(function ReviewForm({
               const localPrefix = t.filter(x => ['preparing','uploading_files','using_cached_enriched_json','sending_request'].includes(x.step))
               return localPrefix.concat(remote)
             })
+            // 若后端在 timeline 中包含检索摘要 artifact（search_summary），尝试抓取并回传给 App
+            try {
+              const summaries: string[] = []
+              for (const it of j.timeline) {
+                try {
+                  const a = it.artifacts || {}
+                  // 常见命名：search_summary / search_summary_file / response
+                  if (a && (a.search_summary || a.search_summary_file || a.response)) {
+                    const urls: string[] = []
+                    if (a.search_summary && a.search_summary.url) urls.push(a.search_summary.url)
+                    if (a.search_summary_file && a.search_summary_file.url) urls.push(a.search_summary_file.url)
+                    if (a.response && a.response.url) urls.push(a.response.url)
+                    for (const u of urls) {
+                      try {
+                        const fullUrl = u.startsWith('/') ? `${agentBase}${u}` : u
+                        const r = await fetch(fullUrl)
+                        if (!r.ok) continue
+                        const txt = await r.text()
+                        if (txt && txt.trim()) summaries.push(txt.trim())
+                      } catch {}
+                    }
+                  }
+                } catch {}
+              }
+              // 兜底：若未通过 artifact 抓到摘要，尝试从响应中的 searchSummaries/extraSystems 获取
+              try {
+                if (summaries.length === 0) {
+                  const fromResp: string[] = Array.isArray((j as any).searchSummaries) ? (j as any).searchSummaries : (Array.isArray((j as any).extraSystems) ? (j as any).extraSystems : [])
+                  if (fromResp.length > 0) summaries.push(...fromResp.filter((s: any) => typeof s === 'string' && s.trim()))
+                }
+              } catch {}
+              if (summaries.length > 0 && typeof onSearchSummaries === 'function') {
+                try { onSearchSummaries(summaries) } catch {}
+              }
+            } catch {}
             // 如果后端返回包含 direct-review 专用步骤，更新进度展示
             try {
               const steps: string[] = remote.map((r: any) => r.step)

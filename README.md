@@ -71,6 +71,7 @@ Key endpoints (circuit-agent)
 - `GET /artifacts/:filename` — static artifacts
 - `GET /system-prompt?lang=zh|en` — returns system prompt (used by frontend)
 - `POST /orchestrate/review` — unified orchestrator; `directReview=true` triggers direct mode (images → LLM review), otherwise structured mode runs multi-pass recognition + review + aggregation.
+  - When `enableSearch=true` in direct mode, the backend performs an identify → search → per-URL summarize pipeline. In addition to adding timeline events (e.g., `search.summary.saved` with artifact links), the response now also includes a `searchSummaries: string[]` field (same content source as injected `extraSystems`) so the frontend can reliably display summaries even if artifact fetching fails.
 - `POST /modes/structured/recognize` — structured recognition
 - `POST /modes/structured/review` — structured multi-model review
 - `POST /modes/structured/aggregate` — aggregation (final merge)
@@ -84,6 +85,7 @@ Important runtime behaviors
   - Performs online search per keyword and generates per-URL summaries (≤512 words each), injecting each summary as a separate system message
   - Converts attachments to data URLs for upstream vision LLM
   - Stores full request/response artifacts for debugging.
+  - The orchestrator also mirrors these summaries to `searchSummaries` in the JSON response as a frontend fallback.
 - Artifact storage is file-based (`ArtifactStoreFs`) under each service's storage root and exposed via `/artifacts`.
 
 Configuration & environment variables
@@ -106,6 +108,7 @@ License
 Troubleshooting
 - If you see `Failed to load system prompt`, confirm the expected file exists under `ReviewAIPrompt/{agent}/` and is non-empty.
 - If frontend cannot reach the backend in dev, ensure the services are running and verify `App.tsx` agent base URLs (dev points to `http://localhost:4001` / `4002`).
+ - If the “Search Summaries” panel is empty while search is enabled, ensure your upstream provider allows the `web` plugin for fetching and summarization; the frontend also uses the `searchSummaries` field in the response as a fallback if artifact download fails.
 
 Contact
 - maintainer: gyrych@gmail.com
