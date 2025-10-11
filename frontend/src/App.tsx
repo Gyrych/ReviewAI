@@ -221,7 +221,7 @@ export default function App() {
                 <div className="text-xl font-semibold text-gray-400">{t('app.brand.title_en')}</div>
                 <div className="flex items-center gap-3">
                   <div className="text-sm text-gray-600 dark:text-gray-300">{t('app.brand.title_cn')}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">v0.2.28</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">v0.2.29</div>
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">联系作者：<a href="mailto:gyrych@gmail.com" className="underline text-sm text-gray-600 dark:text-gray-300">gyrych@gmail.com</a></div>
               </div>

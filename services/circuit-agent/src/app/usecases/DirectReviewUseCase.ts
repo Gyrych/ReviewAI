@@ -89,7 +89,8 @@ export class DirectReviewUseCase {
         const q = qParts.join('\n') || ''
         if (q) {
           try {
-            const topN = Number((params.request as any).searchTopN || ((params.request.options as any) && (params.request.options as any).searchTopN) || 5)
+            // 严格遵循用户传入的 searchTopN 设置（不再设 5 的下限）
+            const topN = Math.max(1, Number((params.request as any).searchTopN || ((params.request.options as any) && (params.request.options as any).searchTopN) || 1))
             logger.info('direct.search.start', { progressId, query: q.slice(0, 120), topN })
             const hits = await this.searchProvider.search(q, topN)
             logger.info('direct.search.hits', { count: Array.isArray(hits) ? hits.length : 0 })
@@ -107,7 +108,14 @@ export class DirectReviewUseCase {
                   logger.info('direct.search.summarize', { url: h.url })
                   const s = await this.searchProvider.summarizeUrl(h.url, 1024, (params.request as any).language || 'zh')
                   const lower = String(s || '').toLowerCase()
-                  const failed = (!s || s.trim().length < 50 || ['无法直接访问', 'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out'].some(m => lower.includes(m)))
+                  const failedMarks = [
+                    '无法直接访问', '无法直接打开', '无法直接抓取', '无法访问该网页内容',
+                    '抱歉，我目前无法直接打开或抓取外部 url',
+                    '抱歉，我当前无法直接打开或抓取外部网页',
+                    '抱歉，我无法直接从网络实时抓取该页面',
+                    'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out'
+                  ]
+                  const failed = (!s || s.trim().length < 50 || failedMarks.some(m => lower.includes(m)))
                   if (failed) {
                     try { await this.timeline.push(progressId, this.timeline.make('search.summary.failed', { title: h.title, url: h.url, textSnippet: String(s||'').slice(0,200) }, { origin: 'backend', category: 'search' })) } catch {}
                     continue

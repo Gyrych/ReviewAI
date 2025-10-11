@@ -190,8 +190,8 @@ export function makeOrchestrateRouter(deps: {
             }
             const keywords = Array.from(kwMap.values())
             const extraSystems: string[] = []
-            const perKeywordLimit = Math.max(1, Math.min(5, searchTopN))
-            const globalMax = Math.max(1, Math.min(10, Number(process.env.SEARCH_SUMMARY_MAX || 10)))
+            // 严格按用户设置：每个关键词检索 topN 条，不再额外下限为 5
+            const perKeywordLimit = Math.max(1, Number(searchTopN))
             // URL 去重集合
             const seenUrls = new Set<string>()
             // 统一的 URL 归一化
@@ -201,13 +201,18 @@ export function makeOrchestrateRouter(deps: {
               try {
                 const t = String(s || '').toLowerCase()
                 if (t.replace(/\s+/g,' ').trim().length < 50) return true
-                const marks = ['无法直接访问', 'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out']
+                const marks = [
+                  '无法直接访问', '无法直接打开', '无法直接抓取', '无法访问该网页内容',
+                  '抱歉，我目前无法直接打开或抓取外部 url',
+                  '抱歉，我当前无法直接打开或抓取外部网页',
+                  '抱歉，我无法直接从网络实时抓取该页面',
+                  'unable to access', 'not accessible', 'forbidden', 'blocked', 'captcha', 'login required', '需要登录', 'could not fetch', 'timed out'
+                ]
                 return marks.some(m => t.includes(m))
               } catch { return true }
             }
             if (keywords.length > 0) {
               for (const kw of keywords) {
-                if (extraSystems.length >= globalMax) break
                 try {
                   logger.info('search.pipeline.query', { kw })
                   const qEntry = { step: 'search.query', ts: Date.now(), origin: 'backend', meta: { kw } }
@@ -218,7 +223,6 @@ export function makeOrchestrateRouter(deps: {
                   try { const fn: any = await deps.artifact.save(JSON.stringify(qEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
                   const hits = await search.search(String(kw), perKeywordLimit)
                   for (const h of hits) {
-                    if (extraSystems.length >= globalMax) break
                     logger.info('search.pipeline.summary', { url: h.url })
                     // 记录查询命中步骤
                     const hitEntry = { step: 'search.hit', ts: Date.now(), origin: 'backend', meta: { title: h.title, url: h.url } }
@@ -271,7 +275,6 @@ export function makeOrchestrateRouter(deps: {
                   searchTimelineEntries.push({ step: 'search.fallback.query', ts: Date.now(), origin: 'backend', meta: { query: fallbackQ } })
                   const hits = await search.search(fallbackQ, Math.max(1, perKeywordLimit))
                   for (const h of hits) {
-                    if (extraSystems.length >= globalMax) break
                     logger.info('search.pipeline.fallback.summary', { url: h.url })
                     searchTimelineEntries.push({ step: 'search.hit', ts: Date.now(), origin: 'backend', meta: { title: h.title, url: h.url } })
                     const norm = normalizeUrl(h.url)
@@ -299,24 +302,16 @@ export function makeOrchestrateRouter(deps: {
               }
             }
             logger.info('search.pipeline.done', { injected: extraSystems.length })
-            // 确保所有收集到的 searchTimelineEntries 与 searchLlmTraceEntries 都被写入进度存储（progress），以便前端轮询能看到这些步骤
-            try {
-              if (deps.timeline && typeof deps.timeline.push === 'function') {
-                for (const e of searchTimelineEntries) {
-                  try { await deps.timeline.push(progressId, e) } catch {}
-                }
-                for (const e of searchLlmTraceEntries) {
-                  try { await deps.timeline.push(progressId, e) } catch {}
-                }
-              }
-            } catch {}
+            // 说明：searchTimelineEntries 在生成过程中已逐条写入进度存储，此处不再重复写入，避免重复条目
             // 将本次关键词检索的 trace 汇总为一个 artifact，便于前端或运维下载分析
             try {
               if (searchTraceFiles.length > 0) {
                 try {
                   const savedSummary: any = await deps.artifact.save(JSON.stringify({ ts: Date.now(), traceFiles: searchTraceFiles, count: searchTraceFiles.length }), 'search_trace_summary', { ext: '.json', contentType: 'application/json' })
-                  // 把 trace summary 引用加入到 searchTimelineEntries，便于返回给前端
-                  searchTimelineEntries.push({ step: 'search.trace.summary.saved', ts: Date.now(), origin: 'backend', artifacts: { search_trace_summary: savedSummary } })
+                  // 把 trace summary 引用加入到 searchTimelineEntries，并同步写入进度存储
+                  const traceEntry = { step: 'search.trace.summary.saved', ts: Date.now(), origin: 'backend', artifacts: { search_trace_summary: savedSummary } }
+                  searchTimelineEntries.push(traceEntry)
+                  try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, traceEntry).catch(() => {}) } } catch {}
                 } catch {}
               }
             } catch {}
