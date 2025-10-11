@@ -12,8 +12,9 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
   function renderTimeline() {
     if (!timeline || timeline.length === 0) return null
     const reversed = [...timeline].slice().reverse()
+    // 将步骤历史与上方评审区域视觉分离：使用卡片化白色背景（暗色模式下为 panel），并增加内边距与阴影
     return (
-      <div className="mb-4 p-2 border rounded bg-gray-50 dark:bg-cursorBlack dark:border-cursorBorder">
+      <div className="mb-4 p-4 border rounded bg-white dark:bg-cursorPanel dark:border-cursorBorder shadow-sm">
         <div className="text-sm font-medium mb-2">{t('timeline.label')}</div>
         <ul className="text-xs space-y-1">
           {reversed.map((it, idx) => (

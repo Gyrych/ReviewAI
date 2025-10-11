@@ -180,7 +180,11 @@ export function makeOrchestrateRouter(deps: {
                 try { if (deps.timeline && typeof deps.timeline.push === 'function') { await deps.timeline.push(progressId, entry) } } catch {}
               } catch {}
             }
-            const search = new OpenRouterSearch(String(apiUrl || cfg2.openRouterBase || ''), Number(cfg2.timeouts?.llmMs || 7200000), searchHeaders, { modelOverride: model, forceOnline: false, trace })
+            // 使用副模型（auxModel）作为检索轮与摘要轮的上游模型；优先使用 body.auxModel -> body.model
+            const auxModelToUse = (body.auxModel as string) || model
+            const search = new OpenRouterSearch(String(apiUrl || cfg2.openRouterBase || ''), Number(cfg2.timeouts?.llmMs || 7200000), searchHeaders, { modelOverride: auxModelToUse, forceOnline: false, trace })
+            // 摘要轮复用同一个 provider 实例（副模型统一）
+            const summaryProvider = search
             // 关键词去重（忽略大小写与前后空白）
             const keywordsRaw = ([] as string[]).concat(identifyResult.keyComponents || [], identifyResult.keyTechRoutes || [])
             const kwMap = new Map<string, string>()
@@ -233,7 +237,7 @@ export function makeOrchestrateRouter(deps: {
                     const norm = normalizeUrl(h.url)
                     if (seenUrls.has(norm)) { continue }
                     seenUrls.add(norm)
-                    const summary = await search.summarizeUrl(h.url, 1024, language as 'zh'|'en')
+                    const summary = await summaryProvider.summarizeUrl(h.url, 1024, language as 'zh'|'en')
                     if (summary && summary.trim() && !isFailedSummary(summary)) {
                       try {
                         const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })
@@ -280,7 +284,7 @@ export function makeOrchestrateRouter(deps: {
                     const norm = normalizeUrl(h.url)
                     if (seenUrls.has(norm)) { continue }
                     seenUrls.add(norm)
-                    const summary = await search.summarizeUrl(h.url, 1024, language as 'zh'|'en')
+                  const summary = await summaryProvider.summarizeUrl(h.url, 1024, language as 'zh'|'en')
                     if (summary && summary.trim() && !isFailedSummary(summary)) {
                       try {
                         const saved = await deps.artifact.save(summary, 'search_summary', { ext: '.txt', contentType: 'text/plain' })

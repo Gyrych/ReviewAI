@@ -210,6 +210,7 @@ const dictZh: Record<string, string> = {
   'step_search.hit': '在线检索 - 命中',
   'step_search.summary': '在线检索 - 摘要',
   'step_search.summary.saved': '在线检索 - 摘要已保存',
+  'step_search.summary.failed': '检索摘要失败',
   'step_search.fallback.query': '在线检索 - 回退查询',
   'step_search.trace.summary.saved': '在线检索 - 摘要追踪已保存',
   // 新增：检索 LLM 原始交互（点号与下划线双写）
@@ -434,6 +435,7 @@ const dictEn: Record<string, string> = {
   'step_search.hit': 'Web search - hit',
   'step_search.summary': 'Web search - summary',
   'step_search.summary.saved': 'Web search - summary saved',
+  'step_search.summary.failed': 'Search summary failed',
   'step_search.fallback.query': 'Web search - fallback query',
   'step_search.trace.summary.saved': 'Web search - trace summary saved',
   // Added: search LLM raw interaction (dot and underscore)

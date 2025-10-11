@@ -16,13 +16,15 @@ export default function App() {
     'google/gemini-2.5-pro',
     'google/gemini-2.5-flash',
     'x-ai/grok-4',
-    'x-ai/grok-4-fast:free',
+    'x-ai/grok-4-fast',
     'qwen/qwen2.5-vl-32b-instruct',
     'qwen/qwen2.5-vl-32b-instruct:free',
     'qwen/qwen2.5-vl-72b-instruct',
     'qwen/qwen2.5-vl-72b-instruct:free',
-    'qwen/qwen-vl-plus',
-    'qwen/qwen-vl-max',
+    'qwen/qwen3-vl-30b-a3b-thinking',
+    'qwen/qwen3-vl-30b-a3b-instruct',
+    'qwen/qwen3-vl-235b-a22b-thinking',
+    'qwen/qwen3-vl-235b-a22b-instruct',
   ]
   const DEFAULT_MODEL_PRESETS = ['deepseek-chat', 'deepseek-reasoner']
   // 静态注册的 Agent 列表（仅保留两种电路图评审）
@@ -51,6 +53,11 @@ export default function App() {
   const [model, setModel] = useState<string>(OPENROUTER_MODEL_PRESETS[0])
   const [customModelName, setCustomModelName] = useState<string>('')
   const [modelOptions, setModelOptions] = useState<string[]>(['deepseek-chat', 'deepseek-reasoner'])
+  // 副模型（auxModel）：用于检索轮与摘要轮，可由用户在顶部统一配置并持久化
+  const [auxModel, setAuxModel] = useState<string>(() => { try { return localStorage.getItem('auxModel') || OPENROUTER_MODEL_PRESETS[0] } catch { return OPENROUTER_MODEL_PRESETS[0] } })
+  // 控制移动端配置面板显示
+  const [showConfig, setShowConfig] = useState<boolean>(false)
+  useEffect(() => { try { localStorage.setItem('auxModel', auxModel) } catch (e) {} }, [auxModel])
   const [apiKey, setApiKey] = useState<string>(() => {
     try { return localStorage.getItem('apiKey') || '' } catch (e) { return '' }
   })
@@ -65,7 +72,7 @@ export default function App() {
 
   // 根据选中的 API 自动切换可选模型列表（OpenRouter 使用特定候选）
   // 仅提供 OpenRouter 预设模型
-  useEffect(() => { setModelOptions([...OPENROUTER_MODEL_PRESETS, 'custom'].sort((a,b) => a.localeCompare(b))) }, [])
+  useEffect(() => { setModelOptions(OPENROUTER_MODEL_PRESETS.slice().sort((a,b) => a.localeCompare(b))) }, [])
 
   useEffect(() => {
     try {
@@ -211,38 +218,75 @@ export default function App() {
       <div className="w-full mb-4 border-b dark:border-cursorBorder bg-white dark:bg-cursorPanel">
         <div className="max-w-6xl mx-auto p-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {/* 内联 SVG Logo（可替换为真实图片） */}
-              <div className="w-10 h-10 rounded overflow-hidden bg-white flex items-center justify-center">
-                {/* 使用前端本地静态 logo 文件 */}
-                <img src="/logo.png" alt="ReviewAI logo" className="w-10 h-10 object-cover" />
+            <div className="flex items-center gap-4">
+              {/* Logo 区 */}
+              <div className="flex items-center justify-center w-14 h-14 rounded-lg bg-white shadow-md">
+                <img src="/logo.png" alt="ReviewAI" className="w-11 h-11 object-contain" />
               </div>
-              <div className="leading-tight">
-                <div className="text-xl font-semibold text-gray-400">{t('app.brand.title_en')}</div>
-                <div className="flex items-center gap-3">
-                  <div className="text-sm text-gray-600 dark:text-gray-300">{t('app.brand.title_cn')}</div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300">v0.2.29</div>
+
+              {/* 文本信息 */}
+              <div className="flex flex-col leading-tight">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{t('app.brand.title_en')}</div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t('app.brand.title_cn')}</div>
+                  <div className="px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded">v0.2.30</div>
                 </div>
-                <div className="text-sm text-gray-600 dark:text-gray-300 mt-0.5">联系作者：<a href="mailto:gyrych@gmail.com" className="underline text-sm text-gray-600 dark:text-gray-300">gyrych@gmail.com</a></div>
               </div>
             </div>
-              <div className="flex items-center justify-end gap-2">
-              <select value={model} onChange={(e) => setModel(e.target.value)} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm">
-                {modelOptions.map((m) => (<option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>))}
-              </select>
-              <input value={apiKey} onChange={(e) => { const v = e.target.value; setApiKey(v); try { localStorage.setItem('apiKey', v) } catch(e){} }} placeholder={t('app.apiKey.placeholder') || 'API Key'} title={t('app.apiKey.hint') || '输入 API Key'} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm" />
-              <button
-                onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
-                className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {t('app.lang.toggle')}
-              </button>
-              <button
-                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-                className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {theme === 'light' ? t('app.theme.toDark') : t('app.theme.toLight')}
-              </button>
+              <div className="flex items-center justify-end">
+                <div className="flex items-center gap-4 bg-transparent p-2 rounded">
+                  {/* 控件卡片：在较大屏幕上为横向排列，较小屏幕上可折叠 */}
+                  <div className="hidden md:flex items-center gap-4 bg-white dark:bg-gray-800/30 border border-gray-100 dark:border-gray-700 rounded-lg px-3 py-2 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-gray-500 whitespace-nowrap">主模型</div>
+                      <select value={model} onChange={(e) => setModel(e.target.value)} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm w-56">
+                        {modelOptions.map((m) => (<option key={m} value={m}>{m === 'custom' ? t('app.modelName.option.custom') : m}</option>))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-gray-500 whitespace-nowrap">副模型</div>
+                      <select value={auxModel} onChange={(e) => setAuxModel(e.target.value)} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm w-56">
+                        {modelOptions.map((m) => (<option key={m} value={m}>{m}</option>))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs text-gray-500 text-right mr-1">
+                        <span className="block">OpenRouter</span>
+                        <span className="block">API KEY</span>
+                      </div>
+                      <input type="password" value={apiKey} onChange={(e) => { const v = e.target.value; setApiKey(v); try { localStorage.setItem('apiKey', v) } catch(e){} }} placeholder={t('app.apiKey.placeholder') || 'API Key'} title={t('app.apiKey.hint') || '输入 API Key'} className="px-2 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm w-44" />
+                    </div>
+                  </div>
+
+                  {/* 移动/窄屏控件：使用图标和下拉折叠 */}
+                  <div className="md:hidden flex items-center gap-2">
+                    <button onClick={() => setShowConfig(!showConfig)} className="px-3 py-1 bg-white dark:bg-gray-800 rounded border text-sm">配置</button>
+                  </div>
+                </div>
+              </div>
+          </div>
+        </div>
+        {/* header bottom row: contact left, lang/theme buttons right */}
+        <div className="w-full">
+          <div className="max-w-6xl mx-auto p-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-300">联系作者：<a href="mailto:gyrych@gmail.com" className="underline text-sm text-gray-600 dark:text-gray-300">gyrych@gmail.com</a></div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+                  className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {t('app.lang.toggle')}
+                </button>
+                <button
+                  onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+                  className="px-3 py-1 rounded border bg-white dark:bg-cursorPanel dark:text-cursorText dark:border-cursorBorder text-sm transition-colors hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {theme === 'light' ? t('app.theme.toDark') : t('app.theme.toLight')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -282,6 +326,9 @@ export default function App() {
                       model={model}
                       customModelName={customModelName}
                       setCustomModelName={setCustomModelName}
+                      modelOptions={modelOptions}
+                      // 顶栏提供的副模型
+                      incomingAuxModel={auxModel}
                       apiKey={apiKey}
                       allowedApiUrls={allowedApiUrls}
                       onSavePair={handleSavePair}

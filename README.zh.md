@@ -52,6 +52,16 @@ npm run dev
 - `ReviewAIPrompt/circuit-fine-agent/system_prompt_zh.md`
 - `ReviewAIPrompt/circuit-fine-agent/system_prompt_en.md`
 - `ReviewAIPrompt/circuit-fine-agent/macro_prompt.md`, `ic_prompt.md`, `rc_prompt.md`, `net_prompt.md`, `verify_prompt.md`, `consolidation_prompt.md`
+ - `ReviewAIPrompt/circuit-agent/search_prompt.md`
+ - `ReviewAIPrompt/circuit-agent/summary_prompt.md`
+
+模型说明
+------
+
+本应用区分两类模型角色：
+
+- **主模型**：用于视觉识别与最终评审/报告生成。由顶部第一行 `model` 下拉配置，并随会话保存为 `model` 字段。
+- **副模型**：用于检索与逐 URL 摘要（search/summarize）。由顶部位于主模型下方的 `auxModel` 下拉配置，并随表单通过 `auxModel` 字段提交到后端；后端优先使用 `body.auxModel`，若缺失则回退到 `body.model`。
 
 架构概览
 -------

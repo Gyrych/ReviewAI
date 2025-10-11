@@ -52,6 +52,16 @@ Minimum required files (examples present in the repo):
 - `ReviewAIPrompt/circuit-fine-agent/system_prompt_zh.md`
 - `ReviewAIPrompt/circuit-fine-agent/system_prompt_en.md`
 - `ReviewAIPrompt/circuit-fine-agent/macro_prompt.md`, `ic_prompt.md`, `rc_prompt.md`, `net_prompt.md`, `verify_prompt.md`, `consolidation_prompt.md`
+ - `ReviewAIPrompt/circuit-agent/search_prompt.md`
+ - `ReviewAIPrompt/circuit-agent/summary_prompt.md`
+
+Models
+------
+
+This application distinguishes between two model roles:
+
+- **Main model**: used for vision recognition and final review/report generation. Configured by the top-level `model` selector in the header and saved in sessions as the primary `model`.
+- **Aux model**: used for retrieval and per-URL summarization (search/summarize). Configured by the second selector under the main model (`auxModel`) in the header and submitted to the backend as `auxModel` in the `/orchestrate/review` multipart request; the backend will use `body.auxModel` if present, otherwise fallback to `body.model`.
 
 If any required prompt file is missing the backend will respond with 500 and log a `Failed to load system prompt` error.
 

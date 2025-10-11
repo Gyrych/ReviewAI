@@ -51,6 +51,7 @@
 
 - `PromptLoader`（`services/*/src/infra/prompts/PromptLoader.ts`）负责按 agent/language/variant 解析文件名、校验存在性并缓存内容；提供 `preloadPrompts` 用于启动预热。
 - `orchestrate` 路由支持 `directReview` 切换直评/精细流程；在 direct 模式下会根据 `history` 判断是否为修订轮（`initial` vs `revision`）并加载对应 system prompt。
+ - 模型命名约定：引入 **主模型（main model）** 与 **副模型（aux model）** 概念：主模型用于视觉识别与评审（由前端顶部第一行 `model` 管理并随会话保存）；副模型用于检索/摘要（由前端顶部第二行 `auxModel` 管理并随表单以 `auxModel` 字段提交，后端优先使用 `body.auxModel`，不存在时回退到 `model`）。
 - `DirectReviewUseCase` 会：
   - 将系统提示、requirements/specs/dialog 与历史合并成富消息（rich messages）发送给视觉/文本上游；
   - 在 `enableSearch=true` 时，先执行“识别轮”提取关键元器件与技术路线清单；随后对每个关键词进行在线检索并逐 URL 生成摘要（默认≤1024词，结构化要点），进行关键词与 URL 去重，过滤失败短语（如“无法直接访问该网页内容”等）后再注入，将合格摘要各自作为独立的 system 消息注入上下文；
@@ -179,3 +180,10 @@
 
 - 文件修改：
   - `frontend/src/i18n.tsx` — 补齐 `
+
+2025-10-11 变更记录（新增搜索轮提示词并本地化）
+
+:- 文件新增：
+  - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 将在线检索与页面摘要提示词提取并翻译为中文，供 `DirectReviewUseCase` 在 `enableSearch` 场景下注入。
+:- 目的：
+  - 将原先内联在 `OpenRouterSearch.ts` 的英文 system 文本外部化并本地化，便于管理与审阅；同时满足 `PromptLoader` 的加载约定，避免运行时因缺失提示词导致 fail-fast。

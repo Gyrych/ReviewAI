@@ -23,6 +23,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   apiKey,
   allowedApiUrls,
   onSavePair,
+  modelOptions,
+  incomingAuxModel,
   markdown,
   sessionSeed,
 }: {
@@ -42,6 +44,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
   apiKey: string
   allowedApiUrls: string[]
   onSavePair?: (api: string, model: string) => void
+  modelOptions?: string[]
+  incomingAuxModel?: string
   markdown?: string
   sessionSeed?: SessionSeed
 }, ref: any) {
@@ -118,6 +122,34 @@ const ReviewForm = React.forwardRef(function ReviewForm({
     }
   }
   const [error, setError] = useState<string | null>(null)
+  // 本组件本地：副模型（auxModel）选择，与顶部模型选择保持一致风格
+  const [auxModel, setAuxModel] = useState<string>(() => (customModelName && customModelName.trim()) ? customModelName.trim() : (model || ''))
+  useEffect(() => {
+    try {
+      const initial = (customModelName && customModelName.trim()) ? customModelName.trim() : (model || '')
+      setAuxModel(initial)
+    } catch (e) {}
+  }, [model, customModelName])
+  // 当 App 顶栏提供的模型变更时，优先同步（以便顶部与局部配置一致）
+  useEffect(() => {
+    try {
+      if (incomingAuxModel) setAuxModel(incomingAuxModel)
+    } catch (e) {}
+  }, [incomingAuxModel])
+  // 持久化：按 agentBaseUrl 作用域保存用户选择的副模型（auxModel）
+  const storageKeyFor = (kind: 'aux') => `reviewai_${kind}Model_${encodeURIComponent(agentBase)}`
+  // 组件挂载时尝试恢复
+  useEffect(() => {
+    try {
+      const savedAux = localStorage.getItem(storageKeyFor('aux'))
+      if (savedAux) setAuxModel(savedAux)
+    } catch (e) {}
+  }, [])
+
+  // 当用户修改时写回 localStorage
+  useEffect(() => {
+    try { localStorage.setItem(storageKeyFor('aux'), auxModel || '') } catch (e) {}
+  }, [auxModel])
   const [dialog, setDialog] = useState('')
   // 问题确认（已移除）：历史中包含 assistant 的所有条目
   const [history, setHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([])
@@ -443,8 +475,10 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         fd.append('recognitionPasses', '5')
       }
       fd.append('enableSearch', enableSearch.toString())
-      if (enableSearch) {
+        if (enableSearch) {
         fd.append('searchTopN', searchTopN.toString())
+        // 将前端选择的副模型传递给后端（统一用于检索轮与摘要轮）
+        try { fd.append('auxModel', auxModel || '') } catch {}
       }
       fd.append('saveEnriched', 'true')
 
@@ -1020,6 +1054,14 @@ const ReviewForm = React.forwardRef(function ReviewForm({
                           <option key={n} value={n}>{n}</option>
                         ))}
                       </select>
+              <div className="ml-4">
+                <label className="text-sm text-gray-600 dark:text-gray-400">副模型（检索/摘要）:</label>
+                <select value={auxModel} onChange={(e) => setAuxModel(e.target.value)} className="text-sm border rounded px-2 py-1 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200">
+                  {(modelOptions || []).map((m: string) => (<option key={m} value={m}>{m}</option>))}
+                </select>
+                <div className="text-xs text-gray-500">选择用于检索轮与摘要轮的“副模型”。</div>
+                <div className="text-xs text-gray-400 mt-1">提示：重量级模型更适合深度网页抓取与长摘要，但延迟与费用较高；轻量模型适合快速检索结果列表。</div>
+              </div>
                     </div>
                   )}
                 </div>
@@ -1128,7 +1170,9 @@ const ReviewForm = React.forwardRef(function ReviewForm({
       {/* 将时间线放到按钮下方 */}
       <div className="mt-3 text-xs text-gray-500 dark:text-gray-300">
         <div className="font-medium text-gray-700 dark:text-gray-200">{t('timeline.label') || '步骤历史'}</div>
-        <div className="mt-1 space-y-2">
+        <div className="mt-2">
+          <div className="mt-6 p-4 bg-white dark:bg-cursorPanel rounded border dark:border-cursorBorder shadow-lg">
+            <div className="space-y-2">
             {(() => {
             // 显示所有步骤，包括前端和后端步骤，但过滤掉已移除的功能步骤（如 OCR）
             const allTimeline = timeline || []
@@ -1901,6 +1945,8 @@ const ReviewForm = React.forwardRef(function ReviewForm({
               )
             })
           })()}
+            </div>
+          </div>
         </div>
       </div>
     </form>

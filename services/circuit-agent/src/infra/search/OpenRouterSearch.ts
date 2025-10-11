@@ -1,6 +1,7 @@
 import type { SearchProvider } from '../../domain/contracts/index.js'
 import { OpenRouterTextProvider } from '../providers/OpenRouterTextProvider.js'
 import { logger } from '../log/logger.js'
+import { PromptLoader } from '../prompts/PromptLoader.js'
 
 // 中文注释：基于 OpenRouter 的在线检索 provider，使用 openrouter 的 :online 模型
 export class OpenRouterSearch implements SearchProvider {
@@ -26,7 +27,10 @@ export class OpenRouterSearch implements SearchProvider {
   async search(query: string, topN: number): Promise<{ title: string; url: string }[]> {
     try {
       logger.info('web.search.start', { query: query.slice(0, 120), topN })
-      const system = `You are a web search tool. Given the user query, return a JSON array of up to ${topN} items, each an object with keys \"title\" and \"url\". Prefer authoritative sources (original vendors, datasheets, application notes). Return only the JSON array and no extra text.`
+      // 从外部提示词文件加载 search prompt（pass 类型，variant='search'），加载失败则抛出错误
+      const pSearch = PromptLoader.loadPrompt('circuit-agent', 'pass', 'zh', 'search')
+      // 支持在 prompt 中使用 {topN} 占位符
+      const system = String(pSearch).replace(/\{topN\}/g, String(topN))
       const userMsg = query
       // 显式启用 web 插件进行真实搜索
       const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
@@ -75,18 +79,22 @@ export class OpenRouterSearch implements SearchProvider {
     try {
       logger.info('web.summary.start', { url, wordLimit, lang })
       const limit = Math.max(64, Math.min(2048, Number(wordLimit || 1024)))
-      const system = `You are a web reader and summarizer. Fetch the given URL and write a concise, well-structured summary in ${lang === 'zh' ? 'Chinese' : 'English'} within ${limit} words. Focus on: vendor/source, device/model, key electrical parameters (ratings), recommended application circuits, pros/cons, cautions, and a brief conclusion. Return plain text only.`
+      // 从外部提示词文件加载 summary prompt（pass 类型，variant='summary'），加载失败则抛出错误
+      const pSummary = PromptLoader.loadPrompt('circuit-agent', 'pass', 'zh', 'summary')
+      const system = String(pSummary).replace(/\{limit\}/g, String(limit)).replace(/\{lang\}/g, lang === 'zh' ? 'Chinese' : 'English')
       const userMsg = `URL: ${url}`
       // 显式启用 web 插件；engine 可通过环境变量覆盖（native/exa）
       const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
       const maxResults = Number(process.env.OPENROUTER_WEB_MAX_RESULTS || 1)
       const plugins = [{ id: 'web', engine, max_results: maxResults, search_prompt: 'Some relevant web results:' }]
       // 记录原始请求
-      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'request', meta: { model: this.model, engine, url, wordLimit: limit, lang }, body: { system, messages: [{ role: 'user', content: userMsg }], plugins } }) } catch {}
-      const resp = await this.provider.chat({ apiUrl: '', model: this.model, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
+      // 固定上游模型为 qwen 系列，用于摘要轮
+      const modelName = 'qwen/qwen2.5-vl-72b-instruct:free'
+      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'request', meta: { model: modelName, engine, url, wordLimit: limit, lang }, body: { system, messages: [{ role: 'user', content: userMsg }], plugins } }) } catch {}
+      const resp = await this.provider.chat({ apiUrl: '', model: modelName, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers })
       const txt = (resp && resp.text) ? resp.text.trim() : ''
       // 记录原始响应
-      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'response', meta: { model: this.model, url }, body: { raw: resp?.raw || '', text: txt } }) } catch {}
+      try { await this.trace?.({ phase: 'search', target: 'summary', direction: 'response', meta: { model: modelName, url }, body: { raw: resp?.raw || '', text: txt } }) } catch {}
       logger.info('web.summary.done', { length: txt.length })
       return txt
     } catch (e) {
