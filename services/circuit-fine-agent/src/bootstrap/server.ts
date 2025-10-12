@@ -18,13 +18,8 @@ import { DirectReviewUseCase } from '../app/usecases/DirectReviewUseCase'
 import { makeDirectReviewRouter } from '../interface/http/routes/directReview'
 import { OpenRouterSearch } from '../infra/search/OpenRouterSearch'
 import { OpenRouterVisionProvider } from '../infra/providers/OpenRouterVisionProvider'
-import { StructuredRecognitionUseCase } from '../app/usecases/StructuredRecognitionUseCase'
-import { makeStructuredRecognizeRouter } from '../interface/http/routes/structuredRecognize'
 import { OpenRouterTextProvider } from '../infra/providers/OpenRouterTextProvider'
-import { MultiModelReviewUseCase } from '../app/usecases/MultiModelReviewUseCase'
-import { makeStructuredReviewHandler } from '../interface/http/routes/structuredReview'
-import { FinalAggregationUseCase } from '../app/usecases/FinalAggregationUseCase'
-import { makeAggregateRouter } from '../interface/http/routes/aggregate'
+// structured/multi/aggregate usecases retired; imports removed
 import { makeOrchestrateRouter } from '../interface/http/routes/orchestrate'
 import { SessionStoreFs } from '../infra/storage/SessionStoreFs'
 import { makeSessionsHandlers } from '../interface/http/routes/sessions'
@@ -40,7 +35,7 @@ const app = express()
 // 中文注释：启用严格来源白名单的 CORS，仅放行前端开发地址，并允许 Authorization 以透传上游模型 API
 const corsOptions = {
   origin: ['http://localhost:3002', 'http://127.0.0.1:3002', 'http://localhost:3003', 'http://127.0.0.1:3003', 'http://localhost:5173', 'http://127.0.0.1:5173'],
-  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'] as const,
+  methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Authorization', 'Content-Type'],
   optionsSuccessStatus: 204,
   credentials: false,
@@ -87,25 +82,21 @@ app.get(`${BASE_PATH}/system-prompt`, (req, res) => {
 const artifact = new ArtifactStoreFs(cfg.storageRoot)
 const timeline = new TimelineService(progressStore)
 const vision = new OpenRouterVisionChat(cfg.openRouterBase, cfg.timeouts.llmMs)
-const directReview = new DirectReviewUseCase(vision, artifact, timeline)
-const { upload, handler } = makeDirectReviewRouter({ usecase: directReview, artifact, storageRoot: cfg.storageRoot })
+// instantiate direct review usecase locally; cast to any when passing across orchestrator to avoid TS private-field mismatch
+const directReviewLocal = new DirectReviewUseCase(vision, artifact, timeline)
+const { upload, handler } = makeDirectReviewRouter({ usecase: directReviewLocal as any, artifact, storageRoot: cfg.storageRoot })
 app.post(`${BASE_PATH}/modes/direct/review`, upload.any(), handler)
 
 const search = new OpenRouterSearch(cfg.openRouterBase, cfg.timeouts.llmMs)
 const visionProvider = new OpenRouterVisionProvider(cfg.openRouterBase, cfg.timeouts.visionMs)
-const structured = new StructuredRecognitionUseCase(visionProvider, search, timeline)
-const sr = makeStructuredRecognizeRouter({ usecase: structured, storageRoot: cfg.storageRoot })
-app.post(`${BASE_PATH}/modes/structured/recognize`, sr.upload.any(), sr.handler)
+// 入口保护：structured 模式已退役。为保证兼容性，返回 410 并提示使用 direct 模式。
+app.post(`${BASE_PATH}/modes/structured/recognize`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
+app.post(`${BASE_PATH}/modes/structured/review`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
+app.post(`${BASE_PATH}/modes/structured/aggregate`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
 
-const textLlm = new OpenRouterTextProvider(cfg.openRouterBase, cfg.timeouts.llmMs)
-const multiReview = new MultiModelReviewUseCase(textLlm, timeline)
-app.post(`${BASE_PATH}/modes/structured/review`, express.json(), makeStructuredReviewHandler(multiReview))
-
-const finalAgg = new FinalAggregationUseCase(textLlm, timeline)
-const ag = makeAggregateRouter({ usecase: finalAgg, storageRoot: cfg.storageRoot })
-app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
-
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, direct: directReview, structured, multi: multiReview, aggregate: finalAgg })
+// structured/multi/aggregate retired — only pass present deps to orchestrator
+// cast to any to avoid cross-service type incompatibilities between local DirectReviewUseCase declarations
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, direct: (directReviewLocal as any), timeline, search } as any)
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
 const sessions = new SessionStoreFs(cfg.storageRoot)

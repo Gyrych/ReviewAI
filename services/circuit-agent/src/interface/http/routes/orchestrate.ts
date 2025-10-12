@@ -22,9 +22,9 @@ export function makeOrchestrateRouter(deps: {
   storageRoot: string
   artifact: ArtifactStore
   direct: DirectReviewUseCase
-  structured: StructuredRecognitionUseCase
-  multi: MultiModelReviewUseCase
-  aggregate: FinalAggregationUseCase
+  structured?: StructuredRecognitionUseCase
+  multi?: MultiModelReviewUseCase
+  aggregate?: FinalAggregationUseCase
   identify?: IdentifyKeyFactsUseCase
   search?: SearchProvider
   // 新增：注入 timeline 服务以便在生成 search timeline 时直接写入进度存储
@@ -42,6 +42,10 @@ export function makeOrchestrateRouter(deps: {
       if (!apiUrl || !model) return res.status(400).json({ error: 'apiUrl and model are required' })
       const authHeader = req.header('authorization') || undefined
       const directReview = String(body.directReview || 'false').toLowerCase() === 'true'
+      // 入口保护：structured 模式已退役，强制使用 directReview=true
+      if (!directReview) {
+        return res.status(410).json({ error: 'structured mode removed; use directReview=true' })
+      }
       const progressId = String(body.progressId || '') || undefined
 
       const filesField = (req as any).files as any[] || []
@@ -390,6 +394,7 @@ export function makeOrchestrateRouter(deps: {
       const searchTopN = Number(body.searchTopN || 5)
       const visionModel = 'openai/gpt-5-mini'
 
+      if (!deps.structured) return res.status(410).json({ error: 'structured mode removed; use direct mode' })
       const rec = await deps.structured.execute({ apiUrl, visionModel, images: attachments, enableSearch, searchTopN, progressId })
       const circuit: CircuitGraph = rec.circuit
 
@@ -410,6 +415,7 @@ export function makeOrchestrateRouter(deps: {
         }
       })()
 
+      if (!deps.multi) return res.status(410).json({ error: 'structured mode removed; use direct mode' })
       const multi = await deps.multi.execute({
         apiUrl,
         models,
@@ -424,6 +430,7 @@ export function makeOrchestrateRouter(deps: {
       })
 
       // 终稿整合：固定 openai/gpt-5
+      if (!deps.aggregate) return res.status(410).json({ error: 'structured mode removed; use direct mode' })
       const agg = await deps.aggregate.execute({ apiUrl, model: 'openai/gpt-5', circuit, reports: multi.reports, systemPrompt: String(body.systemPrompt || ''), attachments: attachments.map(a => ({ name: a.name, mime: a.mime, text: tryText(a.bytes) })), authHeader, progressId })
 
       return res.json({ markdown: agg.markdown, timeline: [...rec.timeline, ...multi.timeline, ...agg.timeline], enriched: circuit })

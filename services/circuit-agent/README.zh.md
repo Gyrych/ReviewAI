@@ -1,135 +1,175 @@
-## 电路图评审 Agent（服务说明）
+# circuit-agent 服务（中文说明）
 
-此文档基于对 `services/circuit-agent` 源代码的逐文件审阅编写，包含架构概览、运行配置、API 详解与运维建议。请在代码或提示词变更后同步更新此文件与仓库根目录的文档。
+简短说明
+---
+`circuit-agent` 是 ReviewAI 项目中负责电路原理图视觉识别与基于 LLM 的自动评审编排后端服务。它接收图片/PDF 附件与文本上下文，调用视觉/文本上游模型进行识别与评审，并将生成的 Markdown 报告与调试工件以 artifact 形式保存供前端与运维查看。
 
-### 概要
+主要功能
+---
+- 图像/PDF 附件上传（multipart）并转换为 data-url 发送给视觉上游；
+- 可选识别轮（Identify）抽取关键元器件与技术路线并用于联网检索；
+- 可选联网检索（enableSearch），对检索到的 URL 逐条摘要并注入为 system 消息；
+- 直接评审（direct review）用例：将上下文与附件发送给视觉/文本模型，返回 Markdown 报告与 timeline；
+- 工件保存：请求/响应与摘要会保存为 artifact，提供静态访问与列表接口；
+- 会话保存/加载（sessions）。
 
-`circuit-agent` 将图像转换为结构化电路 (`CircuitGraph`) 并基于 LLM 生成评审报告。主要功能：
+快速开始（开发）
+---
+前提：Node.js >= 18
 
-- 直接评审（direct mode）：将附件与系统提示词发送给视觉/文本 LLM，返回 Markdown 报告。
-- 结构化识别（structured mode）：多轮识别生成 `CircuitGraph`，可选联网检索并摘要外部资料，随后并行文本评审并最终整合为报告。
-- 会话与工件管理：文件系统存储 artifacts，并提供静态访问路由。
+1. 在仓库根目录或服务目录安装依赖：
 
-默认配置（代码验证）：
-
-- 基路径（BASE_PATH）：`/api/v1/circuit-agent`（见 `src/config/config.ts`）
-- 端口（PORT）：`4001`（可通过环境变量 `PORT` 覆盖）
-- 提示词位置：`ReviewAIPrompt/{agent}/...`，系统提示词命名规则为 `system_prompt_{variant}_{lang}.md` 或 `system_prompt_{lang}.md`（见 `src/infra/prompts/PromptLoader.ts`）
-
-### 快速开始
-
-1. 进入目录并安装依赖：
-```
+```bash
 cd services/circuit-agent
 npm install
+```
+
+2. 启动（开发调试）：
+
+```bash
+# 推荐在仓库根使用一键脚本启动全部服务
+node ../../start-all.js
+
+# 或单服务启动（若 package.json 提供）
 npm run dev
 ```
 
-2. 健康检查：
-```
-GET http://localhost:4001/api/v1/circuit-agent/health
-```
+3. 默认端口与基路径（请参阅 `config`）：
+- 默认端口：4001
+- 默认基路径：`/api/v1/circuit-agent`
 
-### 高层目录结构
+运行时环境变量（常用）
+---
+- `PORT` — 覆盖服务端口
+- `OPENROUTER_BASE` — 上游模型提供者的 base URL（OpenRouter 兼容）
+- `REDIS_URL` — 可选：Redis 连接字符串（进度存储优先使用）
+- `LLM_TIMEOUT_MS` — LLM 请求超时（毫秒）
+- `VISION_TIMEOUT_MS` — 视觉请求超时（毫秒）
+- `STORAGE_ROOT` — 工件与会话的存储根目录（默认仓库内）
+- `KEEP_ALIVE_MSECS`, `FETCH_RETRIES` 等超时/重试配置
 
-```
-src/
-  bootstrap/        # 启动与路由注册
-  config/           # 加载运行时配置
-  interface/http/   # express 路由与处理器
-  app/              # 用例实现（DirectReview、StructuredRecognition 等）
-  infra/            # 提供者、提示词加载、存储、检索实现
-  domain/           # 领域类型与契约
-storage/             # artifacts / sessions / tmp
-```
-
-### 架构图（mermaid）
-
+核心架构（Mermaid）
+---
 ```mermaid
-flowchart LR
-  Client -->|HTTP| API[API Gateway\n`/api/v1/circuit-agent`]
-  API --> Direct[DirectReviewUseCase]
-  API --> Structured[StructuredRecognitionUseCase]
-  API --> MultiReview[MultiModelReviewUseCase]
-  API --> Aggregate[FinalAggregationUseCase]
-  Direct --> Vision[OpenRouterVisionChat]
-  Structured --> VisionProvider[OpenRouterVisionProvider]
-  MultiReview --> TextProvider[OpenRouterTextProvider]
-  Direct --> ArtifactStore[ArtifactStoreFs]
-  ArtifactStore --> Storage[storage/artifacts]
-  API --> Timeline[TimelineService]
-  Timeline -->|optional| Redis[(Redis)]
-  API --> SessionStore[SessionStoreFs]
+graph TD
+  Frontend[Frontend] -->|HTTP multipart / JSON| Orchestrator[Orchestrate Router]
+  Orchestrator --> Direct[DirectReviewUseCase]
+  Orchestrator --> Identify[IdentifyKeyFactsUseCase]
+  Direct --> Vision[OpenRouterVisionChat / Vision Provider]
+  Identify --> Vision
+  Direct --> Search[OpenRouterSearch (optional)]
+  Search --> OpenRouter[OpenRouter / external web]
+  Direct --> Artifact[ArtifactStoreFs]
+  Orchestrator --> Timeline[TimelineService]
+  Timeline --> ProgressStore[(Redis or Memory)]
+  Artifact --> Static[/artifacts]
+  OpenRouter -->|responses| Direct
 ```
 
-### API 详解（基路径：`/api/v1/circuit-agent`）
+主要 API（详解）
+---
+所有路径均以基路径为前缀（例如：`/api/v1/circuit-agent`）。下列示例使用该基路径。
 
-备注：
+- `GET /health`
+  - 描述：服务健康检查
+  - 请求：无
+  - 响应：200/JSON 简要状态
 
-- 认证：服务会把 `Authorization` 头透传至上游模型提供者，但不在服务端持久化；生产环境建议由网关负责鉴权与限流。
-- 文件上传：multipart/form-data；服务会读取文件为 Buffer，并在处理结束后删除临时文件。
-- 错误返回通常为 `{ error: 'message', details?: '...' }`。
+- `GET /progress/:id`
+  - 描述：查询进度（timeline）
+  - 请求：URL path 参数 `id`（progressId）
+  - 响应：timeline JSON
 
-- GET `/health`
-  - 返回：`{ status: 'ok', service: 'circuit-agent', endpoint: 'health' }`
+- `GET /system-prompt?lang=zh|en`
+  - 描述：返回当前系统提示词（供前端展示/下载）
+  - 参数：`lang`（可选，默认 `zh`）
 
-- GET `/progress/:id`
-  - 返回：`{ timeline: [...] }`（由 TimelineService 提供）
+- `POST /orchestrate/review` （推荐使用）
+  - 描述：统一编排入口，当前仅支持 `directReview=true`（structured 已退役）
+  - Content-Type：`multipart/form-data`（支持 `files` 上传）
+  - 常用字段（form）：
+    - `apiUrl` (string, required) — 上游 OpenRouter 或兼容提供者的 base URL
+    - `model` (string, required) — 上游模型名称（例如 `openai/gpt-5-mini`）
+    - `directReview` (string 'true'|'false', required) — 必须为 `true`
+    - `language` ('zh'|'en', optional) — 提示词语言
+    - `history` (JSON array or JSON string, optional) — 历史会话，元素形如 `{ role: 'user'|'assistant', content: '...' }`
+    - `enableSearch` ('true'|'false', optional) — 是否启用检索轮（identify->search->summarize）
+    - `auxModel` (string, optional) — 副模型（用于检索/摘要），优先于 `model`
+    - `requirements`, `specs`, `dialog` (string, optional)
+    - `progressId` (string, optional) — 进度追踪 ID（用于前端轮询 `GET /progress/:id`）
+  - 返回示例（200）：
+    - `markdown` (string) — 生成的 Markdown 报告
+    - `timeline` (array) — 本次请求的 timeline 条目（包含 search/identify/llm 请求/响应）
+    - `searchSummaries` (array) — 若启用检索且成功，会返回注入的外部摘要文本数组
 
-- GET `/artifacts`
-  - 返回 artifacts 列表（兼容调试路由）
+- `POST /modes/direct/review` （原始直评路由）
+  - 描述：直接调用 `DirectReviewUseCase`，行为与 `orchestrate` 中 direct 分支一致
+  - 请求：multipart/form-data，字段同上（省略 orchestrate 的 wrapper 逻辑）
 
-- GET `/artifacts/:filename`
-  - 静态访问已保存 artifact
+- `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
+  - 描述：会话的持久化与管理（SessionStoreFs）
 
-- GET `/system-prompt?lang=zh|en`
-  - 返回 `ReviewAIPrompt/` 或仓库根下的 system prompt 文本（若缺失返回 404）
+- `GET /artifacts` / `GET /artifacts/:filename`
+  - 描述：列出或访问已保存的 artifact（请求服务会将 artifacts 挂载为静态目录）
 
-- POST `/modes/direct/review` (multipart)
-  - 必需：`apiUrl`, `model`
-  - 可选：`language`（`zh`|`en`，默认 `zh`）、`history`、`requirements`、`specs`、`dialog`、`progressId`、`enableSearch`、`auxModel` 等
-  - 行为概述：
-    - 使用 `PromptLoader` 加载 system prompt（根据 `history` 判断 `initial` 或 `revision` 变体）。
-    - 将附件转换为 data URL 并构建 rich messages 传入视觉/文本 provider。
-    - 若 `enableSearch=true` 且注入了 search provider：执行 IdentifyKeyFacts → OpenRouterSearch → per-URL summarize，保存摘要为 artifact，注入为额外 system 消息，并将检索事件写入 timeline/progress。
-    - 调用上游 provider，保存 request/response artifacts，并写入 llm.request/llm.response timeline 事件。
-  - 返回：`{ markdown, timeline, searchSummaries? }`
+调用示例（orchestrate + curl）：
 
-- POST `/modes/structured/recognize` (multipart)
-  - 必需：`apiUrl`, `visionModel`（默认 `openai/gpt-5-mini`）
-  - 返回：`{ circuit: CircuitGraph, timeline }`
+```bash
+curl -X POST "http://localhost:4001/api/v1/circuit-agent/orchestrate/review" \
+  -F "apiUrl=https://api.openrouter.example" \
+  -F "model=openai/gpt-5-mini" \
+  -F "directReview=true" \
+  -F "language=zh" \
+  -F "files=@schematic.png" \
+  -F "requirements=满足XX性能"
+```
 
-- POST `/modes/structured/review` (json)
-  - 必需：`apiUrl`, `models`（数组）
-  - 请求示例：`{ apiUrl, models, circuit, systemPrompt, requirements, specs, dialog, history, progressId }`
-  - 返回：并行文本评审输出（reports 与 timeline）
+使用规范与最佳实践
+---
+- 提示词管理：`ReviewAIPrompt/circuit-agent/` 下必须包含所需提示词文件（`system_prompt_initial_zh.md` 等）。若缺失，服务会在加载时抛出 `PromptLoadError` 并返回 500。请使用 Git 管理提示词变更。
+- enableSearch：启用后会执行识别轮（Identify）并对关键词做在线检索并摘要，可能引入外部信息，注意合规与隐私风险；若上游不可用或摘要失败，系统会尽量回退且继续直评流程。
+- Artifact 与隐私：artifact 可能包含完整的上游请求/响应 JSON，请在生产环境中限制 `artifacts` 静态路径访问或对工件做脱敏处理。
+- API Key：前端可在本地存储 `apiKey` 便于测试，但请勿在共享环境保存明文 API key。
 
-- POST `/modes/structured/aggregate` (multipart)
-  - 聚合多模型评审结果为最终 Markdown（FinalAggregationUseCase）
+流程图（Orchestrate -> direct with search pipeline）
+---
+```mermaid
+flowchart TD
+  A[客户端请求 /orchestrate/review] --> B{directReview?}
+  B -- yes --> C[加载 system prompt]
+  C --> D{enableSearch?}
+  D -- yes --> E[IdentifyKeyFactsUseCase]
+  E --> F[OpenRouterSearch.search for each keyword]
+  F --> G[OpenRouterSearch.summarizeUrl]
+  G --> H[保存 summary artifact & push timeline]
+  H --> I[注入 extraSystems 到 system prompt]
+  I --> J[DirectReviewUseCase.execute]
+  D -- no --> J
+  J --> K[调用上游模型（vision/chat）]
+  K --> L[保存响应 artifact & 生成 Markdown]
+  L --> M[返回 markdown + timeline + searchSummaries]
+```
 
-### 提示词约定（已验证）
+常见故障与排查
+---
+- Failed to load system prompt：检查 `ReviewAIPrompt/circuit-agent/` 下对应文件是否存在且非空。
+- artifacts not found（404）：确认 `STORAGE_ROOT` 下的 `artifacts` 目录是否存在并包含文件。
+- 进度不可见：若 `REDIS_URL` 配置错误，服务会回退到内存存储，短期内重启会丢失进度。
 
-提示词由 `PromptLoader` 从 `ReviewAIPrompt/{agent}/{filename}` 加载，命名约定：
+开发者说明
+---
+- 关键文件位置：
+  - `src/bootstrap/server.ts` — 服务启动与路由挂载
+  - `src/interface/http/routes/orchestrate.ts` — 编排入口与 search pipeline
+  - `src/app/usecases/DirectReviewUseCase.ts` — 直评用例实现
+  - `src/app/usecases/IdentifyKeyFactsUseCase.ts` — 识别轮实现
+  - `src/infra/prompts/PromptLoader.ts` — 提示词加载器
+  - `src/infra/search/OpenRouterSearch.ts` — 联网检索/摘要提供器
+  - `src/infra/storage/ArtifactStoreFs.ts` — 工件保存实现
 
-- 系统提示词：`system_prompt_{variant}_{lang}.md` 或 `system_prompt_{lang}.md`
-- pass 类型提示词（identify/macro/net/verify 等）：`{variant}_prompt.md`
+- 修改约定：任何对提示词或流程的修改，请同时更新 `ReviewAIPrompt/` 与 `CURSOR.md` 中的变更记录。
 
-服务在提示词缺失或文件为空时会抛出 `PromptLoadError`。
-
-### 运维与安全建议
-
-- 不要在日志或 artifact 中持久化完整的 `Authorization` 头或 API Key。
-- 将 artifacts 视为敏感数据并在生产环境限制其访问。
-- 在网关层实现鉴权与速率限制，避免直接暴露服务。
-
-### 日志与排错
-
-- 日志位置：`services/circuit-agent/logs/out.log`、`err.log` 与 storage 下的 artifacts。
-- 常见故障：`PromptLoadError`、上游 4xx/5xx、结构化识别置信度问题（422）。
-
-### 核实的假设（证据链接）
-
-- `basePath` 与 `port`：见 `services/circuit-agent/src/config/config.ts`（默认 `basePath: '/api/v1/circuit-agent'`，`port: 4001`）。
-- 提示词命名與加载：见 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`。
-
+变更记录（此处为文档新增说明）
+---
+- 2025-10-12：新增并同步 `services/circuit-agent/README.zh.md`，文档涵盖 API、架构图、流程图与使用规范。请确认内容后我将生成英文版本并在 `CURSOR.md` 中追加同步记录。
 

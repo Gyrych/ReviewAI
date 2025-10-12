@@ -200,3 +200,5 @@
 
 - 目的：
   - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
+
+- 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。

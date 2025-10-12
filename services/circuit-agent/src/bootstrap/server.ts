@@ -134,28 +134,16 @@ const directReview = new DirectReviewUseCase(vision, artifact, timeline, searchP
 const { upload, handler } = makeDirectReviewRouter({ usecase: directReview, artifact, storageRoot: cfg.storageRoot })
 app.post(`${BASE_PATH}/modes/direct/review`, upload.any(), handler)
 
-// 中文注释：挂载精细评审模式——固定5轮识别 + 可选 datasheet 搜索（使用 OpenRouterSearch）
-const search = new OpenRouterSearch(cfg.openRouterBase, cfg.timeouts.llmMs)
-const visionProvider = new OpenRouterVisionProvider(cfg.openRouterBase, cfg.timeouts.visionMs)
-const structured = new StructuredRecognitionUseCase(visionProvider, search, timeline)
-const sr = makeStructuredRecognizeRouter({ usecase: structured, storageRoot: cfg.storageRoot })
-app.post(`${BASE_PATH}/modes/structured/recognize`, sr.upload.any(), sr.handler)
-
-// 中文注释：并行文本评审 + 最终整合
-const textLlm = new OpenRouterTextProvider(cfg.openRouterBase, cfg.timeouts.llmMs)
-const multiReview = new MultiModelReviewUseCase(textLlm, timeline)
-app.post(`${BASE_PATH}/modes/structured/review`, express.json(), makeStructuredReviewHandler(multiReview))
-
-const finalAgg = new FinalAggregationUseCase(textLlm, timeline)
-const ag = makeAggregateRouter({ usecase: finalAgg, storageRoot: cfg.storageRoot })
-app.post(`${BASE_PATH}/modes/structured/aggregate`, ag.upload.any(), ag.handler)
+// 入口保护：structured 模式已退役。为保证兼容性，返回 410 并提示使用 direct 模式。
+app.post(`${BASE_PATH}/modes/structured/recognize`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
+app.post(`${BASE_PATH}/modes/structured/review`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
+app.post(`${BASE_PATH}/modes/structured/aggregate`, (req, res) => res.status(410).json({ error: 'structured mode removed; use direct mode' }))
 
 // 中文注释：统一编排入口（便于前端仅调用一个端点）
-// 识别轮用例：与 orchestrate 中动态使用保持一致
+// 识别轮用例：仅保留 identify 用例用于 direct 模式的可选检索（若需要）
 const identifyFacts = new IdentifyKeyFactsUseCase(vision, artifact, timeline)
-// 将 timeline 注入到 orchestrate router，使得搜索过程中能直接把事件写入进度存储（progress）
-// 同时显式注入统一配置的 searchProvider，避免路由内回退到未配置的环境变量导致搜索不可用
-const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, structured, multi: multiReview, aggregate: finalAgg, identify: identifyFacts, timeline, search: searchProvider })
+// 注：structured/multi/aggregate 已退役，orchestrate 路由仅支持 directReview=true
+const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, identify: identifyFacts, timeline, search: searchProvider })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 
 // 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）

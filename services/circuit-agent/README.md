@@ -1,141 +1,138 @@
-## Circuit Agent (circuit-agent)
+# circuit-agent service (English)
 
-This document summarizes the architecture, runtime configuration, APIs, and operational guidance for the `circuit-agent` service. It was produced after a file-by-file review of the `services/circuit-agent` source code. Please keep this document synchronized with code and prompt files (`ReviewAIPrompt/`).
+Summary
+---
+`circuit-agent` is the backend microservice in ReviewAI responsible for schematic image/PDF recognition and LLM-based review orchestration. It accepts attachments and context, calls vision/text upstream providers, and stores generated artifacts (requests, responses, summaries) for frontend and devops inspection.
 
-### Summary
+Key Capabilities
+---
+- Accept multipart uploads (images/PDF) and convert attachments into data-URLs for vision providers.
+- Optional Identify pass extracts key components and technical routes used for optional online search.
+- Optional online search (`enableSearch`) performs per-keyword queries and URL summarization; summaries are injected as system messages.
+- Direct review use case: build rich messages, call upstream vision/text models, return Markdown report and timeline.
+- Artifacts saved to `STORAGE_ROOT` and exposed via static `/artifacts` route.
 
-`circuit-agent` performs image-to-structure conversion and LLM-based circuit review. Main functions:
+Quickstart (development)
+---
+Prerequisite: Node.js >= 18
 
-- Direct review (direct mode): send attachments and prompts to a vision/text LLM and return a Markdown review.
-- Structured recognition (structured mode): multi-pass recognition to produce a `CircuitGraph` (components/nets), optional external search & summarization, followed by parallel text reviews and final aggregation.
-- Session and artifact management (file-based storage with static access routes).
+1. Install dependencies:
 
-Defaults (verified in source):
-
-- BASE_PATH: `/api/v1/circuit-agent` (see `src/config/config.ts`)
-- PORT: `4001` (overridable via `PORT` environment variable; see `src/config/config.ts`)
-- Prompts: stored under `ReviewAIPrompt/{agent}/...`. System prompts follow `system_prompt_{variant}_{lang}.md` or `system_prompt_{lang}.md` (see `src/infra/prompts/PromptLoader.ts`).
-
-### Quick start (development)
-
-1. Install dependencies and run:
-```
+```bash
 cd services/circuit-agent
 npm install
+```
+
+2. Start the service (dev):
+
+```bash
+# recommended: start all services from repo root
+node ../../start-all.js
+
+# or single-service if available
 npm run dev
 ```
 
-2. Health check example:
-```
-GET http://localhost:4001/api/v1/circuit-agent/health
-```
+Runtime config (common env vars)
+---
+- `PORT` — override server port
+- `OPENROUTER_BASE` — upstream provider base URL
+- `REDIS_URL` — optional Redis connection URL for progress storage
+- `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS` — timeouts
+- `STORAGE_ROOT` — root folder for artifacts and sessions
 
-3. Important environment variables: `PORT`, `OPENROUTER_BASE`, `REDIS_URL`, `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `STORAGE_ROOT` (see `src/config/config.ts`).
-
-### High-level layout
-
-```
-src/
-  bootstrap/        # server startup & route registration
-  config/           # loadConfig()
-  interface/http/   # express routes & handlers
-  app/              # use-cases (DirectReview, StructuredRecognition, etc.)
-  infra/            # providers, prompt loader, storage, search
-  domain/           # types & contracts
-storage/             # artifacts / sessions / tmp
-```
-
-### Architecture (mermaid)
-
+Architecture (Mermaid)
+---
 ```mermaid
-flowchart LR
-  Client -->|HTTP| API[API Gateway\n`/api/v1/circuit-agent`]
-  API --> Direct[DirectReviewUseCase]
-  API --> Structured[StructuredRecognitionUseCase]
-  API --> MultiReview[MultiModelReviewUseCase]
-  API --> Aggregate[FinalAggregationUseCase]
-  Direct --> Vision[OpenRouterVisionChat]
-  Structured --> VisionProvider[OpenRouterVisionProvider]
-  MultiReview --> TextProvider[OpenRouterTextProvider]
-  Direct --> ArtifactStore[ArtifactStoreFs]
-  ArtifactStore --> Storage[storage/artifacts]
-  API --> Timeline[TimelineService]
-  Timeline -->|optional| Redis[(Redis)]
-  API --> SessionStore[SessionStoreFs]
+graph TD
+  Frontend -->|HTTP multipart / JSON| Orchestrator[Orchestrate Router]
+  Orchestrator --> Direct[DirectReviewUseCase]
+  Orchestrator --> Identify[IdentifyKeyFactsUseCase]
+  Direct --> Vision[OpenRouterVisionChat / Vision Provider]
+  Identify --> Vision
+  Direct --> Search[OpenRouterSearch (optional)]
+  Search --> OpenRouter[OpenRouter / external web]
+  Direct --> Artifact[ArtifactStoreFs]
+  Orchestrator --> Timeline[TimelineService]
+  Timeline --> ProgressStore[(Redis or Memory)]
+  Artifact --> Static[/artifacts]
+  OpenRouter -->|responses| Direct
 ```
 
-### API details (base path: `/api/v1/circuit-agent`)
+Major APIs
+---
+All endpoints are prefixed by the service base path (e.g. `/api/v1/circuit-agent`).
 
-Notes:
+- `GET /health`
+  - Health check
 
-- Authentication: the service will forward `Authorization` header to upstream LLM providers but does not persist keys. Put authentication and rate limiting at the gateway/reverse-proxy in production.
-- File uploads: multipart/form-data; the server reads uploaded files into Buffers and removes temporary files after processing.
-- Error responses are typically `{ error: 'message', details?: '...' }`.
+- `GET /progress/:id`
+  - Retrieve timeline/progress by `progressId`
 
-- GET `/health`
-  - Returns: `{ status: 'ok', service: 'circuit-agent', endpoint: 'health' }`
+- `GET /system-prompt?lang=zh|en`
+  - Retrieve the system prompt file used for the agent
 
-- GET `/progress/:id`
-  - Returns: `{ timeline: [...] }` (TimelineService-backed progress entries)
+- `POST /orchestrate/review` (recommended)
+  - Unified orchestration entrypoint. Current implementation requires `directReview=true` (structured mode removed).
+  - Content-Type: `multipart/form-data`
+  - Form fields:
+    - `apiUrl` (string, required)
+    - `model` (string, required)
+    - `directReview` (`true`|`false`, required) — must be `true`
+    - `language` (`zh`|`en`, optional)
+    - `history` (JSON array or JSON string, optional)
+    - `enableSearch` (`true`|`false`, optional)
+    - `auxModel` (string, optional)
+    - `requirements`, `specs`, `dialog` (string)
+    - `progressId` (string, optional)
+  - Response:
+    - `markdown` — generated report
+    - `timeline` — timeline entries (identify/search/llm request/response)
+    - `searchSummaries` — injected external summaries when enableSearch succeeded
 
-- GET `/artifacts`
-  - Returns a JSON list of artifact filenames and URLs (compat/debug route)
+- `POST /modes/direct/review`
+  - Direct entrypoint mapped to `DirectReviewUseCase` (same semantics as the orchestrate direct branch).
 
-- GET `/artifacts/:filename`
-  - Static file access for saved artifacts
+- Session APIs: `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
 
-- GET `/system-prompt?lang=zh|en`
-  - Returns the system prompt as plain text from `ReviewAIPrompt/` or repo root (404 if missing)
+- Artifact listing and static access: `GET /artifacts` and `/artifacts/:filename` (static)
 
-- POST `/modes/direct/review` (multipart)
-  - Required: `apiUrl`, `model`
-  - Optional: `language` (`zh`|`en`, default `zh`), `history`, `requirements`, `specs`, `dialog`, `progressId`, `enableSearch`, `auxModel`, etc.
-  - Behavior summary:
-    - Loads system prompt using `PromptLoader` (chooses `initial` or `revision` variant based on `history`).
-    - Converts attachments to data URLs and builds a rich message payload for the vision/text provider.
-    - If `enableSearch=true` and a search provider is injected: perform IdentifyKeyFacts → OpenRouterSearch → per-URL summarization (`summarizeUrl()`), save summaries as artifacts, inject summaries as additional system messages, and append search events to the timeline/progress store.
-    - Calls upstream vision/text provider and saves request/response artifacts; writes llm.request/llm.response events to timeline.
-  - Returns: `{ markdown: '...', timeline: [...], searchSummaries?: [...] }`
+Example curl (orchestrate):
 
-- POST `/modes/structured/recognize` (multipart)
-  - Required: `apiUrl`, `visionModel` (default `openai/gpt-5-mini`)
-  - Returns: `{ circuit: CircuitGraph, timeline: [...] }`
+```bash
+curl -X POST "http://localhost:4001/api/v1/circuit-agent/orchestrate/review" \
+  -F "apiUrl=https://api.openrouter.example" \
+  -F "model=openai/gpt-5-mini" \
+  -F "directReview=true" \
+  -F "language=zh" \
+  -F "files=@schematic.png" \
+  -F "requirements=Must meet X"
+```
 
-- POST `/modes/structured/review` (json)
-  - Required: `apiUrl`, `models` (array)
-  - Body example: `{ apiUrl, models, circuit, systemPrompt, requirements, specs, dialog, history, progressId }`
-  - Returns: multi-model review outputs (reports, timeline)
+Usage guidance and best practices
+---
+- Prompt files: ensure `ReviewAIPrompt/circuit-agent/` contains required prompt files (e.g. `system_prompt_initial_zh.md`). Missing or empty files will cause prompt loader to throw `PromptLoadError` and endpoints to return 500.
+- enableSearch: enabling online search introduces external content injection into system prompts — verify compliance and content quality. The service will attempt to fallback gracefully on failures.
+- Artifacts: artifacts may contain full request/responses — restrict access in production or implement sanitization.
 
-- POST `/modes/structured/aggregate` (multipart)
-  - Aggregates multiple reports into final Markdown using FinalAggregationUseCase
-  - Returns: `{ markdown, timeline }`
+Troubleshooting
+---
+- `Failed to load system prompt`: check `ReviewAIPrompt/` files exist and are non-empty.
+- `artifacts not found` (404): check `STORAGE_ROOT/artifacts` exists and is populated.
+- Progress loss: missing/invalid `REDIS_URL` will cause fallback to memory progress store which is ephemeral.
 
-### Prompt file convention (verified)
+Developer notes
+---
+- Key files:
+  - `src/bootstrap/server.ts` — bootstrapping and route registration
+  - `src/interface/http/routes/orchestrate.ts` — orchestration and search pipeline
+  - `src/app/usecases/DirectReviewUseCase.ts` — direct review implementation
+  - `src/app/usecases/IdentifyKeyFactsUseCase.ts` — identify pass implementation
+  - `src/infra/prompts/PromptLoader.ts` — prompt loader
+  - `src/infra/search/OpenRouterSearch.ts` — search & summarize provider
+  - `src/infra/storage/ArtifactStoreFs.ts` — artifact storage
 
-`PromptLoader` loads prompts from `ReviewAIPrompt/{agent}/{filename}`. Conventions:
-
-- System prompts: `system_prompt_{variant}_{language}.md` (e.g. `system_prompt_initial_zh.md` or `system_prompt_revision_en.md`) or `system_prompt_{language}.md`.
-- Pass prompts (identify/macro/net/verify/etc.): `{variant}_prompt.md` (e.g. `identify_prompt_zh.md`).
-
-The service will throw `PromptLoadError` if required prompt files are missing or empty.
-
-### Operational guidance & security
-
-- Do not log or persist full `Authorization` headers or API keys.
-- Treat artifacts as sensitive (they may contain raw LLM JSON). Limit artifact access in shared deployments.
-- Use a gateway for authentication and rate limiting; avoid exposing the service directly to the public internet.
-
-### Logs and troubleshooting
-
-- Logs: `services/circuit-agent/logs/out.log`, `err.log`, and artifacts inside the storage root.
-- Common failures: `PromptLoadError` (missing prompt files), upstream 4xx/5xx (incorrect `apiUrl`/`model`), structured recognition 422 (low confidence or conflicts).
-
-### Verified assumptions (evidence)
-
-- `basePath` and `port`: see `services/circuit-agent/src/config/config.ts` (defaults `basePath: '/api/v1/circuit-agent'`, `port: 4001`).
-- Prompt naming & paths: see `services/circuit-agent/src/infra/prompts/PromptLoader.ts`.
-
-### Notes
-
-If you want, I can also produce a synchronized English/Chinese pair for the repository root `README.md` and `CURSOR.md` and write them. I will proceed once you confirm.
+Change log (doc addition)
+---
+- 2025-10-12: Added `services/circuit-agent/README.md` with API details, architecture and flow diagrams. After your confirmation I will append a `CURSOR.md` entry describing this documentation change.
 
