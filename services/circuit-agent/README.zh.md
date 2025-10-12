@@ -52,18 +52,18 @@ npm run dev
 ---
 ```mermaid
 graph TD
-前端 --&gt;|HTTP multipart / JSON| 编排器["编排路由器"]
-编排器 --&gt; 直接["DirectReviewUseCase 直接审查用例"]
-编排器 --&gt; 识别["IdentifyKeyFactsUseCase 识别关键事实用例"]
-直接 --&gt; 视觉["OpenRouterVisionChat / 视觉提供者"]
-识别 --&gt; 视觉
-直接 --&gt; 搜索["OpenRouterSearch 搜索(可选)"]
-搜索 --&gt; OpenRouter["OpenRouter / 外部网络"]
-直接 --&gt; 工件["ArtifactStoreFs 工件存储"]
-编排器 --&gt; 时间线["TimelineService 时间线服务"]
-时间线 --&gt; 进度存储[("Redis 或内存")]
-工件 --&gt; 静态["/artifacts"]
-OpenRouter --&gt;|响应| 直接
+前端 -->|"HTTP multipart / JSON"| 编排器["编排路由器"]
+编排器 --> 直接["DirectReviewUseCase 直接审查用例"]
+编排器 --> 识别["IdentifyKeyFactsUseCase 识别关键事实用例"]
+直接 --> 视觉["OpenRouterVisionChat / 视觉提供者"]
+识别 --> 视觉
+直接 --> 搜索["OpenRouterSearch 搜索(可选)"]
+搜索 --> OpenRouter["OpenRouter / 外部网络"]
+直接 --> 工件["ArtifactStoreFs 工件存储"]
+编排器 --> 时间线["TimelineService 时间线服务"]
+时间线 --> 进度存储[("Redis 或内存")]
+工件 --> 静态["/artifacts"]
+OpenRouter -->|"响应"| 直接
 ```
 
 主要 API（详解）
