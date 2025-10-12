@@ -33,6 +33,11 @@ node ../../start-all.js
 npm run dev
 ```
 
+3. Default port & base path
+---
+- Default port: 4001
+- Default base path: `/api/v1/circuit-agent`
+
 Runtime config (common env vars)
 ---
 - `PORT` — override server port
@@ -41,22 +46,24 @@ Runtime config (common env vars)
 - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS` — timeouts
 - `STORAGE_ROOT` — root folder for artifacts and sessions
 
+- `KEEP_ALIVE_MSECS`, `FETCH_RETRIES` — network/keep-alive and retry related settings
+
 Architecture (Mermaid)
 ---
 ```mermaid
 graph TD
-  Frontend -->|HTTP multipart / JSON| Orchestrator[Orchestrate Router]
-  Orchestrator --> Direct[DirectReviewUseCase]
-  Orchestrator --> Identify[IdentifyKeyFactsUseCase]
-  Direct --> Vision[OpenRouterVisionChat / Vision Provider]
-  Identify --> Vision
-  Direct --> Search[OpenRouterSearch (optional)]
-  Search --> OpenRouter[OpenRouter / external web]
-  Direct --> Artifact[ArtifactStoreFs]
-  Orchestrator --> Timeline[TimelineService]
-  Timeline --> ProgressStore[(Redis or Memory)]
-  Artifact --> Static[/artifacts]
-  OpenRouter -->|responses| Direct
+Frontend -->|HTTP multipart / JSON| Orchestrator["Orchestrate Router"]
+Orchestrator --> Direct["DirectReviewUseCase"]
+Orchestrator --> Identify["IdentifyKeyFactsUseCase"]
+Direct --> Vision["OpenRouterVisionChat / Vision Provider"]
+Identify --> Vision
+Direct --> Search["OpenRouterSearch (optional)"]
+Search --> OpenRouter["OpenRouter / external web"]
+Direct --> Artifact["ArtifactStoreFs"]
+Orchestrator --> Timeline["TimelineService"]
+Timeline --> ProgressStore[("Redis or Memory")]
+Artifact --> Static["/artifacts"]
+OpenRouter -->|responses| Direct
 ```
 
 Major APIs
@@ -71,6 +78,7 @@ All endpoints are prefixed by the service base path (e.g. `/api/v1/circuit-agent
 
 - `GET /system-prompt?lang=zh|en`
   - Retrieve the system prompt file used for the agent
+  - Parameter: `lang` (optional, default `zh`)
 
 - `POST /orchestrate/review` (recommended)
   - Unified orchestration entrypoint. Current implementation requires `directReview=true` (structured mode removed).
@@ -114,6 +122,7 @@ Usage guidance and best practices
 - Prompt files: ensure `ReviewAIPrompt/circuit-agent/` contains required prompt files (e.g. `system_prompt_initial_zh.md`). Missing or empty files will cause prompt loader to throw `PromptLoadError` and endpoints to return 500.
 - enableSearch: enabling online search introduces external content injection into system prompts — verify compliance and content quality. The service will attempt to fallback gracefully on failures.
 - Artifacts: artifacts may contain full request/responses — restrict access in production or implement sanitization.
+- API Key: frontend may persist an API key in localStorage for convenience during development, but do NOT store production keys in shared environments.
 
 Troubleshooting
 ---
