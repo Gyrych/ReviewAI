@@ -214,3 +214,15 @@
   - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
 
 - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
+2025-10-16: 修改依赖版本
+
+- 文件修改：
+  - `services/circuit-agent-py/requirements.txt` — 将 `pydantic` 从 `1.10.12` 升级到 `1.10.16`，以尝试解决在 Python 3.13 环境下的兼容性问题（ForwardRef._evaluate 错误）。
+  - 新增：
+    - `services/circuit-agent-py/app/infra/storage/artifact_store_fs.py` — 添加文件系统工件存储最小实现，提供 async `save()` 方法，用于将工件写入 `storage/artifacts`，以修复启动时缺失模块导致的导入错误。
+
+  - 操作记录（2025-10-16）:
+    - 在本地使用 Python 3.11 创建虚拟环境 `venv` 并在其中安装依赖（`py -3.11 -m venv venv`，`pip install -r requirements.txt`），用于确保与 `pydantic`/`fastapi` 的兼容性。
+    - 使用 venv 启动服务并验证 `/health` 返回 `{"status":"ok"}`，确认服务可用。
+
+  - 目的：尝试通过依赖版本升级解决 Pydantic 与 Python 3.13 的运行时不兼容问题，优先使用该方式进行快速验证；如仍不兼容则建议改为使用 Python 3.11 的虚拟环境运行服务或将项目迁移到 pydantic v2（后者为侵入性更大且需代码改动）。

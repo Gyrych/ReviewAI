@@ -7,7 +7,7 @@ This service is a Python (FastAPI) reimplementation of the original `services/ci
 1. Create virtualenv and install dependencies:
 
 ```bash
-python -m venv venv
+python -m venv venv    # 推荐使用 Python 3.11
 # Windows: venv\Scripts\activate
 # Unix: source venv/bin/activate
 pip install -r requirements.txt
