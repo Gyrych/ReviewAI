@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  circuit-agent-py:
+    build: .
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+      - STORAGE_ROOT=/app/storage
+      - OPENROUTER_BASE=
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./services/circuit-agent-py/storage:/app/storage
+    depends_on:
+      - redis
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"

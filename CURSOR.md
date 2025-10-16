@@ -115,6 +115,18 @@
 - `services/*/src/infra/storage/ArtifactStoreFs.ts` — 工件保存实现
 - `services/circuit-agent/src/infra/search/OpenRouterSearch.ts` — OpenRouter 在线检索 provider（替代 DuckDuckGoHtmlSearch）
 
+-- 新增（Python 重构）:
+- `services/circuit-agent-py/` — 基于 FastAPI 的服务实现，目标与 `services/circuit-agent` 行为完全兼容；主要文件:
+  - `app/main.py` — FastAPI 启动与路由注册
+  - `app/core/config.py` — 环境配置（Pydantic）
+  - `app/utils/prompt_loader.py` — PromptLoader Python 实现
+  - `app/infra/http/openrouter_client.py` — OpenRouter HTTP client（httpx）
+  - `app/infra/providers/vision.py|text.py` — Vision / Text provider
+  - `app/infra/search/openrouter_search.py` — Search 实现（保留 plugins/web 支持）
+  - `app/infra/storage/artifact_store_fs.py` — Artifact 文件系统存储
+  - `app/services/direct_review.py` — DirectReviewUseCase Python 版
+  - `app/api/routes/*.py` — routes: direct_review, sessions, health, system-prompt
+
 变更记录（摘要）
 
 - 2025-09-29: 初始创建，AI 助手生成基础项目说明与早期 PRD 记录。

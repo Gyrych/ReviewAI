@@ -1,0 +1,17 @@
+{
+  "event": "llm.request",
+  "payload": {
+    "apiUrl": "",
+    "model": "test-model",
+    "messageCount": 1,
+    "hasHistory": false,
+    "hasAttachments": true
+  },
+  "meta": {
+    "origin": "backend",
+    "category": "llm"
+  },
+  "artifacts": {
+    "request": "2025-10-16T04-11-11.172370_llm_request.json"
+  }
+}

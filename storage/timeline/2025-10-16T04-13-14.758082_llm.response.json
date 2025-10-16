@@ -1,0 +1,15 @@
+{
+  "event": "llm.response",
+  "payload": {
+    "snippet": "Mocked LLM response text",
+    "contentLength": 24
+  },
+  "meta": {
+    "origin": "backend",
+    "category": "llm"
+  },
+  "artifacts": {
+    "response": "2025-10-16T04-13-14.755157_llm_response.json",
+    "result": "2025-10-16T04-13-14.756016_direct_review_report.md"
+  }
+}
