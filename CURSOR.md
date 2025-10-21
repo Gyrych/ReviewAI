@@ -202,3 +202,10 @@
   - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
 
 - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
+2025-10-21 变更记录（项目宪章采纳 v1.0.0）
+
+- **文件新增/覆盖**：`.specify/memory/constitution.md` — 采用以“代码质量、测试标准、用户体验一致性、性能与可靠性预算”为核心的四项原则；新增“附加约束与安全合规”“开发流程与质量门禁”两节；含 Sync Impact Report。
+- **模板对齐**：
+  - `.specify/templates/plan-template.md` — 更新 “Constitution Check” 为四项门禁清单。
+  - `.specify/templates/tasks-template.md` — 将“Tests 可选”改为“测试或工具化验证为必选项”，要求附 artifacts 与复现步骤。
+- **目的**：在当前以工具化验证与 artifacts 审计为主的阶段，为后续自动化测试体系铺路，同时以门禁强化一致性与可用性。

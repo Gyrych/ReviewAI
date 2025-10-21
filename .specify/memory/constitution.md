@@ -1,50 +1,75 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: N/A → 1.0.0
+- Modified principles: [模板占位] → 4项核心原则（代码质量、测试标准、用户体验一致性、性能与可靠性）
+- Added sections: “附加约束与安全合规”、“开发流程与质量门禁”
+- Removed sections: 无
+- Templates requiring updates:
+  ✅ .specify/templates/plan-template.md（Constitution Check 门禁对齐）
+  ✅ .specify/templates/tasks-template.md（测试→测试或工具化验证必选）
+  ⚠ .specify/templates/spec-template.md（无需结构调整，仅建议在 Success Criteria 强化可度量指标）
+- Deferred TODOs: 无
+-->
+
+# ReviewAI Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. 代码质量为先（不可妥协）
+- 必须通过静态检查与格式化：前端/Node 启用 ESLint + Prettier；TypeScript 开启 `strict`；Python（如用）启用 Ruff/Flake8 + Black（或等效）。
+- 类型与接口边界清晰：对外导出的 API/数据契约必须显式类型；禁止滥用 `any`；跨服务/前后端共享的 Schema 需单一可信源。
+- 复杂度控制：函数圈复杂度建议 ≤10；超过阈值或函数体 >80 行，PR 中需给出“简化不可行”说明并列入后续拆解计划。
+- 错误处理策略：在异常处理分支中禁止再进行异常判断与处理的嵌套扩张；失败即早返回，集中记录结构化日志与上下文（禁止记录密钥）。
+- 命名与注释：采用有语义的全词命名；注释仅用于非显而易见的设计意图/约束/安全与性能考量；代码注释统一使用中文。
+- 可观测性：关键路径必须有结构化日志与时间线（timeline）记录；生成的 artifacts 视为敏感信息，遵循最小可见原则。
+- 提示词与资源完整性：运行所需的 Prompt 文件必须存在且非空，缺失应 fail-fast 并明确报错。
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+（理由）高质量类型与边界能避免隐性回归；统一注释语言与日志格式便于协作与审计。
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. 测试标准与验证
+- 合同优先：新增/变更 HTTP 接口与公共用例必须提供“可重复验证”的证据，二选一或并行：
+  1) 自动化测试（单元/集成/合同测试其一）；或
+  2) 工具化验证脚本/步骤与配套请求-响应 artifacts（可被他人复现）。
+- 回归防线：修复缺陷必须附带复现用例或复现实例 artifacts；未来同类更改需覆盖该场景。
+- 变更门禁：若既无自动化测试，也无可复现的工具化验证与 artifacts，则不得合并。
+- 覆盖优先级：对外契约（API/Schema/关键用例）优先保障；其余模块可先用工具化验证，逐步补齐自动化测试。
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+（理由）在现有项目形态下，工具化验证 + artifact 审计能快速建立质量防线，并为后续测试体系铺路。
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. 用户体验一致性
+- 术语统一：面向用户与文档中的术语保持一致（如“电路图评审（主副模型架构）/（委员会架构）”），避免同义多词。
+- 文档双语：根目录 `README.md` 与 `README.zh.md` 必须同步更新且互为镜像，不得一方滞后。
+- 行为一致：前端超时、进度展示、错误提示与后端时间线事件一致；缺失系统提示词时仅给出非阻断告警。
+- 可用性门槛：提交操作后 3 秒内必须出现第一条进度项；超过 30 秒无新事件应显示心跳/占位提示。
+- 可访问性与稳健性：长过程操作必须可中断/重试/恢复；避免主线程长阻塞（大颗粒计算移交至异步）。
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+（理由）一致的术语与反馈能显著降低学习成本；双语 README 要求配合跨团队协作。
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. 性能与可靠性预算
+- 前端交互：关键交互不应出现明显卡顿；提交后 3 秒内必须出现第一条 timeline 事件；长任务提供持续反馈。
+- 上游调用：为上游 LLM/检索设定明确超时（如 60–120s，按环境配置）；失败遵循可重试与幂等策略（避免重复副作用）。
+- 工件与资源：单个 artifact 建议 ≤5MB，超过阈值需压缩/分片或提供外链；禁止在日志/工件中泄露敏感凭据。
+- 渐进式改进：性能预算违反时必须在 PR 中记录原因与缓解计划（拆分、缓存、并发/批处理、降级路径等）。
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+（理由）受外部 LLM 不确定性影响，需以超时/重试/降级与可见进度反馈保障整体可用性。
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## 附加约束与安全合规
+- 配置与密钥：密钥不入库、不入日志；本地开发仅存于环境变量/临时配置中。
+- 依赖与版本：依赖升级需说明影响面与回滚方案；破坏性升级需配合灰度/验证计划。
+- 数据治理：含请求/响应/图像的 artifacts 按敏感数据处理；明确保留期与共享范围。
+
+## 开发流程与质量门禁
+- 变更前：在计划文档的 “Constitution Check” 栏勾检四项门禁（代码质量、测试/验证、UX 一致性、性能预算）。
+- 变更中：PR 必须附带验证方式（自动化测试或工具化验证步骤）与 artifacts/截图/录屏之一。
+- 变更后：若影响文档或界面，需同步更新 `README.md`/`README.zh.md` 与 `CURSOR.md` 关键章节。
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+- 宪章优先级：本宪章优先于项目内其他实践与约定，除非另有更新版本明示变更。
+- 修订流程：通过 PR 提议修订，需在 PR 描述中列出变更影响、迁移/兼容策略与版本号变更类型；由维护者审批。
+- 版本策略（语义化）：
+  - MAJOR：破坏性治理/原则移除或重定义；
+  - MINOR：新增原则或显著扩展指导；
+  - PATCH：措辞澄清、排版与非语义性修订。
+- 合规审查：所有 PR 在代码评审时需显式核验四项门禁；若存在例外，必须在“Complexity Tracking/例外说明”给出理由与时限。
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
-
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-10-21 | **Last Amended**: 2025-10-21
