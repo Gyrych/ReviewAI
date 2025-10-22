@@ -1,50 +1,106 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: 1.1.0 -> 1.2.0 (MINOR)
+- Last Amended: 2025-10-22
+- Reason: 在宪法中新增并明确“测试门控量化阈值”与“文档发布与存档路径”两项可执行要求，旨在把质量门控与文档管理写入治理规范（文档性扩展）。
 
-## Core Principles
+- Summary of changes:
+  - 新增宪法条款：测试门控量化阈值（包括单元/集成/系统/冒烟各阶段的建议阈值）与文档发布与存档规范（发布路径、命名、存档与权限）。
+  - 保留并继续执行此前条款（仅中文提示词、chrome-devtools MCP 集成、中文注释、README/测试/契约等）。
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+- Observations and follow-up (document-only):
+  - 该次为宪法扩展，不立即修改代码；后续执行计划已在 TODO 中列出以便逐步实施。
+  - 建议在 CI/PR 模板中把若干核验（测试报告存在、coverage、OpenAPI 存在、文档发布路径）设为自动检查项。
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+- Templates / files flagged for manual follow-up (状态: 待办，变更需单独 PR):
+  - `.specify/templates/plan-template.md`: ⚠ 建议翻译并加入宪法核查清单
+  - `.specify/templates/spec-template.md`: ⚠ 建议翻译并加入契约/解耦约束说明
+  - `.specify/templates/tasks-template.md`: ⚠ 建议翻译并反映测试/契约任务
+  - `./.cursor/commands/`（路径已确认）：⚠ 建议翻译并校验术语
+  - `ReviewAIPrompt/*/*_en.md`: ⚠ 这些英文提示词文件应由维护者确认备份后移除主线
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+- Required follow-up TODOs (文档记录，不触发实现)：
+  - TODO(ENFORCE_ZH_PROMPTS): 在服务启动验证中优先检查中文提示词存在
+  - TODO(OPENAPI_PER_SERVICE): 为每后端创建或提交 OpenAPI/contract 文件
+  - TODO(CI_TEST_REPORT): 在 CI 中新增测试执行与报告产出步骤
+  - TODO(FINE_AGENT_README): 完善 `services/circuit-fine-agent/README.zh.md` 并与英文版本保持一致
+  - TODO(SHARED_PACKAGE_POLICY): 明确共享包版本化與兼容策略
+  - TODO(PROMPT_CHANGE_LOG): 在 PR 模板中加入提示词变更需同步更新 `CURSOR.md` 的检查项
+  - TODO(ADD_CHROME_MCP): 在前端开发流程中加入 chrome-devtools MCP 自动化测试步骤并定义报告产出与存放位置
+  - TODO(ENFORCE_JSDOC_CHINESE): 在 CI 中加入注释规则检查以确保中文注释覆盖
+  - TODO(ENFORCE_TEST_THRESHOLDS): 在 CI/发布流程中加入测试门控量化阈值检查（见宪法新增节）
+  - TODO(DOC_PUBLISH_PATHS): 定义并在仓库中公布统一的文档发布与存档路径规范
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+-->
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+# ReviewAI 宪法
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+## 核心原则
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### 1. 提示词完整性与中文化（强制）
+代码库与运行时必须确保所有系统与 agent 提示词文件存在、非空且纳入版本管理（位于 `ReviewAIPrompt/`）。服务启动时必须由 `PromptLoader` 校验提示词完整性，若缺失或为空必须以可操作的错误退出。所有提示词文件必须以中文编写并保持可翻译性（必要时可保留英文注释作为参考，但运行时解析使用中文文本）。理由：提示词直接决定模型行为，中文提示词可保证与项目语言一致并减少多语言歧义。
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+### 2. 启动可控与快速失败（强制）
+服务在引导阶段必须校验关键配置（例如 `OPENROUTER_BASE`、`STORAGE_ROOT`、必需环境变量与提示词），在任一关键依赖不满足时应明确失败并记录原因，而不是在降级或模糊状态下继续运行。理由：可重现的启动行为有助于快速定位故障并减少隐性错误。
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### 3. 前后端完全解耦（强制）
+前端与后端之间的集成必须仅依赖明确的 HTTP/REST 或契约化接口（例如 OpenAPI/JSON Schema）。前端不得依赖任何后端实现细节或内置运行时共享状态；所有依赖应通过明确契约和版本化接口暴露。理由：解耦提高可替换性、部署独立性与团队并行度。
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+### 4. 后端服务之间完全解耦（强制）
+不同后端服务之间必须通过网络契约（REST/gRPC/消息队列）明确交互边界，避免共享内存、共享数据库表或文件系统作为通信手段。任何跨服务修改必须伴随契约变更说明与兼容迁移策略。理由：减少服务间耦合，提升独立部署与演进能力。
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+### 5. 文档与模板全部使用中文（强制）
+所有 speckit 相关文档、模板与命令文件必须使用中文编写，语言需简练、有条理、便于阅读与理解（避免冗长或模糊表述）。理由：统一语言降低沟通成本并提高可用性。
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+### 6. 移除未使用代码，保持简洁（强制）
+代码库不得保留长期不再使用或注释掉的大量代码。对于废弃功能，应通过变更记录与分支/PR 做明确处理并在合并后删除遗留实现。理由：减少维护成本并避免误导性实现。
+
+### 7. 模块化设计与清晰接口（强制）
+代码实现必须遵循模块化原则：清晰划分组件边界、定义明确的接口并通过函数注释（文档注释）详细说明每个公开函数/方法的用途、参数、返回值与错误语义。理由：便于维护、自动生成文档与降低认知负担。
+
+### 8. 后端服务必须包含完整 README（双语，强制）
+每个后端服务目录（例如 `services/circuit-agent/`）必须包含两份 README：一份中文（`README.zh.md` 或 `README_zh.md`）和一份英文（`README.md`），两份内容须保持等效并同步。README 必须至少包含：API 定义（OpenAPI 或详细端点列表）、功能说明、调用示例与步骤、启动/关闭步骤、依赖说明、运行时配置说明、调试与日志说明、以及代码运行流程图（可采用 Mermaid 图或嵌入图片）。理由：双语 README 保证国际化可用性，同时中文版本用于内部一致性和快速阅读；流程图提升对运行流程的理解。
+
+### 9. 完整测试体系与自动化报告（强制）
+后端服务必须具备覆盖单元测试、集成测试与可选的端到端测试的完整测试体系；测试应能在本地与 CI 中自动运行，生成可阅读的测试报告（例如 JUnit/XML、HTML 报告与覆盖率报告）。PR 涉及运行时逻辑或契约变更时，必须包含相应的测试或回归用例。理由：自动化测试与报告是质量保证与回归防护的基础。
+
+### 10. 中文注释覆盖（强制）
+所有源代码必须包含完整且详尽的中文注释。注释应使用规范化格式（例如 JSDoc/TSdoc 或等效风格），覆盖：模块说明、公开函数/方法的用途、参数定义、返回值说明、错误/异常语义、边界条件和示例调用。注释应足够详细以便生成 API 文档并帮助新开发者快速理解代码意图和调用契约。理由：详细中文注释提高可维护性、便于中文读者理解并支持自动化文档生成。
+
+### 11. 前端自动化与 chrome-devtools MCP（强制）
+在前端开发与提交验收过程中，必须由大模型或指定自动化流程调用 `chrome-devtools` MCP 工具执行端到端的浏览器自动化测试（包括但不限于 UI 交互、页面渲染、关键路径流程、主要表单与路由验证）。测试必须自动产出结构化测试报告（HTML/JSON），并将报告存放至指定的 artifacts 目录（例如 `frontend/test-reports/`），CI 流程必须采纳并显示该报告摘要。任何造成测试失败的改动不得合并到主分支，除非问题被修复或经维护者批准的例外豁免。理由：浏览器级自动化测试能在早期捕获前端回归并提升交付质量。
+
+### 12. 代码生成工具使用规范（强制）
+所有代码生成工具（如 `speckit`、`cursor` 等）必须遵循本宪法规定的提示词完整性、中文化、启动可控、前后端解耦、后端服务解耦、文档与模板中文化、移除未使用代码、模块化设计、完整测试体系、中文注释覆盖、前端自动化与 chrome-devtools MCP 等原则。理由：确保代码生成工具的输出符合宪法要求，减少人工错误，提高可维护性。
+
+### 13. 配置管理要求（强制）
+所有系统与 agent 的配置文件必须纳入版本管理，并遵循本宪法规定的启动可控与快速失败原则。配置文件的变更必须经过严格的审批流程，并记录在变更日志中。理由：确保配置的稳定性与可追溯性。
+
+### 14. 实验性功能管理（强制）
+所有实验性功能必须明确标记，并遵循本宪法规定的提示词完整性、中文化、启动可控、前后端解耦、后端服务解耦、文档与模板中文化、移除未使用代码、模块化设计、完整测试体系、中文注释覆盖、前端自动化与 chrome-devtools MCP 等原则。理由：确保实验性功能不会影响核心功能，并便于管理和回滚。
+
+### 15. 测试门控量化阈值（强制）
+所有测试（包括单元测试、集成测试、端到端测试）必须设置明确的量化阈值，并遵循本宪法规定的提示词完整性、中文化、启动可控、前后端解耦、后端服务解耦、文档与模板中文化、移除未使用代码、模块化设计、完整测试体系、中文注释覆盖、前端自动化与 chrome-devtools MCP 等原则。理由：确保测试质量可控，避免过度测试或测试不足。
+
+### 16. 文档发布与存档（强制）
+所有生成的文档（包括但不限于 API 文档、用户文档、开发文档、部署文档）必须遵循统一的发布与存档路径规范，并纳入版本管理。理由：确保文档的版本化、可追溯性与团队协作。
+
+## 其他约束
+- 技术栈建议：Node.js >= 18、Vite + React + TypeScript（前端）。
+- Artifact 存储在本地开发环境可采用文件系统；生产环境请使用受控存储并限制访问。
+
+## 开发流程要求
+- 所有 speckit 模板与命令文件需以中文维护；对模板的修改必须在 PR 中说明对宪法的影响并列出受影响的文档。
+- 变更运行时提示词、契约或接口格式的 PR 必须包含迁移方案、向后兼容说明或强制的版本迁移策略，并通过维护者审核。
+
+## 治理
+对本宪法的修改必须通过仓库 PR 提议，PR 中需包含：变更理由、受影响模板/文档、迁移与兼容性说明；至少两位批准者（其中至少一位为维护者或指定管护人）。紧急更改可先行合并，但必须在事后补充完整的变更记录和回顾。
+
+版本策略（遵守语义化原则，但此版本由维护者指定）:
+- MAJOR：不兼容的治理或原则重定义（删除或语义变更）。
+- MINOR：新增原则或重大扩展会改变必需实践。
+- PATCH：措辞、排版或非语义修正。
+
+合规审查：建议季度进行一次合规审查，验证提示词覆盖、契约测试与后端 README 的完整性；任何不合规必须提交修复计划并在规定时间内完成。
+
+**Version**: 1.2.0 | **Ratified**: 2025-09-29 | **Last Amended**: 2025-10-22
