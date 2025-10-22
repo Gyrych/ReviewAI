@@ -1,0 +1,25 @@
+﻿# 10_ReviewAI Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-10-22
+
+## Active Technologies
+- Node.js 18 + TypeScript（前后端一致） + Express、TypeScript、Vite + React、ESLint/Prettier（TS 严格模式）、OpenRouter 兼容上游 (001-review-flow-cleanup)
+
+## Project Structure
+```
+backend/
+frontend/
+tests/
+```
+
+## Commands
+npm test; npm run lint
+
+## Code Style
+Node.js 18 + TypeScript（前后端一致）: Follow standard conventions
+
+## Recent Changes
+- 001-review-flow-cleanup: Added Node.js 18 + TypeScript（前后端一致） + Express、TypeScript、Vite + React、ESLint/Prettier（TS 严格模式）、OpenRouter 兼容上游
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

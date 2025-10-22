@@ -201,6 +201,26 @@
 - 目的：
   - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
 
+2025-10-21 变更记录（/speckit.plan 设计产物生成）
+
+- 文件新增：
+  - `specs/001-review-flow-cleanup/research.md` — Phase 0 研究，解决 Technical Context 中的 NEEDS CLARIFICATION。
+  - `specs/001-review-flow-cleanup/data-model.md` — 抽取实体/字段/关系与状态流转。
+  - `specs/001-review-flow-cleanup/contracts/openapi.yaml` — 契约优先，覆盖 orchestrate/artifacts/progress 等接口。
+  - `specs/001-review-flow-cleanup/quickstart.md` — 可复现验证步骤（curl 示例），满足“测试或工具化验证”门禁。
+- 文件修改：
+  - `specs/001-review-flow-cleanup/plan.md` — 填充标题、摘要、Technical Context、实际结构（actual overview）。
+- 目的：
+  - 清理与收敛“电路图评审（主副模型架构）”端到端流程设计；形成合同与验证材料；为后续实现与审计提供单一事实来源。
+
+2025-10-22 变更记录（README 双语对齐：基路径与 artifacts 列表接口）
+
+- 文件修改：
+  - `README.md` — 在 Key endpoints 中新增基路径说明，并补充 `GET /artifacts` 列表接口。
+  - `README.zh.md` — 在关键接口中新增基路径说明，并补充 `GET /artifacts` 列表接口。
+- 目的：
+  - 与后端现状保持一致，提升接口可发现性与调试便利性；双语 README 同步，满足宪章“用户体验一致性”。
+
 - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
 2025-10-21 变更记录（项目宪章采纳 v1.0.0）
 

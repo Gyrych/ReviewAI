@@ -76,8 +76,10 @@ Architecture overview
 - `services/circuit-fine-agent/` — parallel service for multi-pass/电路图评审（委员会架构） workflows; structure mirrors `circuit-agent` and reuses the same `PromptLoader` conventions.
 
 Key endpoints (circuit-agent)
+- Base path: http://localhost:4001/api/v1/circuit-agent (all paths below are relative to this base)
 - `GET /health` — health check
 - `GET /progress/:id` — progress
+- `GET /artifacts` — list artifacts (debug/compat route)
 - `GET /artifacts/:filename` — static artifacts
 - `GET /system-prompt?lang=zh|en` — returns system prompt (used by frontend)
 - `POST /orchestrate/review` — unified orchestrator; `directReview=true` triggers direct mode (images → LLM review), otherwise structured mode runs multi-pass recognition + review + aggregation.

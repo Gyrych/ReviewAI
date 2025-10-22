@@ -74,8 +74,10 @@ npm run dev
 - `services/circuit-fine-agent/` — 用于精细/电路图评审（委员会架构）工作流的并行服务，结构与 `circuit-agent` 一致，遵循相同的 `PromptLoader` 约定。
 
 关键接口（circuit-agent）
+- 基路径：`http://localhost:4001/api/v1/circuit-agent`（以下接口均相对该基路径）
 - `GET /health` — 健康检查
 - `GET /progress/:id` — 进度
+- `GET /artifacts` — 列出工件（调试/兼容）
 - `GET /artifacts/:filename` — 静态工件
 - `GET /system-prompt?lang=zh|en` — 获取系统提示词
 - `POST /orchestrate/review` — 统一编排；当 `directReview=true` 时直接走直评模式（图片→LLM 评审），否则走结构化识别 + 并行评审 + 整合流程。

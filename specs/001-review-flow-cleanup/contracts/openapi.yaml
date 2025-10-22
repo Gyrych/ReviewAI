@@ -1,0 +1,121 @@
+openapi: 3.0.3
+info:
+  title: ReviewAI Orchestrate API
+  version: 0.1.0
+servers:
+  - url: http://localhost:4001/api/v1/circuit-agent
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /orchestrate/review:
+    post:
+      summary: Orchestrated review entry (multipart)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                requirements:
+                  type: string
+                specs:
+                  type: string
+                dialog:
+                  type: string
+                history:
+                  type: string
+                  description: JSON string of message list
+                enableSearch:
+                  type: boolean
+                language:
+                  type: string
+                  enum: [zh, en]
+      responses:
+        '200':
+          description: Markdown review with timeline
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markdown:
+                    type: string
+                  enrichedJson:
+                    type: object
+                  overlay:
+                    type: string
+                  timeline:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TimelineEntry'
+                  searchSummaries:
+                    type: array
+                    items:
+                      type: string
+        '400':
+          description: Invalid parameters
+        '500':
+          description: Internal error
+  /artifacts:
+    get:
+      summary: List artifacts (debug/compat)
+      responses:
+        '200':
+          description: Artifact list
+  /artifacts/{filename}:
+    get:
+      summary: Get artifact by filename
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artifact content
+        '404':
+          description: Not found
+  /progress/{id}:
+    get:
+      summary: Get progress by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Progress info
+components:
+  schemas:
+    TimelineEntry:
+      type: object
+      properties:
+        step:
+          type: string
+        timestamp:
+          type: number
+        origin:
+          type: string
+        meta:
+          type: object
+        artifacts:
+          type: object
+          properties:
+            request:
+              type: string
+            response:
+              type: string
+
