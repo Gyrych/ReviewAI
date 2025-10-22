@@ -299,6 +299,14 @@
   - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T038、T039、T040、T041、T042。
 - 目的：
   - 收尾对齐文档与契约，确保对外接口说明与实现一致，便于后续集成与审计。
+2025-10-22 变更记录（/speckit.analyze — 规范细化与任务清理）
+
+- 文件修改：
+  - `specs/001-review-flow-cleanup/spec.md` — 细化 FR-003/FR-004（≤1024 词、质量门槛、失败不注入）；新增 “Non-Functional Requirements”；将 SC-001 改为明确阈值（≤2 分钟）；清理占位 `Input` 文本。
+  - `specs/001-review-flow-cleanup/tasks.md` — 删除重复任务（T016/T017/T018），新增负向验证任务（T043：`language=foo` 返回 400；T044：超限文件错误与 timeline）；更新任务总数为 41；修正列表缩进。
+  - `specs/001-review-flow-cleanup/plan.md` — 增加说明：文档统一使用 POSIX 相对路径展示，Windows 绝对路径仅在任务中作为执行提示。
+- 目的：
+  - 去重降噪，补齐 NFR 与可度量标准，完善负向用例验证，统一路径展示风格以提升跨平台一致性。
 2025-10-21 变更记录（项目宪章采纳 v1.0.0）
 
 - **文件新增/覆盖**：`.specify/memory/constitution.md` — 采用以“代码质量、测试标准、用户体验一致性、性能与可靠性预算”为核心的四项原则；新增“附加约束与安全合规”“开发流程与质量门禁”两节；含 Sync Impact Report。

@@ -3,7 +3,7 @@
 **Feature Branch**: `001-review-flow-cleanup`
 **Created**: 2025-10-21
 **Status**: Draft
-**Input**: User description: "1、允许；2、同意；"
+**Input**: User description: [replace with a short, factual summary of requirements origin]
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -66,14 +66,23 @@ Users can save and later reload sessions. System stores LLM requests/responses, 
 
 - **FR-001**: System MUST accept multipart uploads including images/PDF and text fields (`requirements`, `specs`, `dialog`, optional `history`).
 - **FR-002**: System MUST support `enableSearch` flag; when true, it MUST run identify pass to extract key components and technical routes.
-- **FR-003**: System MUST perform online search per identified keyword and summarize each resulting URL into concise textual summaries.
-- **FR-004**: System MUST inject valid summaries as additional system messages and save raw requests/responses and summaries as artifacts; invalid/failed summaries MUST be recorded but not injected.
+- **FR-003**: System MUST perform online search per identified keyword and summarize each resulting URL into concise textual summaries (≤1024 words each). Summaries MUST pass quality gates before injection (contain ≥3 verifiable facts with source URL; exclude access/denied boilerplate).
+- **FR-004**: System MUST inject only valid summaries as additional system messages and persist all raw requests/responses and summaries as artifacts; invalid/failed summaries MUST be recorded in the timeline but MUST NOT be injected.
 - **FR-005**: System MUST load appropriate system prompt (`initial` vs `revision`) based on history and respect language selection (`zh` or `en`).
 - **FR-006**: System MUST produce a Markdown review report and a timeline containing at least request/response entries; when search is enabled, timeline MUST also include identify/search/query/hit/summary events.
 - **FR-007**: System MUST allow unlimited revision rounds by submitting additional dialog with prior assistant responses in history.
 - **FR-008**: System MUST expose artifacts via static route and provide a listing endpoint for inspection.
 - **FR-009**: Frontend MUST provide a toggle to enable/disable component search and pass through user inputs (files/texts/history) correctly.
 - **FR-010**: Documentation (Chinese and English READMEs) MUST accurately describe the current flow and parameters after cleanup.
+
+### Non-Functional Requirements
+
+- Performance: End-to-end for typical inputs ≤ 2 minutes in a standard dev environment; first timeline entry within 3 seconds after submission.
+- Reliability/Timeouts: Upstream LLM/search timeouts 60–120s with retry/degraded paths; avoid duplicate side effects.
+- Observability: Structured logging and timeline events on all major stages; artifacts treated as sensitive under least-visibility principle.
+- Resource Budget: Single artifact recommended ≤5MB; larger payloads require compression/chunking or external links.
+- Prompt Integrity: All required prompt files MUST exist and be non-empty; otherwise fail-fast with clear errors.
+- Documentation Parity: Chinese/English READMEs MUST be kept in sync with actual behavior and routes.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -87,7 +96,7 @@ Users can save and later reload sessions. System stores LLM requests/responses, 
 
 ### Measurable Outcomes
 
-- **SC-001**: Initial review submission returns a Markdown report and timeline within an acceptable end-to-end time for typical inputs (e.g., under 2 minutes in a standard dev environment).
+- **SC-001**: In a standard dev environment, the initial submission returns a Markdown report and timeline within ≤ 2 minutes.
 - **SC-002**: With `enableSearch=true`, at least one valid summary is injected for ≥80% of cases when identify yields ≥1 keyword and the web results are accessible.
 - **SC-003**: Timeline contains all major stages (identify/search/query/hit/summary/request/response) with artifact references for ≥95% successful operations.
 - **SC-004**: Unlimited revision loop works: three consecutive revision submissions produce three distinct revised reports with correct revision prompts.

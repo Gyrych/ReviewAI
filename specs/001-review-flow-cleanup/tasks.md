@@ -33,9 +33,6 @@ Independent Test: 访问 `/health`、`/artifacts` 列表成功；前端表单包
 - [X] T013 [P] 在线检索 provider 与摘要能力存在 `E:\05_selfplace\10_ReviewAI\services\circuit-agent\src\infra\search\OpenRouterSearch.ts`
 - [X] T014 [P] 工件存储实现存在 `E:\05_selfplace\10_ReviewAI\services\circuit-agent\src\infra\storage\ArtifactStoreFs.ts`
 - [X] T015 [P] 会话存储实现存在 `E:\05_selfplace\10_ReviewAI\services\circuit-agent\src\infra\storage\SessionStoreFs.ts`
-- [X] T016 前端评审表单透传 enableSearch `E:\05_selfplace\10_ReviewAI\frontend\src\components\ReviewForm.tsx`
-- [X] T017 [P] 电路页代理类表单透传 enableSearch `E:\05_selfplace\10_ReviewAI\frontend\src\agents\circuit\ReviewForm.tsx`
-- [X] T018 [P] 电路精细页代理类表单透传 enableSearch `E:\05_selfplace\10_ReviewAI\frontend\src\agents\circuit-fine\ReviewForm.tsx`
 
 ## Phase 3 — User Story 1（P1）：初始评审与可选检索
 
@@ -84,6 +81,8 @@ Independent Test: 按 README 步骤从零跑通，界面术语与文档一致；
 - [X] T040 [P] 校对前端 i18n 字段与 UX 文案 `E:\05_selfplace\10_ReviewAI\frontend\src\i18n.tsx`
 - [X] T041 差错路径信息与日志可读性核对 `E:\05_selfplace\10_ReviewAI\services\circuit-agent\src\interface\http\routes\orchestrate.ts`
 - [X] T042 [P] 对齐 OpenAPI 契约与实现（路由/参数/响应） `E:\05_selfplace\10_ReviewAI\specs\001-review-flow-cleanup\contracts\openapi.yaml`
+- [ ] T043 [P] 负向用例：language=foo → 返回 400（工具化验证；在 quickstart.md 增补 curl 与期望响应）
+- [ ] T044 [P] 负向用例：超限文件提交 → 返回明确错误并包含 timeline 记录（工具化验证；在 quickstart.md 增补复现步骤）
 
 ---
 
@@ -106,7 +105,7 @@ MVP：仅交付 US1（初始评审 + 可选检索）即可形成可演示价值�
 ## 报告
 
 - 输出路径：`E:\05_selfplace\10_ReviewAI\specs\001-review-flow-cleanup\tasks.md`
-- 任务总数：42
+- 任务总数：41
 - 各用户故事任务数：US1=11，US2=4，US3=4（不含 Setup/Foundational/Polish）
 - 并行机会：US1(7)，US2(2)，US3(2)
 - 独立测试标准：已在各 Phase 标注

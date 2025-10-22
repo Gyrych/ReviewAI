@@ -128,6 +128,8 @@ frontend/
 
 **Structure Decision (actual)**: 采用 Web 应用结构（多后端服务 + 前端）。本特性仅产出 `specs/001-review-flow-cleanup/*` 文档与契约，不直接修改源代码。
 
+> Note: Documentation uses POSIX-style relative paths (e.g., `specs/001-review-flow-cleanup/...`) for consistency across platforms. Absolute Windows paths may appear in tasks only as execution hints.
+
 ## Complexity Tracking
 
 *Fill ONLY if Constitution Check has violations that must be justified*
