@@ -94,7 +94,7 @@ Important runtime behaviors
 - `orchestrate` route auto-detects whether a request is a revision based on `history` content and loads `system_prompt_initial` or `system_prompt_revision` accordingly.
 - `DirectReviewUseCase` prepares rich messages (system + user parts). When `enableSearch=true` in direct mode:
   - Runs an identify stage to extract key components and key technical routes (JSON)
-  - Performs online search per keyword and generates per-URL summaries (≤512 words each), injecting each summary as a separate system message
+  - Performs online search per keyword and generates per-URL summaries (≤1024 words each), injecting each summary as a separate system message
   - Converts attachments to data URLs for upstream vision LLM
   - Stores full request/response artifacts for debugging.
   - The orchestrator also mirrors these summaries to `searchSummaries` in the JSON response as a frontend fallback.

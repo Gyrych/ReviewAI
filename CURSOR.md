@@ -51,7 +51,7 @@
 
 - `PromptLoader`（`services/*/src/infra/prompts/PromptLoader.ts`）负责按 agent/language/variant 解析文件名、校验存在性并缓存内容；提供 `preloadPrompts` 用于启动预热。
 - `orchestrate` 路由支持 `directReview` 切换直评/精细流程；在 direct 模式下会根据 `history` 判断是否为修订轮（`initial` vs `revision`）并加载对应 system prompt。
- - 模型命名约定：引入 **主模型（main model）** 与 **副模型（aux model）** 概念：主模型用于视觉识别与评审（由前端顶部第一行 `model` 管理并随会话保存）；副模型用于检索/摘要（由前端顶部第二行 `auxModel` 管理并随表单以 `auxModel` 字段提交，后端优先使用 `body.auxModel`，不存在时回退到 `model`）。
+- 模型命名约定：引入 **主模型（main model）** 与 **副模型（aux model）** 概念：主模型用于视觉识别与评审（由前端顶部第一行 `model` 管理并随会话保存）；副模型用于检索/摘要（由前端顶部第二行 `auxModel` 管理并随表单以 `auxModel` 字段提交，后端优先使用 `body.auxModel`，不存在时回退到 `model`）。
 - `DirectReviewUseCase` 会：
   - 将系统提示、requirements/specs/dialog 与历史合并成富消息（rich messages）发送给视觉/文本上游；
   - 在 `enableSearch=true` 时，先执行“识别轮”提取关键元器件与技术路线清单；随后对每个关键词进行在线检索并逐 URL 生成摘要（默认≤1024词，结构化要点），进行关键词与 URL 去重，过滤失败短语（如“无法直接访问该网页内容”等）后再注入，将合格摘要各自作为独立的 system 消息注入上下文；
@@ -221,7 +221,23 @@
 - 目的：
   - 与后端现状保持一致，提升接口可发现性与调试便利性；双语 README 同步，满足宪章“用户体验一致性”。
 
-- 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
+2025-10-22 变更记录（/speckit.tasks 任务清单生成）
+
+- 文件新增：
+  - `specs/001-review-flow-cleanup/tasks.md` — 基于 plan/spec/data-model/contracts/quickstart 生成，按用户故事（US1、US2、US3）组织，含依赖与并行建议，可直接执行的任务清单。
+- 目的：
+  - 为“电路图评审（主副模型架构）”流程清理提供可执行分解，支撑增量交付与工具化验收；与 `.specify/templates/tasks-template.md` 要求一致。
+
+2025-10-22 变更记录（README 摘要长度与 tasks Polish 契约对齐）
+
+- 文件修改：
+  - `README.md` — 将“逐 URL 摘要”上限由 ≤512 词统一为 ≤1024 词。
+  - `README.zh.md` — 同步将“逐 URL 摘要”上限由 ≤512 词统一为 ≤1024 词。
+  - `specs/001-review-flow-cleanup/tasks.md` — 在 Polish 阶段新增 `T042` 契约对齐任务，并将任务总数由 41 更新为 42。
+- 目的：
+  - 统一与 `research.md/plan.md` 的 1024 词结论；在收尾阶段加入 OpenAPI 契约对齐检查，保证实现与合同一致。
+
+ - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
 2025-10-21 变更记录（项目宪章采纳 v1.0.0）
 
 - **文件新增/覆盖**：`.specify/memory/constitution.md` — 采用以“代码质量、测试标准、用户体验一致性、性能与可靠性预算”为核心的四项原则；新增“附加约束与安全合规”“开发流程与质量门禁”两节；含 Sync Impact Report。
