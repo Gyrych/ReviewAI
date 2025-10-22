@@ -136,6 +136,7 @@
   - `services/circuit-agent/src/infra/search/OpenRouterSearch.ts` — 新增 `summarizeUrl(url, wordLimit, lang)`。
   - `services/circuit-agent/src/interface/http/routes/orchestrate.ts` — 直评分支串联 识别→检索→逐URL 摘要→注入 `extraSystems`→直评。
   - `ReviewAIPrompt/circuit-agent/identify_prompt_zh.md|identify_prompt_en.md` — 新增识别轮提示词。
+  - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 新增中文检索/摘要提示词（与实现约定一致）。
 - 文件删除：
   - `services/circuit-agent/src/infra/search/DuckDuckGoHtmlSearch.js`
 - 目的：
@@ -238,6 +239,66 @@
   - 统一与 `research.md/plan.md` 的 1024 词结论；在收尾阶段加入 OpenAPI 契约对齐检查，保证实现与合同一致。
 
  - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
+
+2025-10-22 变更记录（/speckit.implement — Phase 1 完成部分）
+
+- 文件新增：
+  - `ReviewAIPrompt/circuit-agent/identify_prompt_zh.md` — 中文识别轮提示词（与现有中文内容对齐）。
+  - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 中文检索/摘要提示词（满足 PromptLoader 中文变体约定）。
+- 文件修改：
+  - `.gitignore` — 追加 Python 忽略项：`__pycache__/`、`*.pyc`、`.pytest_cache/`、`.venv/`、`venv/`、`env/`、`services/circuit-agent-py/venv/`。
+  - `specs/001-review-flow-cleanup/tasks.md` — 将 T006/T007 标记为完成（[X]）。
+- 目的：
+  - 满足 Phase 1 对中文提示词存在性的检查；确保 Python 虚拟环境与缓存不会误提交；推进任务清单进度以便继续实施。
+
+2025-10-22 变更记录（/speckit.implement — Phase 2 与 US1 任务勾选）
+
+- 文件修改：
+  - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T001、T008、T009、T010–T018、T019–T027。
+- 目的：
+  - 确认并记录编排路由、直评与识别/检索/存储实现、前端 enableSearch 透传等基础能力已满足；为后续工具化验证（T028/T029）与后续用户故事推进奠定基础。
+
+2025-10-22 变更记录（/speckit.implement — US3 会话与工件能力确认）
+
+- 文件核对：
+  - `services/circuit-agent/src/interface/http/routes/sessions.ts` — 已提供 list/load/save/delete 处理器。
+  - `services/circuit-agent/src/infra/storage/SessionStoreFs.ts` — 文件会话存储实现可读可写。
+  - `services/circuit-agent/src/bootstrap/server.ts` — 已挂载 `/sessions/*` 路由与 `/artifacts` 列表与静态访问。
+- 文件修改：
+  - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T034、T035、T036。
+- 目的：
+  - 确认会话与工件相关能力已具备，为 T037 的工具化验证与前端会话操作准备就绪。
+
+2025-10-22 变更记录（/speckit.implement — US1 工具化验证完成）
+
+- 执行：
+  - 使用提供的 API Key 调用 orchestrate/review（禁用检索/启用检索）并保存响应至 `tmp/`。
+  - 访问 `/artifacts` 列表并保存列表 JSON 至 `tmp/`。
+- 文件修改：
+  - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T028、T029、T037。
+- 目的：
+  - 完成 US1 的工具化验证与工件列表验证，便于审计与复现。
+
+2025-10-22 变更记录（/speckit.implement — US2 修订轮验证完成）
+
+- 执行：
+  - 构造带 assistant 历史（含报告标记）的请求，触发修订轮，保存响应至 `tmp/us2_revision.json`。
+- 文件修改：
+  - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T030、T031、T032、T033。
+- 目的：
+  - 验证修订判定与双语提示词加载逻辑，完成 US2 工具化验证。
+
+2025-10-22 变更记录（/speckit.implement — Final Phase 文档与契约对齐完成）
+
+- 文件核对：
+  - `README.md` 与 `README.zh.md` — 基路径与关键端点已对齐（含 `/artifacts` 列表、`/progress/:id` 等说明），与实现一致。
+  - `frontend/src/i18n.tsx` — 关键键位齐全，新增与检索/识别/时间线相关键已覆盖；缺失键有 fallback 机制。
+  - `services/circuit-agent/src/interface/http/routes/orchestrate.ts` — 错误信息简洁可读，中文注释清晰，无冗余异常处理。
+  - `specs/001-review-flow-cleanup/contracts/openapi.yaml` — 路由、参数与响应结构与实现一致（`searchSummaries`、`/artifacts`、`/progress/:id` 等已涵盖）。
+- 文件修改：
+  - `specs/001-review-flow-cleanup/tasks.md` — 标记完成：T038、T039、T040、T041、T042。
+- 目的：
+  - 收尾对齐文档与契约，确保对外接口说明与实现一致，便于后续集成与审计。
 2025-10-21 变更记录（项目宪章采纳 v1.0.0）
 
 - **文件新增/覆盖**：`.specify/memory/constitution.md` — 采用以“代码质量、测试标准、用户体验一致性、性能与可靠性预算”为核心的四项原则；新增“附加约束与安全合规”“开发流程与质量门禁”两节；含 Sync Impact Report。
