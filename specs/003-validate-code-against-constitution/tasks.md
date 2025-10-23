@@ -26,6 +26,8 @@ description: Tasks for feature 003-validate-code-against-constitution
 - [ ] T007 在 `frontend/package.json` 中添加 `test:e2e` 脚本：`npx playwright test --reporter=list,html --output=./test-reports`（若 `playwright.config.ts` 已存在则仅添加脚本）
 - [ ] T008 在 `services/circuit-agent/` 中添加 `tests/` 目录与 `vitest` 占位配置（`services/circuit-agent/package.json` 添加 `test:unit` 脚本）
 - [ ] T009 在 `specs/003-validate-code-against-constitution/` 下添加 `audit-dist-artifacts.md`，列出长期存在的 `frontend/dist/` 与 `services/*/dist/` 中建议清理的产物清单
+- [ ] T025 [P] 在 `frontend/playwright.config.ts` 与 `frontend/tests/e2e/sample.spec.ts` 中添加 Playwright 配置与示例测试，确保与 `frontend/package.json` 的 `test:e2e` 脚本协同工作（见 T007）
+- [ ] T027 [P] 在 `scripts/sample-chinese-docs.js` 中实现注释抽样脚本，输出 `specs/003-validate-code-against-constitution/chinese-docs-report.json`（用于 T022 的注释覆盖率评估）
 
 ---
 
@@ -79,6 +81,8 @@ description: Tasks for feature 003-validate-code-against-constitution
 - [ ] T022 [P] 编写并提交 `specs/003-validate-code-against-constitution/validation-checklist.md`，包含所有 Acceptance Scenarios 的逐项核验步骤
 - [ ] T023 [P] 在 `specs/003-validate-code-against-constitution/` 中补充 `implementation-notes.md`，记录实现要点与回滚/兼容策略
 - [ ] T024 在完成上述后，执行 `frontend` 与 `services/circuit-agent` 的一次 end-to-end 验证（手动或 CI），并在 `specs/003-validate-code-against-constitution/` 记录结果
+- [ ] T026 [P] 在 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md` 中创建 E2E 覆盖率提升计划，包含分阶段目标与测量方法（用于 T007 的长期目标）
+- [ ] T028 在 `specs/003-validate-code-against-constitution/ci-e2e-example.md` 或 `.github/workflows/e2e-example.yml` 中添加 CI 示例，展示如何在 CI 中运行 Playwright 并保存 `frontend/test-reports/`
 
 ---
 
@@ -132,6 +136,11 @@ Generated-by: GPT-5 Mini
 - **T022 输出**: 新增 `specs/.../validation-checklist.md`，包含每个 Acceptance Scenario 的逐项核验步骤（可供 CI/人工复核）。验收：文件覆盖 FR-001..FR-008 的核验步骤并可用于 CI 失败/通过判定。
 - **T023 输出**: 新增 `specs/.../implementation-notes.md`，记录实现细节、回滚与兼容策略。验收：文件包含关键实现决策与回滚步骤的明确说明。
 - **T024 输出**: 将 end-to-end 验证结果写入 `specs/.../e2e-results.md`（或在 quickstart 下追加），包含环境、执行命令、日志片段与结论。验收：文件存在且能复现验证步骤与结果。
+
+- **T025 输出**: 在 `frontend/` 添加 Playwright 配置与示例测试：`frontend/playwright.config.ts`、`frontend/tests/e2e/sample.spec.ts`，并提供示例报告到 `frontend/test-reports/`。验收：在本地安装 Playwright 后运行 `npm --prefix frontend run test:e2e` 能生成 `frontend/test-reports/`（HTML/JSON）。
+- **T026 输出**: 新增 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md`，定义前端 E2E 覆盖率提升里程碑（分阶段目标、测量方法、阈值）。验收：文件存在并包含可量化里程碑（例如 30%→60%→90%）与测量方法说明。
+- **T027 输出**: 创建 `scripts/sample-chinese-docs.js`，实现对 `services/circuit-agent/src` 的注释抽样并输出 `specs/.../chinese-docs-report.json`（包含文件列表与注释覆盖百分比）。验收：脚本可运行并生成 JSON 报告，报告能用于决策（哪些文件需补注释）。
+- **T028 输出**: 在 `specs/003-validate-code-against-constitution/` 添加 CI 示例 `specs/.../ci-e2e-example.md`，包含在 CI 中运行 Playwright 并保存 `frontend/test-reports/` 的示例步骤（或 `.github/workflows/e2e-example.yml` 占位）。验收：文档包含可复制的 CI 作业示例与说明。
 
 # Phase 2 tasks (to be executed by maintainers / CI)
 
