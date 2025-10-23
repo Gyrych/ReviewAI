@@ -204,5 +204,10 @@
 - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
 
 - 2025-10-23: 为 Speckit 宪法合规性创建规范 `specs/003-validate-code-against-constitution/spec.md` 及质量检查清单 `specs/003-validate-code-against-constitution/checklists/requirements.md`，内容包括：提示词完整性校验、前后端解耦核验、双语 README 校验、前端 E2E 测试报告输出要求与启动配置校验建议（文档更新；未进行代码修改）。
+ - 2025-10-23: 生成 `specs/003-validate-code-against-constitution/tasks.md`（由 AI 助手生成），该文件列出了按照 `spec.md` 与 `plan.md` 组织的可执行任务清单，包含 Phase1/Phase2/US1-US3/Polish 阶段。任务文件路径：`specs/003-validate-code-against-constitution/tasks.md`。
 
-- 2025-10-23: 生成 `specs/003-validate-code-against-constitution/tasks.md`（由 AI 助手生成），该文件列出了按照 `spec.md` 与 `plan.md` 组织的可执行任务清单，包含 Phase1/Phase2/US1-US3/Polish 阶段。任务文件路径：`specs/003-validate-code-against-constitution/tasks.md`。
+2025-10-23 变更记录（Speckit 合规性补充）
+
+- 2025-10-23: AI 助手在 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中补充了 Acceptance（验收标准）段，回答并清理了原先未完成的复选项与澄清标记，添加了自动化验证建议与验证步骤（包含指向 `tasks.md` 的 T001/T005/T007/T015 等任务）。
+
+  目的：消除 speckit implement 步骤因文档未完成检查项导致的阻塞，便于 CI/审计与实现团队按明确验收标准完成工作。
