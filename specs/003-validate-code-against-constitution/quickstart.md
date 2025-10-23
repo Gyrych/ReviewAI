@@ -12,6 +12,15 @@ node start-all.js
 node services/circuit-agent/dist/bootstrap/server.js --check-prompts
 ```
 
+示例输出（缺失场景）：
+
+```text
+ERROR: Missing prompt file: ReviewAIPrompt/circuit-agent/system_prompt_initial_zh.md
+Service exiting with code 1
+```
+
+本地调试建议：如果上述命令在 dev 模式下不可用，请使用 `node services/circuit-agent/src/bootstrap/server.ts`（或等价的 ts-node/tsx 启动方式）并观察控制台输出；也可运行 `specs/003-validate-code-against-constitution/check-missing-prompts.ps1` 来临时模拟该场景。
+
 3. 运行前端 E2E（Playwright，若已安装）：
 
 ```bash

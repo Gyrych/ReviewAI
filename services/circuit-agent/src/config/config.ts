@@ -1,4 +1,6 @@
 // 中文注释：集中配置读取，提供默认值，避免在业务代码中直接访问 process.env
+import fs from 'fs'
+import path from 'path'
 
 export type ServiceConfig = {
   port: number
@@ -29,4 +31,49 @@ export function loadConfig(): ServiceConfig {
   return cfg
 }
 
+
+// 中文注释：校验运行时关键配置的可用性与完整性。
+// 返回错误消息数组；若数组为空表示校验通过。
+export function validateRuntimeConfig(cfg?: ServiceConfig): string[] {
+  const errors: string[] = []
+  const env = process.env
+
+  // 要求在 CI/生产环境中显式提供 OPENROUTER_BASE，避免隐式默认值带来不可预期行为
+  if (!env.OPENROUTER_BASE || String(env.OPENROUTER_BASE).trim() === '') {
+    errors.push('Missing OPENROUTER_BASE: must be provided as an environment variable')
+  }
+
+  // storageRoot 必须在文件系统中存在（避免运行时写入失败）
+  const storageRoot = cfg?.storageRoot || env.STORAGE_ROOT || ''
+  if (!storageRoot || String(storageRoot).trim() === '') {
+    errors.push('Missing STORAGE_ROOT: storage root path must be configured')
+  } else {
+    try {
+      const resolved = path.resolve(storageRoot)
+      if (!fs.existsSync(resolved)) {
+        errors.push(`STORAGE_ROOT path does not exist: ${resolved}`)
+      }
+    } catch (e: any) {
+      errors.push(`Failed to validate STORAGE_ROOT: ${String(e?.message || e)}`)
+    }
+  }
+
+  // REDIS_URL 可选，但若存在应为合法 URL，scheme 应为 redis: 或 rediss:
+  if (env.REDIS_URL && String(env.REDIS_URL).trim() !== '') {
+    try {
+      const u = new URL(String(env.REDIS_URL))
+      if (!(u.protocol === 'redis:' || u.protocol === 'rediss:')) {
+        errors.push('REDIS_URL appears invalid: scheme must be redis:// or rediss://')
+      }
+    } catch (e) {
+      // 尝试兼容常见 redis://host:port 写法
+      const v = String(env.REDIS_URL)
+      if (!v.startsWith('redis://') && !v.startsWith('rediss://')) {
+        errors.push('REDIS_URL is not a valid URL (expected redis://host:port)')
+      }
+    }
+  }
+
+  return errors
+}
 

@@ -1,30 +1,44 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs')
+const path = require('path')
 
-const srcDir = path.join(__dirname, '..', 'services', 'circuit-agent', 'src');
-const out = [];
-
-function walk(dir) {
-  const files = fs.readdirSync(dir, { withFileTypes: true });
-  files.forEach(f => {
-    const p = path.join(dir, f.name);
-    if (f.isDirectory()) return walk(p);
-    if (!p.endsWith('.ts') && !p.endsWith('.js')) return;
-    const content = fs.readFileSync(p, 'utf8');
-    const comments = (content.match(/\/\*\*[\s\S]*?\*\//g) || []).join('\n');
-    const hasChinese = /[\u4e00-\u9fa5]/.test(comments);
-    out.push({ file: p, hasChinese });
-  });
+// 中文注释：对 services/circuit-agent/src 下的文件做简单注释抽样，统计包含中文注释的文件比例
+function walkDir(dir, files = []) {
+  const items = fs.readdirSync(dir, { withFileTypes: true })
+  for (const it of items) {
+    const p = path.join(dir, it.name)
+    if (it.isDirectory()) walkDir(p, files)
+    else if (p.endsWith('.ts') || p.endsWith('.js')) files.push(p)
+  }
+  return files
 }
 
+function hasChineseComment(content) {
+  const re = /[\u4e00-\u9fff]/
+  const lineComments = content.match(/\/\/.*$/gm) || []
+  const blockComments = content.match(/\/\*[\s\S]*?\*\//gm) || []
+  const comments = lineComments.concat(blockComments)
+  return comments.some(c => re.test(c))
+}
+
+const srcDir = path.resolve(process.cwd(), 'services', 'circuit-agent', 'src')
 if (!fs.existsSync(srcDir)) {
-  console.error('services/circuit-agent/src not found');
-  process.exit(1);
+  console.error('services/circuit-agent/src not found')
+  process.exit(1)
 }
 
-walk(srcDir);
-const reportPath = path.join(__dirname, '..', 'specs', '003-validate-code-against-constitution', 'chinese-comments-report.json');
-fs.writeFileSync(reportPath, JSON.stringify(out, null, 2));
-console.log('Report written to', reportPath);
+const files = walkDir(srcDir)
+const report = { totalFiles: files.length, filesWithChineseComments: [], timestamp: new Date().toISOString() }
+for (const f of files) {
+  try {
+    const txt = fs.readFileSync(f, 'utf8')
+    if (hasChineseComment(txt)) report.filesWithChineseComments.push(f)
+  } catch (e) {}
+}
+
+report.coverage = Number(((report.filesWithChineseComments.length / Math.max(1, report.totalFiles)) * 100).toFixed(2))
+const outDir = path.join('specs', '003-validate-code-against-constitution')
+if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true })
+fs.writeFileSync(path.join(outDir, 'chinese-docs-report.json'), JSON.stringify(report, null, 2), 'utf8')
+console.log('chinese-docs-report.json written:', report.coverage + '%')
 
 

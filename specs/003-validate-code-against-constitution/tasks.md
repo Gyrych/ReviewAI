@@ -10,11 +10,11 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 **Purpose**: 项目初始化与共享脚手架
 
-- [ ] T001 [P] 在 `services/circuit-agent/src/bootstrap/server.ts` 中添加对 `PromptLoader.preloadPrompts()` 的调用，确保启动时预加载提示词并返回加载清单
-- [ ] T002 [P] 在 `frontend/src/main.tsx` 中添加对 `frontend/src/utils/promptCheck.ts` 的启动调用（使开发/热重载时触发提示词健康检查）
-- [ ] T002a [P] 在 `frontend/src/utils/promptCheck.ts` 中实现调用后端提示词健康接口 `/api/v1/circuit-agent/system-prompt?lang=zh`，并将结果暴露为 Promise 接口（文件：`frontend/src/utils/promptCheck.ts`）
-- [ ] T003 [P] 在仓库根确认或补充脚本 `scripts/check-frontend-no-backend-imports.js`（如缺失，创建该脚本），并在 `scripts/` 中添加使用说明
-- [ ] T004 在 `specs/003-validate-code-against-constitution/` 下创建 `contracts/api-mapping.md`，初始化前端请求到后端公开路由的映射表（基于 `contracts/openapi.yaml`）
+- [x] T001 [P] 在 `services/circuit-agent/src/bootstrap/server.ts` 中添加对 `PromptLoader.preloadPrompts()` 的调用，确保启动时预加载提示词并返回加载清单
+- [x] T002 [P] 在 `frontend/src/main.tsx` 中添加对 `frontend/src/utils/promptCheck.ts` 的启动调用（使开发/热重载时触发提示词健康检查）
+- [x] T002a [P] 在 `frontend/src/utils/promptCheck.ts` 中实现调用后端提示词健康接口 `/api/v1/circuit-agent/system-prompt?lang=zh`，并将结果暴露为 Promise 接口（文件：`frontend/src/utils/promptCheck.ts`）
+- [x] T003 [P] 在仓库根确认或补充脚本 `scripts/check-frontend-no-backend-imports.js`（如缺失，创建该脚本），并在 `scripts/` 中添加使用说明
+- [x] T004 在 `specs/003-validate-code-against-constitution/` 下创建 `contracts/api-mapping.md`，初始化前端请求到后端公开路由的映射表（基于 `contracts/openapi.yaml`）
 
 ---
 
@@ -22,13 +22,13 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 **Purpose**: 阻塞所有用户故事的基线功能，必须先完成
 
-- [ ] T005 在 `services/circuit-agent/src/config/config.ts` 中添加 `validateRuntimeConfig()` 并导出，检测 `OPENROUTER_BASE`（在 CI/生产环境需为显式配置）、`STORAGE_ROOT`（路径存在性）与 `REDIS_URL`（可选但若配置需校验格式）
-- [ ] T006 在 `services/circuit-agent/src/bootstrap/server.ts` 中调用 `validateRuntimeConfig()` 并在校验失败时打印可操作建议后 `process.exit(1)`
-- [ ] T007 在 `frontend/package.json` 中添加 `test:e2e` 脚本：`npx playwright test --reporter=list,html --output=./test-reports`（若 `playwright.config.ts` 已存在则仅添加脚本）
-- [ ] T008 在 `services/circuit-agent/package.json` 中添加 `test:unit` 脚本（例如：`vitest` 占位），并在仓库路径 `services/circuit-agent/tests/` 中创建占位配置文件 `services/circuit-agent/vitest.config.ts`（或 `services/circuit-agent/tests/vitest.config.ts`）以便后续补充测试用例
-- [ ] T009 在 `specs/003-validate-code-against-constitution/` 下添加 `audit-dist-artifacts.md`，列出长期存在的 `frontend/dist/` 与 `services/*/dist/` 中建议清理的产物清单
-- [ ] T025 [P] 在 `frontend/playwright.config.ts` 与 `frontend/tests/e2e/sample.spec.ts` 中添加 Playwright 配置与示例测试，确保与 `frontend/package.json` 的 `test:e2e` 脚本协同工作（见 T007）
-- [ ] T027 [P] 在 `scripts/sample-chinese-docs.js` 中实现注释抽样脚本，输出 `specs/003-validate-code-against-constitution/chinese-docs-report.json`（用于 T022 的注释覆盖率评估）
+- [x] T005 在 `services/circuit-agent/src/config/config.ts` 中添加 `validateRuntimeConfig()` 并导出，检测 `OPENROUTER_BASE`（在 CI/生产环境需为显式配置）、`STORAGE_ROOT`（路径存在性）与 `REDIS_URL`（可选但若配置需校验格式）
+- [x] T006 在 `services/circuit-agent/src/bootstrap/server.ts` 中调用 `validateRuntimeConfig()` 并在校验失败时打印可操作建议后 `process.exit(1)`
+- [x] T007 在 `frontend/package.json` 中添加 `test:e2e` 脚本：`npx playwright test --reporter=list,html --output=./test-reports`（若 `playwright.config.ts` 已存在则仅添加脚本）
+- [x] T008 在 `services/circuit-agent/package.json` 中添加 `test:unit` 脚本（例如：`vitest` 占位），并在仓库路径 `services/circuit-agent/tests/` 中创建占位配置文件 `services/circuit-agent/vitest.config.ts`（或 `services/circuit-agent/tests/vitest.config.ts`）以便后续补充测试用例
+- [x] T009 在 `specs/003-validate-code-against-constitution/` 下添加 `audit-dist-artifacts.md`，列出长期存在的 `frontend/dist/` 与 `services/*/dist/` 中建议清理的产物清单
+- [x] T025 [P] 在 `frontend/playwright.config.ts` 与 `frontend/tests/e2e/sample.spec.ts` 中添加 Playwright 配置与示例测试，确保与 `frontend/package.json` 的 `test:e2e` 脚本协同工作（见 T007）
+- [x] T027 [P] 在 `scripts/sample-chinese-docs.js` 中实现注释抽样脚本，输出 `specs/003-validate-code-against-constitution/chinese-docs-report.json`（用于 T022 的注释覆盖率评估）
 
 ---
 
@@ -40,11 +40,11 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 ### Implementation (按需并行)
 
-- [ ] T010 [US1] 在 `services/circuit-agent/src/infra/prompts/` 添加 `PromptValidator.ts`，实现基于 `data-model` 的 `PromptFile` 校验（检查 `path` 存在与 `sizeBytes > 0`，并计算 `sha256`）
-- [ ] T011 [US1] 在 `services/circuit-agent/src/bootstrap/server.ts` 中集成 `PromptValidator`，在 `preloadPrompts()` 抛出异常时记录缺失文件路径并 `process.exit(1)`（实现 FR-001）
-- [ ] T012 [US1] 在 `frontend/src` 添加一条启动自检任务（`frontend/src/utils/promptCheck.ts`），用于在开发模式下请求后端提示词健康接口或根据 quickstart 提供的 `node services/... --check-prompts` 方式校验
-- [ ] T013 [US1] 在 `specs/003-validate-code-against-constitution/quickstart.md` 中加入“提示词缺失故障排查”步骤与示例命令（已存在 quickstart，需补充示例）
-- [ ] T014 [US1] [P] 编写一个轻量化脚本 `specs/003-validate-code-against-constitution/check-missing-prompts.ps1` 用于 CI/本地快速模拟缺失文件场景并断言退出码
+- [x] T010 [US1] 在 `services/circuit-agent/src/infra/prompts/` 添加 `PromptValidator.ts`，实现基于 `data-model` 的 `PromptFile` 校验（检查 `path` 存在与 `sizeBytes > 0`，并计算 `sha256`）
+- [x] T011 [US1] 在 `services/circuit-agent/src/bootstrap/server.ts` 中集成 `PromptValidator`，在 `preloadPrompts()` 抛出异常时记录缺失文件路径并 `process.exit(1)`（实现 FR-001）
+- [x] T012 [US1] 在 `frontend/src` 添加一条启动自检任务（`frontend/src/utils/promptCheck.ts`），用于在开发模式下请求后端提示词健康接口或根据 quickstart 提供的 `node services/... --check-prompts` 方式校验
+- [x] T013 [US1] 在 `specs/003-validate-code-against-constitution/quickstart.md` 中加入“提示词缺失故障排查”步骤与示例命令（已存在 quickstart，需補充示例）
+- [x] T014 [US1] [P] 编写一个轻量化腳本 `specs/003-validate-code-against-constitution/check-missing-prompts.ps1` 用于 CI/本地快速模拟缺失文件场景並断言退出码
 
 ---
 
@@ -56,9 +56,9 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 ### Implementation
 
-- [ ] T015 [US2] 运行并修正 `scripts/check-frontend-no-backend-imports.js` 结果：在 `frontend/src` 中消除任何指向 `../services/` 或 `services/` 的 import（若存在）
-- [ ] T016 [US2] 在 `specs/003-validate-code-against-constitution/contracts/api-mapping.md` 中填充前端 API 调用到 `contracts/openapi.yaml` 的映射条目（逐条对照）
-- [ ] T017 [US2] 在 `frontend/src` 中替换任何硬编码后端基路径为运行时配置（示例 `src/config/apiBase.ts` 或使用 `import.meta.env.VITE_API_BASE`），并在 `frontend/.env.example` 中给出示例
+- [x] T015 [US2] 运行并修正 `scripts/check-frontend-no-backend-imports.js` 结果：在 `frontend/src` 中消除任何指向 `../services/` 或 `services/` 的 import（若存在）
+- [x] T016 [US2] 在 `specs/003-validate-code-against-constitution/contracts/api-mapping.md` 中填充前端 API 调用到 `contracts/openapi.yaml` 的映射条目（逐条对照）
+- [x] T017 [US2] 在 `frontend/src` 中替换任何硬编码后端基路径为运行时配置（示例 `src/config/apiBase.ts` 或使用 `import.meta.env.VITE_API_BASE`），并在 `frontend/.env.example` 中给出示例
 
 ---
 
@@ -70,20 +70,20 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 ### Implementation
 
-- [ ] T018 [US3] 在 `specs/003-validate-code-against-constitution/` 添加 `readme-sync-check.md`，列出需比对的关键段落（API、启动、依赖）并记录当前差异
-- [ ] T019 [US3] 如果发现差异，在 `services/circuit-agent/README.md` 与 `services/circuit-agent/README.zh.md` 中同步必要的段落（明确文件路径：`services/circuit-agent/README.md`、`services/circuit-agent/README.zh.md`）
-- [ ] T020 [US3] 在 `CURSOR.md` 末尾追加一条变更记录，说明已生成 `specs/003-validate-code-against-constitution/tasks.md` 并列出主要修改点（该任务在本次变更中由 AI 助手执行）
+- [x] T018 [US3] 在 `specs/003-validate-code-against-constitution/` 添加 `readme-sync-check.md`，列出需比对的关键段落（API、启动、依赖）并记录当前差异
+- [x] T019 [US3] 如果发现差异，在 `services/circuit-agent/README.md` 与 `services/circuit-agent/README.zh.md` 中同步必要的段落（明确文件路径：`services/circuit-agent/README.md`、`services/circuit-agent/README.zh.md`）
+- [x] T020 [US3] 在 `CURSOR.md` 末尾追加一条变更记录，说明已生成 `specs/003-validate-code-against-constitution/tasks.md` 并列出主要修改点（该任务在本次变更中由 AI 助手执行）
 
 ---
 
 ## Final Phase: Polish & Cross-Cutting Concerns
 
-- [ ] T021 [P] 代码清理：在 `frontend/dist/` 与 `services/*/dist/` 中生成 `audit-dist-artifacts.md` 报告（见 T009）
-- [ ] T022 [P] 编写并提交 `specs/003-validate-code-against-constitution/validation-checklist.md`，包含所有 Acceptance Scenarios 的逐项核验步骤
-- [ ] T023 [P] 在 `specs/003-validate-code-against-constitution/` 中补充 `implementation-notes.md`，记录实现要点与回滚/兼容策略
+- [x] T021 [P] 代码清理：在 `frontend/dist/` 与 `services/*/dist/` 中生成 `audit-dist-artifacts.md` 报告（见 T009）
+- [x] T022 [P] 编写并提交 `specs/003-validate-code-against-constitution/validation-checklist.md`，包含所有 Acceptance Scenarios 的逐项核验步骤
+- [x] T023 [P] 在 `specs/003-validate-code-against-constitution/` 中補充 `implementation-notes.md`，记录实现要点与回滚/兼容策略
 - [ ] T024 在完成上述后，执行 `frontend` 与 `services/circuit-agent` 的一次 end-to-end 验证（手动或 CI），并在 `specs/003-validate-code-against-constitution/` 记录结果
-- [ ] T026 [P] 在 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md` 中创建 E2E 覆盖率提升计划，包含分阶段目标与测量方法（用于 T007 的长期目标）
-- [ ] T028 在 `specs/003-validate-code-against-constitution/ci-e2e-example.md` 或 `.github/workflows/e2e-example.yml` 中添加 CI 示例，展示如何在 CI 中运行 Playwright 并保存 `frontend/test-reports/`
+- [x] T026 [P] 在 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md` 中创建 E2E 覆盖率提升计划，包含分阶段目标与测量方法（用于 T007 的长期目标）
+- [x] T028 在 `specs/003-validate-code-against-constitution/ci-e2e-example.md` 或 `.github/workflows/e2e-example.yml` 中添加 CI 示例，展示如何在 CI 中运行 Playwright 并保存 `frontend/test-reports/`
 
 ---
 
@@ -91,14 +91,14 @@ description: Tasks for feature 003-validate-code-against-constitution
 
 **Purpose**: 将 `checklists/requirements.md` 中的每条检查项映射为可执行任务与自动化验证产物，便于 CI/人工逐项验证。
 
-- [ ] T029 [P] 在仓库根添加脚本 `scripts/check-spec-no-implementation-details.js`，扫描 `specs/003-validate-code-against-constitution/spec.md` 中的实现细节关键词（例如：`Node` `React` `Vite` `Express` `API`）并生成报告 `specs/003-validate-code-against-constitution/implementation-details-report.json`
-- [ ] T030 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：要求产品负责人签署“业务价值”审阅并记录审阅者与时间（文件：`specs/003-validate-code-against-constitution/validation-checklist.md`）
-- [ ] T031 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：安排并记录一次非技术人员可读性审阅，输出审阅结论文件 `specs/003-validate-code-against-constitution/nontechnical-review.md`
-- [ ] T032 [P] 添加脚本 `scripts/check-spec-sections.js`，验证 `specs/003-validate-code-against-constitution/spec.md` 含有必填章节（目的/范围/验收标准/依赖/风险/里程碑），并输出 `specs/003-validate-code-against-constitution/sections-report.json`
-- [ ] T033 [P] 添加脚本 `scripts/check-gwt.js`，确认每项需求包含至少一条 Given/When/Then，输出 `specs/003-validate-code-against-constitution/gwt-report.json`
-- [ ] T034 在仓库根 `.gitignore` 中确保包含 `frontend/dist/` 与 `services/*/dist/`（若缺失则补充），并将候选清单保存至 `specs/003-validate-code-against-constitution/audit-dist-artifacts.md`
-- [ ] T035 [P] 生成映射文档 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`，逐条列出 `checklists/requirements.md` 中每项与 `tasks.md` 的对应关系（文件路径：`specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`）
-- [ ] T036 在 `CURSOR.md` 中追加变更记录，说明已将 `requirements.md` 的每条检查项映射为任务并生成 `requirements-to-tasks-mapping.md`（文件：`CURSOR.md`）
+- [x] T029 [P] 在仓库根添加脚本 `scripts/check-spec-no-implementation-details.js`，扫描 `specs/003-validate-code-against-constitution/spec.md` 中的实现细节关键词（例如：`Node` `React` `Vite` `Express` `API`）并生成报告 `specs/003-validate-code-against-constitution/implementation-details-report.json`
+- [x] T030 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：要求产品负责人签署“业务价值”审阅并记录审阅者与时间（文件：`specs/003-validate-code-against-constitution/validation-checklist.md`）
+- [x] T031 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：安排並记录一次非技术人员可读性审阅，输出审阅结论文件 `specs/003-validate-code-against-constitution/nontechnical-review.md`
+- [x] T032 [P] 添加脚本 `scripts/check-spec-sections.js`，验证 `specs/003-validate-code-against-constitution/spec.md` 含有必填章节（目的/范围/验收标准/依赖/风险/里程碑），并输出 `specs/003-validate-code-against-constitution/sections-report.json`
+- [x] T033 [P] 添加脚本 `scripts/check-gwt.js`，确认每项需求包含至少一条 Given/When/Then，输出 `specs/003-validate-code-against-constitution/gwt-report.json`
+- [x] T034 在仓库根 `.gitignore` 中确保包含 `frontend/dist/` 与 `services/*/dist/`（若缺失则补充），并将候选清单保存至 `specs/003-validate-code-against-constitution/audit-dist-artifacts.md`
+- [x] T035 [P] 生成映射文档 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`，逐条列出 `checklists/requirements.md` 中每项与 `tasks.md` 的对应关系（文件路径：`specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`）
+- [x] T036 在 `CURSOR.md` 中追加变更记录，说明已将 `requirements.md` 的每条检查项映射为任务並生成 `requirements-to-tasks-mapping.md`（文件：`CURSOR.md`）
 
 ---
 

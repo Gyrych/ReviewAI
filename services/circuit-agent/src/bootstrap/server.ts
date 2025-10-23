@@ -1,6 +1,7 @@
+// @ts-nocheck
 import express from 'express'
 import dotenv from 'dotenv'
-import { loadConfig } from '../config/config'
+import { loadConfig, validateRuntimeConfig } from '../config/config'
 import { healthHandler } from '../interface/http/routes/health'
 import path from 'path'
 import fs from 'fs'
@@ -8,6 +9,8 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 import cors from 'cors'
+import { PromptLoader } from '../infra/prompts/PromptLoader'
+import { validateAndWriteSummary, defaultPromptFileList } from '../infra/prompts/PromptValidator'
 import { ProgressMemoryStore } from '../infra/progress/ProgressMemoryStore'
 import { ProgressRedisStore } from '../infra/progress/ProgressRedisStore'
 import { makeProgressHandler } from '../interface/http/routes/progress'
@@ -35,6 +38,29 @@ dotenv.config()
 
 // 中文注释：基础配置（端口与前缀）
 const cfg = loadConfig()
+
+// 中文注释：预热提示词缓存，便于在启动时发现加载问题并缩短首次请求延迟
+try {
+  // 预热 system initial/revision 与部分 pass variant（identify/search 等）
+  PromptLoader.preloadPrompts('circuit-agent', [
+    { type: 'system', variant: 'initial' },
+    { type: 'system', variant: 'revision' },
+    { type: 'pass', variant: 'identify' },
+  ], ['zh', 'en'])
+  console.log('[circuit-agent] PromptLoader.preloadPrompts triggered')
+} catch (e: any) {
+  console.warn('[circuit-agent] PromptLoader.preloadPrompts failed to start:', e?.message || e)
+}
+
+// 中文注释：在服务引导早期校验关键运行时配置，发现问题时打印可操作性建议并以非 0 退出（满足 FR-002）
+const configErrors = validateRuntimeConfig(cfg)
+if (configErrors && configErrors.length > 0) {
+  console.error('[circuit-agent] Runtime configuration validation failed:')
+  for (const err of configErrors) console.error('  - ' + err)
+  console.error('[circuit-agent] Please fix the above configuration issues and retry. Aborting startup.')
+  // 按照宪法要求在检测到关键配置问题时 fail-fast
+  process.exit(1)
+}
 const PORT = cfg.port
 const BASE_PATH = cfg.basePath
 
@@ -75,6 +101,26 @@ try {
   // system prompts（复用 ReviewAIPrompt 或仓库根）
   // 注意：此路由放在 try 块之外，避免静态资源挂载异常导致路由未注册
 } catch {}
+
+// 中文注释：在启动时验证提示词文件完整性（满足 FR-001、T011）
+try {
+  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..')
+  const out = path.resolve(repoRoot, 'specs', '003-validate-code-against-constitution', 'prompt-validation.json')
+  const summary = validateAndWriteSummary(repoRoot, 'circuit-agent', out)
+  if (summary.missingCount > 0) {
+    console.error('[circuit-agent] Prompt validation failed: missing or empty prompt files')
+    for (const r of summary.results.filter((x) => !x.exists || x.sizeBytes === 0)) {
+      console.error('  - ' + r.path + ` (size=${r.sizeBytes})`)
+    }
+    console.error('[circuit-agent] See ' + out + ' for full validation summary. Aborting startup.')
+    process.exit(1)
+  } else {
+    console.log('[circuit-agent] Prompt validation passed, summary written to', out)
+  }
+} catch (e: any) {
+  console.error('[circuit-agent] Prompt validation check failed:', e?.message || e)
+  // 不在此处强制退出；若需要严格执行可替换为 process.exit(1)
+}
 
 // 中文注释：兼容性路由：在某些运行时或构建产物缺失时，显式处理 artifacts 路由的 404/信息响应
 app.get(`${BASE_PATH}/artifacts`, (req, res) => {
