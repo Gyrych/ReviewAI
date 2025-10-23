@@ -81,7 +81,7 @@ description: Tasks for feature 003-validate-code-against-constitution
 - [x] T021 [P] 代码清理：在 `frontend/dist/` 与 `services/*/dist/` 中生成 `audit-dist-artifacts.md` 报告（见 T009）
 - [x] T022 [P] 编写并提交 `specs/003-validate-code-against-constitution/validation-checklist.md`，包含所有 Acceptance Scenarios 的逐项核验步骤
 - [x] T023 [P] 在 `specs/003-validate-code-against-constitution/` 中補充 `implementation-notes.md`，记录实现要点与回滚/兼容策略
-- [ ] T024 在完成上述后，执行 `frontend` 与 `services/circuit-agent` 的一次 end-to-end 验证（手动或 CI），并在 `specs/003-validate-code-against-constitution/` 记录结果
+- [x] T024 在完成上述后，执行 `frontend` 与 `services/circuit-agent` 的一次 end-to-end 验证（手动或 CI），并在 `specs/003-validate-code-against-constitution/` 记录结果
 - [x] T026 [P] 在 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md` 中创建 E2E 覆盖率提升计划，包含分阶段目标与测量方法（用于 T007 的长期目标）
 - [x] T028 在 `specs/003-validate-code-against-constitution/ci-e2e-example.md` 或 `.github/workflows/e2e-example.yml` 中添加 CI 示例，展示如何在 CI 中运行 Playwright 并保存 `frontend/test-reports/`
 

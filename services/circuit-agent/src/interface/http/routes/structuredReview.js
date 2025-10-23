@@ -1,3 +1,4 @@
+// 中文注释：structuredReview 路由为兼容保留，当前实现返回 410 提示已退役
 export function makeStructuredReviewHandler(usecase) {
     return async function handler(req, res) {
         try {

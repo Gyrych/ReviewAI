@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-  },
+    include: ['services/circuit-agent/tests/**/*.test.ts']
+  }
 })
 
 

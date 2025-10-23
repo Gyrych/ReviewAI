@@ -1,3 +1,4 @@
+// 中文注释：OpenRouterTextProvider 用于与上游文本模型交互，封装请求/响应格式并处理超时与重试策略
 import { postJson, extractTextFromOpenAICompat } from '../http/OpenRouterClient.js';
 export class OpenRouterTextProvider {
     constructor(baseUrl, defaultTimeoutMs) {

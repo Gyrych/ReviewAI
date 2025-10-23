@@ -217,3 +217,5 @@
 - 2025-10-23: 精确化 `specs/003-validate-code-against-constitution/tasks.md` 中若干任务（将 T002 与 T008 拆分并替换为包含明确文件路径的任务），目的是满足 Spec-Kit 对任务“可立即执行”的要求（每项任务需有单一、明确的文件路径与可操作动作），并在 `specs/003-validate-code-against-constitution/tasks.md` 中记录映射到 `checklists/requirements.md` 的检查项。修改原因：保证后续由 LLM 或开发者逐项执行时无需额外判断。此变更已由 AI 助手应用于仓库任务文件。
 
 - 2025-10-23: 将 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中的每条检查项逐条映射为 `tasks.md` 中的具体任务，并新增映射文件 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`（由 AI 助手生成）。目的：确保每个检查项都有对应的可执行任务并可被 CI/脚本自动化验证。生成的任务包括 T029..T036。
+
+- 2025-10-23: 完成 T024（端到端验证）— 在本地启动前端并运行 Playwright E2E 测试，2 个示例测试通过，报告已生成至 `frontend/test-reports/`，并将结果记录到 `specs/003-validate-code-against-constitution/e2e-results.md`（由 AI 助手执行）。

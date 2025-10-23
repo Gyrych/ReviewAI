@@ -1,3 +1,4 @@
+// 中文注释：structuredRecognize 已退役，保留占位以返回 410 并提示使用 direct 模式
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';

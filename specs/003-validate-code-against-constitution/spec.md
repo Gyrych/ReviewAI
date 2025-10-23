@@ -131,6 +131,36 @@
 - E2E 覆盖率目标可根据团队能力逐步达成，初始阶段允许以占位测试与 CI 报告为过渡方案。
 - 本次变更仅涉及文档更新，不会修改代码或运行时行为。
 
+## 目的（Purpose）
+
+本规格旨在通过自动化脚本与可执行任务，验证 `frontend` 与 `services/circuit-agent` 是否满足 ReviewAI 宪法中关于提示词完整性、启动可控性与前后端解耦的强制项，并提供可复现的修复步骤与验收报告。
+
+## 范围（Scope）
+
+本次校验仅覆盖：
+- `frontend/`（用户界面与 E2E 测试）
+- `services/circuit-agent/`（后端编排服务与提示词加载）
+
+不在本次校验范围内：其他后端服务、第三方部署配置以及生产环境的安全策略（这些可在后续任务中单独列出）。
+
+## 依赖（Dependencies）
+
+- Node.js >= 18; `npm` 包管理工具。
+- 本地网络访问用于 Playwright 下载浏览器二进制（或在 CI 中作为可选步骤）。
+- `ReviewAIPrompt/` 目录下包含所需提示词文件（`system_prompt_initial_zh.md` 等）。
+
+## 风险（Risks）
+
+- 在 CI/生产环境中强制 `OPENROUTER_BASE` 可能导致部署失败，需在 CI 中显式注入该环境变量以通过校验。
+- Playwright 的浏览器二进制下载失败可能阻塞 E2E 测试；建议在 CI 中缓存浏览器二进制或使用镜像源。
+
+## 里程碑（Milestones）
+
+- M1: 完成 Foundational 任务（T005-T009）并验证通过 — 预计 1 天。
+- M2: 完成 Prompt 校验与 E2E 示例（T010-T014、T025） — 预计 1 天。
+- M3: 文档同步与注释覆盖率提升至 ≥90%（T018、T027）— 预计 2 天（可并行）。
+
+
 ## Assumptions
 
 - 默认检查范围仅限 `frontend/` 与 `services/circuit-agent/`，其他后端服务暂不纳入本次校验。
