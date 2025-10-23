@@ -211,3 +211,7 @@
 - 2025-10-23: AI 助手在 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中补充了 Acceptance（验收标准）段，回答并清理了原先未完成的复选项与澄清标记，添加了自动化验证建议与验证步骤（包含指向 `tasks.md` 的 T001/T005/T007/T015 等任务）。
 
   目的：消除 speckit implement 步骤因文档未完成检查项导致的阻塞，便于 CI/审计与实现团队按明确验收标准完成工作。
+
+- 2025-10-23: 精确化 `specs/003-validate-code-against-constitution/tasks.md` 中若干任务（将 T002 与 T008 拆分并替换为包含明确文件路径的任务），目的是满足 Spec-Kit 对任务“可立即执行”的要求（每项任务需有单一、明确的文件路径与可操作动作），并在 `specs/003-validate-code-against-constitution/tasks.md` 中记录映射到 `checklists/requirements.md` 的检查项。修改原因：保证后续由 LLM 或开发者逐项执行时无需额外判断。此变更已由 AI 助手应用于仓库任务文件。
+
+- 2025-10-23: 将 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中的每条检查项逐条映射为 `tasks.md` 中的具体任务，并新增映射文件 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`（由 AI 助手生成）。目的：确保每个检查项都有对应的可执行任务并可被 CI/脚本自动化验证。生成的任务包括 T029..T036。

@@ -11,7 +11,8 @@ description: Tasks for feature 003-validate-code-against-constitution
 **Purpose**: 项目初始化与共享脚手架
 
 - [ ] T001 [P] 在 `services/circuit-agent/src/bootstrap/server.ts` 中添加对 `PromptLoader.preloadPrompts()` 的调用，确保启动时预加载提示词并返回加载清单
-- [ ] T002 [P] 在 `frontend/src/main.tsx` 中（或前端入口）添加对提示词校验的调用点（调用后端健康/提示词检查或本地预检逻辑）
+- [ ] T002 [P] 在 `frontend/src/main.tsx` 中添加对 `frontend/src/utils/promptCheck.ts` 的启动调用（使开发/热重载时触发提示词健康检查）
+- [ ] T002a [P] 在 `frontend/src/utils/promptCheck.ts` 中实现调用后端提示词健康接口 `/api/v1/circuit-agent/system-prompt?lang=zh`，并将结果暴露为 Promise 接口（文件：`frontend/src/utils/promptCheck.ts`）
 - [ ] T003 [P] 在仓库根确认或补充脚本 `scripts/check-frontend-no-backend-imports.js`（如缺失，创建该脚本），并在 `scripts/` 中添加使用说明
 - [ ] T004 在 `specs/003-validate-code-against-constitution/` 下创建 `contracts/api-mapping.md`，初始化前端请求到后端公开路由的映射表（基于 `contracts/openapi.yaml`）
 
@@ -24,7 +25,7 @@ description: Tasks for feature 003-validate-code-against-constitution
 - [ ] T005 在 `services/circuit-agent/src/config/config.ts` 中添加 `validateRuntimeConfig()` 并导出，检测 `OPENROUTER_BASE`（在 CI/生产环境需为显式配置）、`STORAGE_ROOT`（路径存在性）与 `REDIS_URL`（可选但若配置需校验格式）
 - [ ] T006 在 `services/circuit-agent/src/bootstrap/server.ts` 中调用 `validateRuntimeConfig()` 并在校验失败时打印可操作建议后 `process.exit(1)`
 - [ ] T007 在 `frontend/package.json` 中添加 `test:e2e` 脚本：`npx playwright test --reporter=list,html --output=./test-reports`（若 `playwright.config.ts` 已存在则仅添加脚本）
-- [ ] T008 在 `services/circuit-agent/` 中添加 `tests/` 目录与 `vitest` 占位配置（`services/circuit-agent/package.json` 添加 `test:unit` 脚本）
+- [ ] T008 在 `services/circuit-agent/package.json` 中添加 `test:unit` 脚本（例如：`vitest` 占位），并在仓库路径 `services/circuit-agent/tests/` 中创建占位配置文件 `services/circuit-agent/vitest.config.ts`（或 `services/circuit-agent/tests/vitest.config.ts`）以便后续补充测试用例
 - [ ] T009 在 `specs/003-validate-code-against-constitution/` 下添加 `audit-dist-artifacts.md`，列出长期存在的 `frontend/dist/` 与 `services/*/dist/` 中建议清理的产物清单
 - [ ] T025 [P] 在 `frontend/playwright.config.ts` 与 `frontend/tests/e2e/sample.spec.ts` 中添加 Playwright 配置与示例测试，确保与 `frontend/package.json` 的 `test:e2e` 脚本协同工作（见 T007）
 - [ ] T027 [P] 在 `scripts/sample-chinese-docs.js` 中实现注释抽样脚本，输出 `specs/003-validate-code-against-constitution/chinese-docs-report.json`（用于 T022 的注释覆盖率评估）
@@ -83,6 +84,21 @@ description: Tasks for feature 003-validate-code-against-constitution
 - [ ] T024 在完成上述后，执行 `frontend` 与 `services/circuit-agent` 的一次 end-to-end 验证（手动或 CI），并在 `specs/003-validate-code-against-constitution/` 记录结果
 - [ ] T026 [P] 在 `specs/003-validate-code-against-constitution/e2e-coverage-plan.md` 中创建 E2E 覆盖率提升计划，包含分阶段目标与测量方法（用于 T007 的长期目标）
 - [ ] T028 在 `specs/003-validate-code-against-constitution/ci-e2e-example.md` 或 `.github/workflows/e2e-example.yml` 中添加 CI 示例，展示如何在 CI 中运行 Playwright 并保存 `frontend/test-reports/`
+
+---
+
+## Phase N: Requirements → Tasks 映射（自动化与验证脚本）
+
+**Purpose**: 将 `checklists/requirements.md` 中的每条检查项映射为可执行任务与自动化验证产物，便于 CI/人工逐项验证。
+
+- [ ] T029 [P] 在仓库根添加脚本 `scripts/check-spec-no-implementation-details.js`，扫描 `specs/003-validate-code-against-constitution/spec.md` 中的实现细节关键词（例如：`Node` `React` `Vite` `Express` `API`）并生成报告 `specs/003-validate-code-against-constitution/implementation-details-report.json`
+- [ ] T030 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：要求产品负责人签署“业务价值”审阅并记录审阅者与时间（文件：`specs/003-validate-code-against-constitution/validation-checklist.md`）
+- [ ] T031 在 `specs/003-validate-code-against-constitution/validation-checklist.md` 中新增条目：安排并记录一次非技术人员可读性审阅，输出审阅结论文件 `specs/003-validate-code-against-constitution/nontechnical-review.md`
+- [ ] T032 [P] 添加脚本 `scripts/check-spec-sections.js`，验证 `specs/003-validate-code-against-constitution/spec.md` 含有必填章节（目的/范围/验收标准/依赖/风险/里程碑），并输出 `specs/003-validate-code-against-constitution/sections-report.json`
+- [ ] T033 [P] 添加脚本 `scripts/check-gwt.js`，确认每项需求包含至少一条 Given/When/Then，输出 `specs/003-validate-code-against-constitution/gwt-report.json`
+- [ ] T034 在仓库根 `.gitignore` 中确保包含 `frontend/dist/` 与 `services/*/dist/`（若缺失则补充），并将候选清单保存至 `specs/003-validate-code-against-constitution/audit-dist-artifacts.md`
+- [ ] T035 [P] 生成映射文档 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`，逐条列出 `checklists/requirements.md` 中每项与 `tasks.md` 的对应关系（文件路径：`specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`）
+- [ ] T036 在 `CURSOR.md` 中追加变更记录，说明已将 `requirements.md` 的每条检查项映射为任务并生成 `requirements-to-tasks-mapping.md`（文件：`CURSOR.md`）
 
 ---
 
