@@ -1,8 +1,8 @@
 # Feature Specification: [FEATURE NAME]
 
-**Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
-**Status**: Draft  
+**Feature Branch**: `[###-feature-name]`
+**Created**: [DATE]
+**Status**: Draft
 **Input**: User description: "$ARGUMENTS"
 
 ## User Scenarios & Testing *(mandatory)*
@@ -11,7 +11,7 @@
   IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
   Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
   you should still have a viable MVP (Minimum Viable Product) that delivers value.
-  
+
   Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
   Think of each story as a standalone slice of functionality that can be:
   - Developed independently
@@ -85,10 +85,14 @@
 ### Functional Requirements
 
 - **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
+- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]
 - **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
 - **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
 - **FR-005**: System MUST [behavior, e.g., "log all security events"]
+
+<!-- 宪法新增要求：头部注释规范（已同步）
+  - 要求：每个功能模块（函数/对象/类）在定义处包含结构化头部注释，注释必须以简体中文为主并采用面向人类阅读者的写作风格，包含：用途、输入参数、输出参数、使用方法示例。
+  - 建议在功能实现的 Acceptance 或 Implementation Tasks 中加入“补全头部注释”检查，确保注释清晰、简短且包含示例。 -->
 
 *Example of marking unclear requirements:*
 

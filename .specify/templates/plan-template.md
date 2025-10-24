@@ -17,14 +17,14 @@
   the iteration process.
 -->
 
-**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
-**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
-**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
-**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]
 **Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
-**Project Type**: [single/web/mobile - determines source structure]  
-**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
-**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Project Type**: [single/web/mobile - determines source structure]
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]
 **Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
@@ -32,6 +32,10 @@
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
 [Gates determined based on constitution file]
+
+<!-- 宪法新增要求：头部注释规范（已同步）
+  - 要求：每个功能模块（函数/对象/类）在定义处包含结构化头部注释，注释必须包含：用途、输入参数、输出参数、使用方法示例；注释应以简体中文为主并采用面向人类阅读者的风格（清晰、示例驱动、避免冗长）。
+  - 检查点示例：代码审计任务应验证文件中是否存在头部注释或由 CI 提供的注释检查脚本通过。 -->
 
 ## Project Structure
 

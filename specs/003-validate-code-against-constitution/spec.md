@@ -86,7 +86,7 @@
 - **FR-003 前后端解耦**: 前端代码不得直接导入后端源代码或依赖后端运行时文件系统结构，所有交互必须通过公开 HTTP/REST 接口（以 `/api/v1/circuit-agent` 为基路径）。
 - **FR-004 README 完整性**: `services/circuit-agent` 必须包含 `README.md` 与 `README.zh.md` 两份等效文档，至少包含 API 列表、启动流程、依赖说明与调试步骤。
 - **FR-005 中文注释覆盖**: `services/circuit-agent` 的 TypeScript/JavaScript 源代码关键模块（路由、usecase、infra、prompts、storage）应包含中文注释，覆盖模块说明、对外接口说明、参数与错误语义等。
-- **FR-006 前端自动化测试基础**: 前端项目应包含可运行的端到端测试脚本或占位测试（如 `frontend/test-reports/` 输出路径），并能通过 chrome-devtools MCP 或等效方式运行；若无自动化脚本，应在规范中列出需要补充的测试条目。
+- **FR-006 前端自动化测试基础**: 前端项目应包含可运行的端到端测试脚本或占位测试（如 `frontend/test-reports/` 输出路径），并能通过使用chrome-devtools 工具进行前端自动化测试；若无自动化脚本，应在规范中列出需要补充的测试条目。
 - **FR-007 移除未使用代码**: 仓库中不应包含长期未使用的 dist 产物或冗余代码；发现的遗留 dist artifact（如前端 `dist/` 中的生成产物）应记录并视需要清理。
 - **FR-008 配置与文档**: 项目根 `CURSOR.md`、根 README 与 `services/circuit-agent/README.zh.md` 必须同步反映本文档与实现之间的差异与修复步骤。
 
