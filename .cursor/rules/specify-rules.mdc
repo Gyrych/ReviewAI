@@ -1,0 +1,25 @@
+﻿# 10_ReviewAI Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-10-23
+
+## Active Technologies
+- Node.js + TypeScript (frontend: React + TypeScript, backend: Node.js 18+, TypeScript 5.x) + `vite`, `react`, `express`, `node-fetch`, `redis` (see `frontend/package.json` & `services/circuit-agent/package.json`) (003-validate-code-against-constitution)
+
+## Project Structure
+```
+backend/
+frontend/
+tests/
+```
+
+## Commands
+npm test; npm run lint
+
+## Code Style
+Node.js + TypeScript (frontend: React + TypeScript, backend: Node.js 18+, TypeScript 5.x): Follow standard conventions
+
+## Recent Changes
+- 003-validate-code-against-constitution: Added Node.js + TypeScript (frontend: React + TypeScript, backend: Node.js 18+, TypeScript 5.x) + `vite`, `react`, `express`, `node-fetch`, `redis` (see `frontend/package.json` & `services/circuit-agent/package.json`)
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->

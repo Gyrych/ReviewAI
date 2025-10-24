@@ -1,3 +1,4 @@
+// 中文注释：sessions 路由处理会话的保存、列表、读取与删除请求，SessionStore 可由文件系统或 Redis 实现
 import type { Request, Response } from 'express'
 import type { SessionStore } from '../../../domain/contracts/index.js'
 

@@ -115,18 +115,6 @@
 - `services/*/src/infra/storage/ArtifactStoreFs.ts` — 工件保存实现
 - `services/circuit-agent/src/infra/search/OpenRouterSearch.ts` — OpenRouter 在线检索 provider（替代 DuckDuckGoHtmlSearch）
 
--- 新增（Python 重构）:
-- `services/circuit-agent-py/` — 基于 FastAPI 的服务实现，目标与 `services/circuit-agent` 行为完全兼容；主要文件:
-  - `app/main.py` — FastAPI 启动与路由注册
-  - `app/core/config.py` — 环境配置（Pydantic）
-  - `app/utils/prompt_loader.py` — PromptLoader Python 实现
-  - `app/infra/http/openrouter_client.py` — OpenRouter HTTP client（httpx）
-  - `app/infra/providers/vision.py|text.py` — Vision / Text provider
-  - `app/infra/search/openrouter_search.py` — Search 实现（保留 plugins/web 支持）
-  - `app/infra/storage/artifact_store_fs.py` — Artifact 文件系统存储
-  - `app/services/direct_review.py` — DirectReviewUseCase Python 版
-  - `app/api/routes/*.py` — routes: direct_review, sessions, health, system-prompt
-
 变更记录（摘要）
 
 - 2025-09-29: 初始创建，AI 助手生成基础项目说明与早期 PRD 记录。
@@ -214,15 +202,43 @@
   - 统一术语以减少文档与界面中的歧义，便于对外沟通与内部维护。
 
 - 2025-10-12: 新增 `services/circuit-agent/README.zh.md` 与 `services/circuit-agent/README.md`，包含 API 说明、架构图（Mermaid）、流程图与使用规范。请在确认文档无误后决定是否将 `CURSOR.md` 中的相关条目进一步细化或移动到项目根 README。
-2025-10-16: 修改依赖版本
+
+- 2025-10-23: 为 Speckit 宪法合规性创建规范 `specs/003-validate-code-against-constitution/spec.md` 及质量检查清单 `specs/003-validate-code-against-constitution/checklists/requirements.md`，内容包括：提示词完整性校验、前后端解耦核验、双语 README 校验、前端 E2E 测试报告输出要求与启动配置校验建议（文档更新；未进行代码修改）。
+ - 2025-10-23: 生成 `specs/003-validate-code-against-constitution/tasks.md`（由 AI 助手生成），该文件列出了按照 `spec.md` 与 `plan.md` 组织的可执行任务清单，包含 Phase1/Phase2/US1-US3/Polish 阶段。任务文件路径：`specs/003-validate-code-against-constitution/tasks.md`。
+
+- 2025-10-23: 生成 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`，将 `checklists/requirements.md` 中的检查项映射至 `tasks.md` 中的任务编号；并在仓库根 `.gitignore` 中添加规则忽略 `services/*/dist/` 目录以避免提交构建产物。
+
+2025-10-23 变更记录（Speckit 合规性补充）
+
+- 2025-10-23: AI 助手在 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中补充了 Acceptance（验收标准）段，回答并清理了原先未完成的复选项与澄清标记，添加了自动化验证建议与验证步骤（包含指向 `tasks.md` 的 T001/T005/T007/T015 等任务）。
+
+  目的：消除 speckit implement 步骤因文档未完成检查项导致的阻塞，便于 CI/审计与实现团队按明确验收标准完成工作。
+
+- 2025-10-23: 精确化 `specs/003-validate-code-against-constitution/tasks.md` 中若干任务（将 T002 与 T008 拆分并替换为包含明确文件路径的任务），目的是满足 Spec-Kit 对任务“可立即执行”的要求（每项任务需有单一、明确的文件路径与可操作动作），并在 `specs/003-validate-code-against-constitution/tasks.md` 中记录映射到 `checklists/requirements.md` 的检查项。修改原因：保证后续由 LLM 或开发者逐项执行时无需额外判断。此变更已由 AI 助手应用于仓库任务文件。
+
+- 2025-10-23: 将 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中的每条检查项逐条映射为 `tasks.md` 中的具体任务，并新增映射文件 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`（由 AI 助手生成）。目的：确保每个检查项都有对应的可执行任务并可被 CI/脚本自动化验证。生成的任务包括 T029..T036。
+
+- 2025-10-23: 完成 T024（端到端验证）— 在本地启动前端并运行 Playwright E2E 测试，2 个示例测试通过，报告已生成至 `frontend/test-reports/`，并将结果记录到 `specs/003-validate-code-against-constitution/e2e-results.md`（由 AI 助手执行）。
+
+2025-10-23: 变更记录（在 `start-services.bat` 中注入 `OPENROUTER_BASE` 以避免本地启动时缺失环境变量导致 fail-fast）
 
 - 文件修改：
-  - `services/circuit-agent-py/requirements.txt` — 将 `pydantic` 从 `1.10.12` 升级到 `1.10.16`，以尝试解决在 Python 3.13 环境下的兼容性问题（ForwardRef._evaluate 错误）。
-  - 新增：
-    - `services/circuit-agent-py/app/infra/storage/artifact_store_fs.py` — 添加文件系统工件存储最小实现，提供 async `save()` 方法，用于将工件写入 `storage/artifacts`，以修复启动时缺失模块导致的导入错误。
+  - `start-services.bat` — 在脚本顶部设置默认 `OPENROUTER_BASE` 环境变量（仅用于本地开发/演示），值为 `https://api.openrouter.example`；该设置可以被用户级或系统级环境变量覆盖。
 
-  - 操作记录（2025-10-16）:
-    - 在本地使用 Python 3.11 创建虚拟环境 `venv` 并在其中安装依赖（`py -3.11 -m venv venv`，`pip install -r requirements.txt`），用于确保与 `pydantic`/`fastapi` 的兼容性。
-    - 使用 venv 启动服务并验证 `/health` 返回 `{"status":"ok"}`，确认服务可用。
+- 目的：
+  - 解决在未显式设置 `OPENROUTER_BASE` 时 `circuit-agent` 启动失败的问题，改善本地一键启动体验。
 
-  - 目的：尝试通过依赖版本升级解决 Pydantic 与 Python 3.13 的运行时不兼容问题，优先使用该方式进行快速验证；如仍不兼容则建议改为使用 Python 3.11 的虚拟环境运行服务或将项目迁移到 pydantic v2（后者为侵入性更大且需代码改动）。
+- 注意：
+  - 该默认值只是示例占位，使用前请替换为真实的 OpenRouter 兼容 API 基址或在环境中设置正确的 `OPENROUTER_BASE`。不要将真实密钥或敏感信息写入此脚本或仓库。
+
+2025-10-23: 变更记录（为 `circuit-agent` 添加缺失的中文提示词文件）
+
+- 文件新增：
+  - `ReviewAIPrompt/circuit-agent/identify_prompt_zh.md` — 识别关键元件与技术路线提示词（中文），用于 `DirectReviewUseCase` 的 identify 轮。
+  - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 在线检索与摘要提示词（中文），用于 `OpenRouterSearch` 在 enableSearch 场景下注入的 system message。
+
+- 目的：
+  - 填补缺失或空的提示词文件，避免 `PromptLoader` 在启动时因文件缺失或为空而 fail-fast，从而使本地开发与测试顺利进行。
+
+- 注意：
+  - 我已基于现有英文或通用模板生成了中文版本，请在生产或审计场景下核验提示词内容并根据需要调整语言风格或约束以符合审计与合规要求。

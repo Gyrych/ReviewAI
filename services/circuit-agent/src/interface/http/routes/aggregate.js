@@ -1,3 +1,4 @@
+// 中文注释：aggregate 路由用于接收多个模型/阶段的整合请求，并返回最终整合结果或状态。当前文件为路由占位。
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';

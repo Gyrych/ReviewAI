@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ReviewForm from './components/ReviewForm'
+import { getAgentBase } from './config/apiBase'
 import CircuitReviewForm from './agents/circuit/ReviewForm'
 import CircuitFineReviewForm from './agents/circuit-fine/ReviewForm'
 import ResultView from './components/ResultView'
@@ -32,8 +33,8 @@ export default function App() {
   // 因此为保证请求能正确到达，DEV 模式下使用完整 host:port 路径；生产环境仍使用相对路径。
   const isDev = Boolean((import.meta as any).env && (import.meta as any).env.DEV)
   const AGENTS: { id: string; label: string; baseUrl: string }[] = [
-    { id: 'circuit', label: t('app.tabs.circuit_single'), baseUrl: isDev ? 'http://localhost:4001/api/v1/circuit-agent' : '/api/v1/circuit-agent' },
-    { id: 'circuit-fine', label: t('app.tabs.circuit_multi'), baseUrl: isDev ? 'http://localhost:4002/api/v1/circuit-fine-agent' : '/api/v1/circuit-fine-agent' },
+    { id: 'circuit', label: t('app.tabs.circuit_single'), baseUrl: getAgentBase('circuit') },
+    { id: 'circuit-fine', label: t('app.tabs.circuit_multi'), baseUrl: getAgentBase('circuit-fine') },
   ]
   // per-agent UI state maps，确保不同 agent 之间互不干扰
   const [markdownMap, setMarkdownMap] = useState<Record<string, string>>(() => AGENTS.reduce((m, a) => (m[a.id] = '', m), {} as Record<string, string>))

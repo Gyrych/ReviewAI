@@ -1,3 +1,4 @@
+// 中文注释：sessions 路由处理会话的保存、列表、读取与删除请求，存储实现基于文件系统（SessionStoreFs）或 Redis（可选）。
 export function makeSessionsHandlers(store) {
     return {
         save: async (req, res) => {

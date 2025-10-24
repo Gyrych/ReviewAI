@@ -1,0 +1,40 @@
+openapi: 3.0.3
+info:
+  title: circuit-agent API (subset for constitution validation)
+  version: '0.1.0'
+paths:
+  /api/v1/circuit-agent/orchestrate/review:
+    post:
+      summary: Orchestrate a review (directReview)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                apiUrl:
+                  type: string
+                model:
+                  type: string
+                directReview:
+                  type: string
+                files:
+                  type: string
+      responses:
+        '200':
+          description: successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  markdown:
+                    type: string
+                  timeline:
+                    type: array
+                    items:
+                      type: object
+        '500':
+          description: server error (e.g., missing prompts)
+
+

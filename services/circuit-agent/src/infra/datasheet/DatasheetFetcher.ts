@@ -1,3 +1,11 @@
+// 中文注释：DatasheetFetcher 用于从供应商或在线资源抓取器件数据表并解析为结构化材料，用于识别与匹配。
+// 该文件为占位实现，实际抓取逻辑应包含重试、速率限制与错误退避策略。
+
+export async function fetchDatasheet(url: string): Promise<{ content: string } | null> {
+  // TODO: 实现实际网络抓取与解析逻辑；当前为占位返回 null
+  return null
+}
+
 import fetch from 'node-fetch'
 import type { ArtifactStore } from '../../domain/contracts/index.js'
 
