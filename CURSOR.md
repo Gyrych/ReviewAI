@@ -137,5 +137,5 @@
 - 2025-10-23: 在 `start-services.bat` 中注入 `OPENROUTER_BASE` 默认值以改善本地启动体验（示例值，仅用于本地开发）。
 - 2025-10-23: 补充中文提示词文件以避免 `PromptLoader` fail-fast。
 - 2025-10-24: 补丁级文档修订 — 将 `.specify/memory/constitution.md` 更新为版本 `1.5.1`（Last Amended: 2025-10-24），目的为措辞澄清、去重与可读性改进（PATCH）。
-
+- 2025-10-24: 创建 feature 规范并新增检查清单：`.specify/features/update-frontend-single-agent/spec.md` 与 `.specify/features/update-frontend-single-agent/checklists/requirements.md`（AI 助手生成，待人工复核）。
 说明：本次为文档性修正（PATCH），未修改治理原则的实质内容。
