@@ -219,3 +219,26 @@
 - 2025-10-23: 将 `specs/003-validate-code-against-constitution/checklists/requirements.md` 中的每条检查项逐条映射为 `tasks.md` 中的具体任务，并新增映射文件 `specs/003-validate-code-against-constitution/requirements-to-tasks-mapping.md`（由 AI 助手生成）。目的：确保每个检查项都有对应的可执行任务并可被 CI/脚本自动化验证。生成的任务包括 T029..T036。
 
 - 2025-10-23: 完成 T024（端到端验证）— 在本地启动前端并运行 Playwright E2E 测试，2 个示例测试通过，报告已生成至 `frontend/test-reports/`，并将结果记录到 `specs/003-validate-code-against-constitution/e2e-results.md`（由 AI 助手执行）。
+
+2025-10-23: 变更记录（在 `start-services.bat` 中注入 `OPENROUTER_BASE` 以避免本地启动时缺失环境变量导致 fail-fast）
+
+- 文件修改：
+  - `start-services.bat` — 在脚本顶部设置默认 `OPENROUTER_BASE` 环境变量（仅用于本地开发/演示），值为 `https://api.openrouter.example`；该设置可以被用户级或系统级环境变量覆盖。
+
+- 目的：
+  - 解决在未显式设置 `OPENROUTER_BASE` 时 `circuit-agent` 启动失败的问题，改善本地一键启动体验。
+
+- 注意：
+  - 该默认值只是示例占位，使用前请替换为真实的 OpenRouter 兼容 API 基址或在环境中设置正确的 `OPENROUTER_BASE`。不要将真实密钥或敏感信息写入此脚本或仓库。
+
+2025-10-23: 变更记录（为 `circuit-agent` 添加缺失的中文提示词文件）
+
+- 文件新增：
+  - `ReviewAIPrompt/circuit-agent/identify_prompt_zh.md` — 识别关键元件与技术路线提示词（中文），用于 `DirectReviewUseCase` 的 identify 轮。
+  - `ReviewAIPrompt/circuit-agent/search_prompt_zh.md` — 在线检索与摘要提示词（中文），用于 `OpenRouterSearch` 在 enableSearch 场景下注入的 system message。
+
+- 目的：
+  - 填补缺失或空的提示词文件，避免 `PromptLoader` 在启动时因文件缺失或为空而 fail-fast，从而使本地开发与测试顺利进行。
+
+- 注意：
+  - 我已基于现有英文或通用模板生成了中文版本，请在生产或审计场景下核验提示词内容并根据需要调整语言风格或约束以符合审计与合规要求。

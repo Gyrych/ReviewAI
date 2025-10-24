@@ -1,4 +1,6 @@
 @echo off
+REM 在此处设置默认 OPENROUTER_BASE（用于本地开发）。如需修改，请替换值或使用系统环境变量覆盖。
+set "OPENROUTER_BASE=https://api.openrouter.example"
 REM ===============================================================
 REM Windows 一键启动脚本 - ReviewAI 项目
 REM 功能：自动释放端口并分窗口启动三个服务
