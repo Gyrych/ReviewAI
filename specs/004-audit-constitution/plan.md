@@ -18,7 +18,7 @@
 **Target Platform**: 生产：Linux 服务器（container/VM）；开发：Windows/macOS（支持 Node.js 18+）。
 **Project Type**: Web application（前端 `frontend/` + 后端 `services/circuit-agent/`）。
 **Performance Goals**: 启动阶段提示词预加载在 30s 内完成（见 spec SC-001）；用于 UI 的状态/健康端点 p95 < 200ms（非 LLM 调用路径）。
-**Constraints**: 限制单请求附件体积（由前端/后端共同限定），启动时若缺失关键配置或提示词需 fail-fast（或按 spec 记录警告，见 Clarifications）。
+**Constraints**: 限制单请求附件体积（由前端/后端共同限定）。启动阶段默认采用严格预热（Strict Preload，`PROMPT_PRELOAD_STRICT=true`）；生产环境强制严格预热（即便显式将其设为 false 也会被忽略），开发/调试环境可通过显式配置关闭并打印高亮警告。
 **Scale/Scope**: 目标为小至中等并发（数百并发用户）；非大规模流量工程。
 
 ## Verification scripts and CI gates
@@ -28,6 +28,11 @@
 - `scripts/check-prompts.ps1` — 校验 `ReviewAIPrompt/{agent}` 下所有 prompt 文件存在且非空；缺失或语义性空白时返回非零退出码（exit 3）。
 - `scripts/check-readme-sections.ps1` — 校验 `services/circuit-agent/README.md` 与 `README.zh.md` 中包含至少 `API 列表`、`示例调用`、`启动/停止`、`依赖说明`、`Mermaid` 等章节；校验失败返回非零退出码（exit 4）。
  - `scripts/check-head-comments.sh` — 抽样或静态检查公共函数是否包含中文头部注释；已实现为 `scripts/check-head-comments.sh`（仓库顶层），返回非零退出码（exit 5）时表示存在缺失的文件。
+
+新增验证与门控（与 SC-001/SC-002/FR-012 对齐）：
+
+- 启动耗时与失败路径验证：在启动时记录“预热开始/结束时间与耗时”并输出到日志；在健康端点返回最近一次预热耗时指标；CI 中模拟缺失提示词并断言 ≤10s 内退出且错误文案包含缺失路径与修复建议。
+- 测试阈值门控：前端 Playwright 关键场景通过率 ≥ 95%，后端 Vitest 覆盖率 ≥ 70%；作为 PR 合并门槛并生成 HTML/JUnit 报告归档到既定目录。
 
 CI Gate recommendations:
 
@@ -44,7 +49,7 @@ Gates (derived from `.specify/memory/constitution.md`):
 
 - **Prompt completeness**: 所有 `circuit-agent` 相关的 system prompt 文件必须存在且非空；若存在缺失或语义性空白（仅空行）则视为不合格。
 - **Readme 同步**: `services/circuit-agent/` 目录须包含 `README.md` 与 `README.zh.md` 并至少含有 API 列表、示例调用、启动步骤与 Mermaid 流程图。
-- **中文注释覆盖**: 计划中修改或新增的公共函数/模块必须包含结构化中文头部注释（用途、参数、返回、示例）。
+- **中文注释覆盖**: 代码库中所有公共函数/类/模块的定义处必须包含结构化中文头部注释（用途、参数、返回/异常、最小示例），与宪法第10/17条一致。
 
 当前草案中未发现无法在后续设计阶段解决的阻塞性门禁，但 Phase 1 需要提供具体的验证脚本或检查清单以示合规。
 

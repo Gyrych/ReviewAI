@@ -21,7 +21,7 @@ Phase 2 — 基础准备（所有用户故事前的阻塞项）
 - [ ] T005 修改 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`，增加严格预热模式（遇到缺失或空文件立即抛出）并记录使用说明（`services/circuit-agent/src/infra/prompts/PromptLoader.ts`）
 - [ ] T006 在 CI 或仓库说明中添加/校验提示词检查脚本的调用（更新 `package.json` 文档或 `.github/workflows/*`）（`package.json`、`.github/workflows/*`（如存在））
 
-- [ ] T020 在配置中添加 `PROMPT_PRELOAD_STRICT` 环境变量支持，并在 `services/circuit-agent/src/config/config.ts` 中读取该配置；在 `bootstrap/server.ts` 中根据该配置选择 fail-fast 或记录警告行为（`services/circuit-agent/src/config/config.ts`、`services/circuit-agent/src/bootstrap/server.ts`）
+- [ ] T020 在配置中添加 `PROMPT_PRELOAD_STRICT` 环境变量支持（默认 true），并在 `services/circuit-agent/src/config/config.ts` 中读取该配置；在 `bootstrap/server.ts` 中：生产环境强制严格预热（忽略 false），开发/调试可显式关闭并打印高亮警告；据此选择 fail-fast 或记录警告（`services/circuit-agent/src/config/config.ts`、`services/circuit-agent/src/bootstrap/server.ts`）
 - [ ] T021 [P] 添加合约與实现一致性检查脚本 `scripts/check-contract-implementation.js`，用于比较 `specs/004-audit-constitution/contracts/openapi.yaml` 与 `services/circuit-agent/src/interface/http/routes/` 的路由实现并在检测到不一致时返回非零退出码（`scripts/check-contract-implementation.js`）
 
 Phase 3 — 用户故事（按优先级依次实现）
@@ -32,7 +32,7 @@ US1 — 启动检查与提示词完整性验证（优先级：P1）
 
 独立测试：在不修改源代码的前提下，删除或清空某个 system prompt 并启动服务，验证启动日志包含缺失信息并按设定行为退出或记录（见 Acceptance Scenarios）。
 
-- [ ] T007 [US1] 新增单元/集成测试，模拟缺失提示词并验证 `PromptLoader` 抛出 `PromptLoadError`（位置：`services/circuit-agent/tests/` 或 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`）
+- [ ] T007 [US1] 新增单元/集成测试，模拟缺失提示词并验证 `PromptLoader` 抛出 `PromptLoadError`（位置：`services/circuit-agent/tests/promptloader.spec.ts`）
 - [ ] T008 [US1] 在启动流程中记录成功预热时加载的提示词绝对路径（`services/circuit-agent/src/bootstrap/server.ts`）
 - [ ] T009 [US1] 实现清晰的启动错误信息，列出缺失/为空的提示词路径并给出修复建议（`services/circuit-agent/src/bootstrap/server.ts`）
 
@@ -59,9 +59,34 @@ US3 — README 与文档双语同步（优先级：P2）
 
 Final Phase — 打磨与横切关注点
 
-- [ ] T017 [P] 确保所有修改或新增的公共函数包含结构化中文头部注释（按宪法要求扫描并补全）（`services/circuit-agent/src/**`、`frontend/src/**`）
+- [ ] T017 [P] 确保所有公共函数/类/模块包含结构化中文头部注释（按宪法第10/17条扫描并补全）（`services/circuit-agent/src/**`、`frontend/src/**`）
 - [x] T018 [P] 向 `CURSOR.md` 追加本次变更摘要及日期（`CURSOR.md`）
 - [ ] T019 [P] 运行 `scripts/check-prompts.ps1` 与 `scripts/check-readme-sections.ps1`，验证退出码为 0，并记录任何需人工修复的步骤（`scripts/check-prompts.ps1`、`scripts/check-readme-sections.ps1`）
+
+---
+
+新增任务（治理/门控/指标）
+
+- [ ] T022 [P] 修订规范：更新 `specs/004-audit-constitution/spec.md` 的 FR-001 与 Clarifications Q5（生产严格失败；开发/调试可显式关闭 Strict Preload）
+- [ ] T023 [P] 文档同步：在 `services/circuit-agent/README.md` 与 `README.zh.md` 增补 Strict Preload 策略与配置示例（含故障排查）
+- [ ] T024 注释覆盖审计：扫描 `services/circuit-agent/src/**` 与 `frontend/src/**` 公共导出，产出缺口清单（遵循 `comment-template.md`）
+- [ ] T025 注释补齐实施：优先补齐接口/用例/路由/存储等关键模块头注（中文结构化）
+- [ ] T026 注释门控接入：将 `scripts/check-head-comments.sh` 接入 CI，失败阻止合并
+- [ ] T027 服务边界审计：识别跨服务共享状态/文件/DB，并提出契约化替代与迁移计划（覆盖 FR-007）
+- [ ] T028 废弃代码清理：识别与清理长期未触达/注释大段的实现，附回滚策略（覆盖 FR-008）
+- [ ] T029 生成物合规自检：整合 prompts/README/注释/契约一致性检查，产出 `analysis-report.md`（覆盖 FR-009）
+- [ ] T030 实验功能治理：定义 feature flag 规范、回滚模板与测试策略；梳理现存实验标识（覆盖 FR-011）
+- [ ] T031 PR 审批与回溯：在 `CURSOR.md` 增补“≥2 审批者（含维护者）+ 紧急回溯要求”，并在 CI 校验（覆盖 FR-014）
+
+US1 追加指标任务
+
+- [ ] T032 预热耗时埋点：在 `services/circuit-agent/src/bootstrap/server.ts` 记录预热耗时并在健康端点暴露指标（覆盖 SC-001）
+- [ ] T033 缺失提示词失败用例：CI 中模拟缺失提示词并断言 ≤10s 失败与明确错误文案（覆盖 SC-002）
+
+测试阈值门控
+
+- [ ] T034 [P] 前端测试阈值门控：集成 Playwright 关键场景 ≥95% 的门控与报告归档（`frontend/package.json`、CI 配置）
+- [ ] T035 [P] 后端测试阈值门控：集成 Vitest 覆盖率 ≥70% 的门控与报告归档（`services/circuit-agent/package.json`、CI 配置）
 
 ---
 

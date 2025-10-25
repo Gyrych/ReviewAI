@@ -48,6 +48,22 @@ npm run dev
 - `STORAGE_ROOT` — 工件与会话的存储根目录（默认仓库内）
 - `KEEP_ALIVE_MSECS`, `FETCH_RETRIES` 等超时/重试配置
 
+严格预热（生产默认）
+---
+生产环境默认并强制启用严格预热（Strict Preload）：任一必需提示词缺失或语义空白将导致启动阶段 fail-fast 并中止。开发/调试可通过显式配置关闭：
+
+```powershell
+$env:PROMPT_PRELOAD_STRICT = 'false' # 仅开发/调试，启动时会打印高亮警告
+```
+
+推荐默认：
+
+```powershell
+$env:PROMPT_PRELOAD_STRICT = 'true'
+```
+
+健康端点应暴露最近一次预热耗时指标，便于监控与验收（参见本特性规格的 SC-001/SC-002）。
+
 核心架构（Mermaid）
 ---
 ```mermaid

@@ -48,6 +48,16 @@ Runtime config (common env vars)
 
 - `KEEP_ALIVE_MSECS`, `FETCH_RETRIES` — network/keep-alive and retry related settings
 
+Strict Preload (production default)
+---
+In production, the service enforces Strict Preload of prompt files: any missing or semantically empty required prompt causes fail-fast at startup. In development, you may explicitly disable strict mode via `PROMPT_PRELOAD_STRICT=false` (a highlighted warning will be logged). Recommended default:
+
+```bash
+export PROMPT_PRELOAD_STRICT=true
+```
+
+The health endpoint should expose the latest preload duration metric for monitoring (see SC-001/SC-002 in the feature spec).
+
 Architecture (Mermaid)
 ---
 ```mermaid
