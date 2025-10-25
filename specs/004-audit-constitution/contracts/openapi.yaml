@@ -1,0 +1,98 @@
+openapi: 3.0.0
+info:
+  title: ReviewAI Circuit Agent API
+  version: 0.1.0
+paths:
+  /api/v1/circuit-agent/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/circuit-agent/orchestrate/review:
+    post:
+      summary: Orchestrate review (multipart)
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                auxModel:
+                  type: string
+                directReview:
+                  type: boolean
+      responses:
+        '200':
+          description: Review response
+        '4xx':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '5xx':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/circuit-agent/diagnostics/export:
+    post:
+      summary: 导出诊断信息（请求/响应、日志片段等），返回 artifact URL
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sessionId:
+                  type: string
+                includeResponses:
+                  type: boolean
+              required: [sessionId]
+      responses:
+        '201':
+          description: Created - 返回诊断 artifact URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  artifactUrl:
+                    type: string
+        '4xx':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '5xx':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: 机器可读的错误码
+        message:
+          type: string
+          description: 面向用户的错误提示（可直接展示）
+        details:
+          type: object
+          description: 可选的结构化错误细节（例如 field errors）
+        artifactUrl:
+          type: string
+          description: 可选，错误时关联的诊断 artifact URL
+
+
+

@@ -139,3 +139,16 @@
 - 2025-10-24: 补丁级文档修订 — 将 `.specify/memory/constitution.md` 更新为版本 `1.5.1`（Last Amended: 2025-10-24），目的为措辞澄清、去重与可读性改进（PATCH）。
 - 2025-10-24: 创建 feature 规范并新增检查清单：`.specify/features/update-frontend-single-agent/spec.md` 与 `.specify/features/update-frontend-single-agent/checklists/requirements.md`（AI 助手生成，待人工复核）。
 说明：本次为文档性修正（PATCH），未修改治理原则的实质内容。
+
+- 2025-10-25: 由 AI 助手执行并完善 `specs/004-audit-constitution` 的实施计划与配套文档（执行 `/speckit.plan`）：
+  - 修改/新增文件：
+    - `specs/004-audit-constitution/plan.md`（补充 Summary、Technical Context、验证脚本与 CI gates）
+    - `specs/004-audit-constitution/research.md`（新增，记录 Phase 0 决策与下一步任务）
+    - `specs/004-audit-constitution/data-model.md`（新增，定义核心实体与校验规则）
+    - `specs/004-audit-constitution/quickstart.md`（新增，补充运行与验证脚本说明）
+    - `specs/004-audit-constitution/contracts/openapi.yaml`（新增，补充错误响应 schema 与 diagnostics endpoint）
+    - `specs/004-audit-constitution/readme-template.md`（新增，README 中文模板）
+    - `specs/004-audit-constitution/comment-template.md`（新增，中文头部注释模板示例）
+    - `scripts/check-prompts.ps1`（新增，提示词完整性校验脚本）
+    - `scripts/check-readme-sections.ps1`（新增，README 必需章节校验脚本）
+  - 目的：使实施计划可执行、可验证，并补充契约与自动化校验入口；后续建议实现注释校验脚本并在 CI 中集成。
