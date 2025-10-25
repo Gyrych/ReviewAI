@@ -152,3 +152,5 @@
     - `scripts/check-prompts.ps1`（新增，提示词完整性校验脚本）
     - `scripts/check-readme-sections.ps1`（新增，README 必需章节校验脚本）
   - 目的：使实施计划可执行、可验证，并补充契约与自动化校验入口；后续建议实现注释校验脚本并在 CI 中集成。
+
+- 2025-10-25: 由 AI 助手生成并写入 `specs/004-audit-constitution/tasks.md`（执行 `/speckit.tasks`），任务包括启动检查、前端错误兜底、README 双语同步，并列出实现优先级与 MVP 建议。
