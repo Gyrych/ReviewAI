@@ -50,7 +50,7 @@ Runtime config (common env vars)
 
 Strict Preload (all environments)
 ---
-The service enforces Strict Preload of prompt files in all environments: any missing or semantically empty required prompt causes fail-fast at startup (non-zero exit). No configuration may relax this behavior inside the service process. For troubleshooting, you may use an external "pre-check script" to temporarily skip checks, but this does not affect the service's strict startup policy.
+The service enforces Strict Preload of prompt files in all environments: any missing or semantically empty required prompt causes fail-fast at startup (non-zero exit) within 10 seconds. No configuration may relax this behavior inside the service process. For troubleshooting, you may use an external "pre-check script" to temporarily skip checks, but this does not affect the service's strict startup policy.
 
 The health endpoint can expose the latest preload duration metric for monitoring (see SC-001/SC-002 in the feature spec).
 
@@ -88,6 +88,8 @@ All endpoints are prefixed by the service base path (e.g. `/api/v1/circuit-agent
 
 - `POST /orchestrate/review` (recommended)
   - Unified orchestration entrypoint. Current implementation requires `directReview=true` (structured mode removed).
+- `POST /modes/structured/*` (410 Gone)
+  - Structured mode has been removed. Use `POST /orchestrate/review` with `directReview=true` instead.
   - Content-Type: `multipart/form-data`
   - Form fields:
     - `apiUrl` (string, required)

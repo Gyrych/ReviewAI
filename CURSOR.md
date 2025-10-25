@@ -158,3 +158,12 @@
  - 2025-10-25: 修订 `specs/004-audit-constitution/spec.md`（FR-001、SC-001/SC-002、Clarifications Q5）以强制生产严格预热并补充可测量要求；更新 `plan.md`（Constraints、CI gates）；同步服务文档 `services/circuit-agent/README*.md` 增加 Strict Preload 说明；在 `tasks.md` 固定 T007 测试位置、扩大 T017 覆盖范围、细化 T020 生产强制，并新增治理/门控/指标相关任务 T022..T035。
 
 - 2025-10-25: 统一严格预热策略（所有环境 fail-fast），修订 `specs/004-audit-constitution/spec.md`（FR-001、Clarifications 与错误负载约定）、`plan.md`（Constraints 与结构树）、`tasks.md`（统计与 Support 标注、T009A 新增、T020 收紧）、扩展 `openapi.yaml` 的 `ErrorResponse.missingPaths`、在 `services/circuit-agent` 中新增并注册 `POST /diagnostics/export` 路由、调整 `src/bootstrap/server.ts` 启动严格失败逻辑、补充先决脚本 `.specify/scripts/powershell/check-prerequisites.ps1`、同步中英 README 的严格预热说明。
+ - 2025-10-25: 宪法审计整改（/speckit.analyze 建议落地）：
+   - `specs/004-audit-constitution/spec.md`：FR-001 增加“10s 内 fail-fast”与“缺失绝对路径”要求；Clarifications Q5 同步。
+   - `specs/004-audit-constitution/plan.md`：Constraints 与 CI gates 固化 10s/非 0 退出门槛；未达标 CI 失败。
+   - `services/circuit-agent/src/bootstrap/server.ts`：合并 `/artifacts` 列表路由为单一实现（提取工厂函数）。
+   - `services/circuit-agent/README.md` 与 `README.zh.md`：严格预热补充 10s 时限说明；新增 structured 模式退役（410）说明与替代指引。
+   - `scripts/check-readme-sections.ps1`：新增最小等效性检查（标题数与 API 条目数）。
+   - `scripts/check-head-comments.sh`：输出 JSON 报告 `docs/comment-coverage-report.json` 并使用非 0 退出门槛。
+   - `scripts/check-contract-implementation.js`：新增契约-实现一致性校验脚本（OpenAPI vs Express 路由）。
+   - `specs/004-audit-constitution/tasks.md`：为 T017/T028 增补完成定义与产出（注释覆盖报告、dead-code 报告）。

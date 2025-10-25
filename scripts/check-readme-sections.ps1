@@ -25,7 +25,34 @@ if($errors.Count -gt 0){
     exit 4
 }
 
-Write-Output "README files present and contain required sections"
+# 最小等效性检查：标题数量与 API 项数量需一致
+$zhPath = Join-Path $ServiceDir "README.zh.md"
+$enPath = Join-Path $ServiceDir "README.md"
+$zh = Get-Content -Raw -Path $zhPath
+$en = Get-Content -Raw -Path $enPath
+
+function Get-Headers($txt){
+    return ($txt -split "`n" | Where-Object { $_ -match '^\#+' }) -replace '^\s*#+\s*','' | ForEach-Object { $_.Trim() }
+}
+function Get-ApiItemCount($txt){
+    return (($txt -split "`n") | Where-Object { $_ -match '^\-\s+(GET|POST|PUT|DELETE)\b' }).Count
+}
+
+$zhHeaders = Get-Headers $zh
+$enHeaders = Get-Headers $en
+$zhApi = Get-ApiItemCount $zh
+$enApi = Get-ApiItemCount $en
+
+$diff = @()
+if($zhHeaders.Count -ne $enHeaders.Count){ $diff += "标题数量不一致：zh=$($zhHeaders.Count), en=$($enHeaders.Count)" }
+if($zhApi -ne $enApi){ $diff += "API 条目数不一致：zh=$zhApi, en=$enApi" }
+
+if($diff.Count -gt 0){
+    Write-Error ("README 等效性检查失败：`n" + ($diff -join "`n"))
+    exit 4
+}
+
+Write-Output "README files present, contain required sections, and pass minimal equivalence checks"
 exit 0
 
 

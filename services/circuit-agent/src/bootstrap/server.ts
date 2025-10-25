@@ -192,17 +192,21 @@ app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
 // 诊断导出路由
 app.use(makeDiagnosticsRouter())
 
-// 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）
-app.get(`${BASE_PATH}/artifacts`, (req, res) => {
-  try {
-    const artifactsDir = path.join(cfg.storageRoot, 'artifacts')
-    if (!fs.existsSync(artifactsDir)) return res.status(404).json({ error: 'artifacts not found' })
-    const items = fs.readdirSync(artifactsDir).map((f) => ({ filename: f, url: `${BASE_PATH}/artifacts/${f}` }))
-    return res.json({ items })
-  } catch (e: any) {
-    return res.status(500).json({ error: e?.message || 'failed to list artifacts' })
+function listArtifactsHandlerFactory(basePath: string, storageRoot: string) {
+  return (req: any, res: any) => {
+    try {
+      const artifactsDir = path.join(storageRoot, 'artifacts')
+      if (!fs.existsSync(artifactsDir)) return res.status(404).json({ error: 'artifacts not found' })
+      const items = fs.readdirSync(artifactsDir).map((f) => ({ filename: f, url: `${basePath}/artifacts/${f}` }))
+      return res.json({ items })
+    } catch (e: any) {
+      return res.status(500).json({ error: e?.message || 'failed to list artifacts' })
+    }
   }
-})
+}
+
+// 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）
+app.get(`${BASE_PATH}/artifacts`, listArtifactsHandlerFactory(BASE_PATH, cfg.storageRoot))
 
 function fsExists(p: string): boolean { try { return fs.existsSync(p) } catch { return false } }
 

@@ -5,6 +5,7 @@ set -euo pipefail
 # 目的：确保公共函数/模块具有中文结构化头部注释，作为合规性自检脚本。
 
 ROOT=${1:-.}
+REPORT=${2:-docs/comment-coverage-report.json}
 missing=()
 
 while IFS= read -r -d '' file; do
@@ -14,11 +15,24 @@ while IFS= read -r -d '' file; do
   else
     missing+=("$file")
   fi
-done < <(find "$ROOT" -type f \( -name '*.ts' -o -name '*.js' -o -name '*.tsx' -o -name '*.jsx' \) -print0)
+done < <(find "$ROOT" -type f \( -name '*.ts' -o -name '*.js' -o -name '*.tsx' -o -name '*.jsx' \) \! -name '*.d.ts' -print0)
 
 if [ ${#missing[@]} -gt 0 ]; then
-  echo "Files missing Chinese header comments (first 20 lines):"
-  printf '%s\n' "${missing[@]}"
+  mkdir -p "$(dirname "$REPORT")"
+  {
+    echo '{'
+    echo '  "missingCount":' "${#missing[@]}",
+    echo '  "files": ['
+    for i in "${!missing[@]}"; do
+      f=${missing[$i]}
+      printf '    "%s"' "$f"
+      if [ $i -lt $((${#missing[@]} - 1)) ]; then echo ','; else echo; fi
+    done
+    echo '  ]'
+    echo '}'
+  } > "$REPORT"
+  echo "缺少中文头部注释的条目数: ${#missing[@]}"
+  echo "已生成报告: $REPORT"
   exit 5
 fi
 

@@ -61,6 +61,8 @@ US3 — README 与文档双语同步（优先级：P2）
 Final Phase — 打磨与横切关注点
 
 - [ ] T017 [P] 确保所有公共函数/类/模块包含结构化中文头部注释（按宪法第10/17条扫描并补全）（`services/circuit-agent/src/**`、`frontend/src/**`）
+  - 完成定义：扫描上述路径（排除 `**/*.d.ts`、编译产物、第三方依赖），对所有公开导出的函数/类/模块定义处加中文结构化头注（用途、参数、返回/异常、最小示例）。
+  - 产物：`docs/comment-coverage-report.json`（由 `scripts/check-head-comments.sh` 生成）；CI 失败即阻断合并。
 - [x] T018 [P] 向 `CURSOR.md` 追加本次变更摘要及日期（`CURSOR.md`）
 - [ ] T019 [P] 运行 `scripts/check-prompts.ps1` 与 `scripts/check-readme-sections.ps1`，验证退出码为 0，并记录任何需人工修复的步骤（`scripts/check-prompts.ps1`、`scripts/check-readme-sections.ps1`）
 
@@ -75,6 +77,8 @@ Final Phase — 打磨与横切关注点
 - [ ] T026 注释门控接入：将 `scripts/check-head-comments.sh` 接入 CI，失败阻止合并
 - [ ] T027 服务边界审计：识别跨服务共享状态/文件/DB，并提出契约化替代与迁移计划（覆盖 FR-007）
 - [ ] T028 废弃代码清理：识别与清理长期未触达/注释大段的实现，附回滚策略（覆盖 FR-008）
+  - 产物：`docs/dead-code-report.md`（包含长期未改动文件、未被引用的导出符号清单、注释大段实现示例）。
+  - 建议脚本：`npx ts-prune > docs/dead-code-report.md`；`npx depcruise src --output-type text >> docs/dead-code-report.md`（仅建议，需人工复核）。
 - [ ] T029 生成物合规自检：整合 prompts/README/注释/契约一致性检查，产出 `analysis-report.md`（覆盖 FR-009）
 - [ ] T030 实验功能治理：定义 feature flag 规范、回滚模板与测试策略；梳理现存实验标识（覆盖 FR-011）
 - [ ] T031 PR 审批与回溯：在 `CURSOR.md` 增补“≥2 审批者（含维护者）+ 紧急回溯要求”，并在 CI 校验（覆盖 FR-014）

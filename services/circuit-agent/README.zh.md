@@ -50,7 +50,7 @@ npm run dev
 
 严格预热（所有环境）
 ---
-服务在所有环境中强制启用严格预热（Strict Preload）：任一必需提示词缺失或语义空白将导致启动阶段 fail-fast 并中止（非 0 退出）。服务进程内不允许通过任何配置放宽该策略；如需排障，仅可在服务外部使用“预检脚本”临时跳过，不影响服务进程的严格策略。
+服务在所有环境中强制启用严格预热（Strict Preload）：任一必需提示词缺失或语义空白将导致启动阶段在 10s 内 fail-fast 并中止（非 0 退出）。服务进程内不允许通过任何配置放宽该策略；如需排障，仅可在服务外部使用“预检脚本”临时跳过，不影响服务进程的严格策略。
 
 健康端点可暴露最近一次预热耗时指标，便于监控与验收（参见本特性规格的 SC-001/SC-002）。
 
@@ -92,6 +92,8 @@ OpenRouter -->|"响应"| 直接
 
 - `POST /orchestrate/review` （推荐使用）
   - 描述：统一编排入口，当前仅支持 `directReview=true`（structured 已退役）
+- `POST /modes/structured/*`（410 Gone）
+  - structured 模式已退役。请改用 `POST /orchestrate/review` 并设置 `directReview=true`。
   - Content-Type：`multipart/form-data`（支持 `files` 上传）
   - 常用字段（form）：
     - `apiUrl` (string, required) — 上游 OpenRouter 或兼容提供者的 base URL
