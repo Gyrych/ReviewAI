@@ -87,7 +87,7 @@
 - `REDIS_URL` — 可选：Redis 连接用于进度存储
 - `LLM_TIMEOUT_MS`, `VISION_TIMEOUT_MS`, `FETCH_RETRIES`, `KEEP_ALIVE_MSECS` — 网络/超时相关
 - `STORAGE_ROOT` — 指定 artifact/session 的存储根目录（可覆盖服务默认）
- - `PROMPT_PRELOAD_STRICT` — 严格预热开关；默认 `true`。生产环境强制严格预热（即便设置为 `false` 也会被忽略）；开发/调试可显式设为 `false` 以便排障（启动将打印高亮警告）。健康端点建议暴露最近一次预热耗时指标，便于监控与验收（见 SC-001/SC-002）。
+ - `PROMPT_PRELOAD_STRICT` — 服务进程在任何环境均严格预热，缺失或语义空白即 fail-fast（非 0 退出）；任何配置不得在服务进程内放宽该策略；该开关仅供外部“预检脚本”使用，不影响服务进程行为。健康端点可暴露最近一次预热耗时指标（见 SC-001/SC-002）。
 
 七、异常/故障排查要点
 
@@ -156,3 +156,5 @@
 
 - 2025-10-25: 由 AI 助手生成并写入 `specs/004-audit-constitution/tasks.md`（执行 `/speckit.tasks`），任务包括启动检查、前端错误兜底、README 双语同步，并列出实现优先级与 MVP 建议。
  - 2025-10-25: 修订 `specs/004-audit-constitution/spec.md`（FR-001、SC-001/SC-002、Clarifications Q5）以强制生产严格预热并补充可测量要求；更新 `plan.md`（Constraints、CI gates）；同步服务文档 `services/circuit-agent/README*.md` 增加 Strict Preload 说明；在 `tasks.md` 固定 T007 测试位置、扩大 T017 覆盖范围、细化 T020 生产强制，并新增治理/门控/指标相关任务 T022..T035。
+
+- 2025-10-25: 统一严格预热策略（所有环境 fail-fast），修订 `specs/004-audit-constitution/spec.md`（FR-001、Clarifications 与错误负载约定）、`plan.md`（Constraints 与结构树）、`tasks.md`（统计与 Support 标注、T009A 新增、T020 收紧）、扩展 `openapi.yaml` 的 `ErrorResponse.missingPaths`、在 `services/circuit-agent` 中新增并注册 `POST /diagnostics/export` 路由、调整 `src/bootstrap/server.ts` 启动严格失败逻辑、补充先决脚本 `.specify/scripts/powershell/check-prerequisites.ps1`、同步中英 README 的严格预热说明。

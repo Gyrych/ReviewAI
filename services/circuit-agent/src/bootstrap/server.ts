@@ -32,6 +32,7 @@ import { makeAggregateRouter } from '../interface/http/routes/aggregate'
 import { makeOrchestrateRouter } from '../interface/http/routes/orchestrate'
 import { SessionStoreFs } from '../infra/storage/SessionStoreFs'
 import { makeSessionsHandlers } from '../interface/http/routes/sessions'
+import { makeDiagnosticsRouter } from '../interface/http/routes/diagnostics'
 
 // 中文注释：加载环境变量（注意：不要将密钥写入日志或工件）
 dotenv.config()
@@ -39,17 +40,31 @@ dotenv.config()
 // 中文注释：基础配置（端口与前缀）
 const cfg = loadConfig()
 
-// 中文注释：预热提示词缓存，便于在启动时发现加载问题并缩短首次请求延迟
+// 中文注释：预热提示词缓存；严格模式：任一缺失或空文件均导致启动失败（宪法要求）
 try {
-  // 预热 system initial/revision 与部分 pass variant（identify/search 等）
+  const t0 = Date.now()
   PromptLoader.preloadPrompts('circuit-agent', [
     { type: 'system', variant: 'initial' },
     { type: 'system', variant: 'revision' },
     { type: 'pass', variant: 'identify' },
   ], ['zh', 'en'])
   console.log('[circuit-agent] PromptLoader.preloadPrompts triggered')
+  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..')
+  const out = path.resolve(repoRoot, 'specs', '003-validate-code-against-constitution', 'prompt-validation.json')
+  const summary = validateAndWriteSummary(repoRoot, 'circuit-agent', out)
+  if (summary.missingCount > 0) {
+    console.error('[circuit-agent] Prompt validation failed: missing or empty prompt files')
+    for (const r of summary.results.filter((x) => !x.exists || x.sizeBytes === 0)) {
+      console.error('  - ' + r.path + ` (size=${r.sizeBytes})`)
+    }
+    console.error('[circuit-agent] See ' + out + ' for full validation summary. Aborting startup.')
+    process.exit(1)
+  }
+  const t1 = Date.now()
+  console.log('[circuit-agent] preload ok, ms=', (t1 - t0))
 } catch (e: any) {
-  console.warn('[circuit-agent] PromptLoader.preloadPrompts failed to start:', e?.message || e)
+  console.error('[circuit-agent] Prompt preload/validation threw error:', e?.message || e)
+  process.exit(1)
 }
 
 // 中文注释：在服务引导早期校验关键运行时配置，发现问题时打印可操作性建议并以非 0 退出（满足 FR-002）
@@ -102,25 +117,7 @@ try {
   // 注意：此路由放在 try 块之外，避免静态资源挂载异常导致路由未注册
 } catch {}
 
-// 中文注释：在启动时验证提示词文件完整性（满足 FR-001、T011）
-try {
-  const repoRoot = path.resolve(__dirname, '..', '..', '..', '..')
-  const out = path.resolve(repoRoot, 'specs', '003-validate-code-against-constitution', 'prompt-validation.json')
-  const summary = validateAndWriteSummary(repoRoot, 'circuit-agent', out)
-  if (summary.missingCount > 0) {
-    console.error('[circuit-agent] Prompt validation failed: missing or empty prompt files')
-    for (const r of summary.results.filter((x) => !x.exists || x.sizeBytes === 0)) {
-      console.error('  - ' + r.path + ` (size=${r.sizeBytes})`)
-    }
-    console.error('[circuit-agent] See ' + out + ' for full validation summary. Aborting startup.')
-    process.exit(1)
-  } else {
-    console.log('[circuit-agent] Prompt validation passed, summary written to', out)
-  }
-} catch (e: any) {
-  console.error('[circuit-agent] Prompt validation check failed:', e?.message || e)
-  // 不在此处强制退出；若需要严格执行可替换为 process.exit(1)
-}
+// 中文注释：上述预热已做严格校验；此段落不再重复校验
 
 // 中文注释：兼容性路由：在某些运行时或构建产物缺失时，显式处理 artifacts 路由的 404/信息响应
 app.get(`${BASE_PATH}/artifacts`, (req, res) => {
@@ -191,6 +188,9 @@ const identifyFacts = new IdentifyKeyFactsUseCase(vision, artifact, timeline)
 // 注：structured/multi/aggregate 已退役，orchestrate 路由仅支持 directReview=true
 const orch = makeOrchestrateRouter({ storageRoot: cfg.storageRoot, artifact, direct: directReview, identify: identifyFacts, timeline, search: searchProvider })
 app.post(`${BASE_PATH}/orchestrate/review`, orch.upload.any(), orch.handler)
+
+// 诊断导出路由
+app.use(makeDiagnosticsRouter())
 
 // 兼容性：若需要列出 artifacts，此端点返回 artifacts 文件列表（JSON）
 app.get(`${BASE_PATH}/artifacts`, (req, res) => {

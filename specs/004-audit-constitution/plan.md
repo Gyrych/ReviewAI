@@ -18,7 +18,7 @@
 **Target Platform**: 生产：Linux 服务器（container/VM）；开发：Windows/macOS（支持 Node.js 18+）。
 **Project Type**: Web application（前端 `frontend/` + 后端 `services/circuit-agent/`）。
 **Performance Goals**: 启动阶段提示词预加载在 30s 内完成（见 spec SC-001）；用于 UI 的状态/健康端点 p95 < 200ms（非 LLM 调用路径）。
-**Constraints**: 限制单请求附件体积（由前端/后端共同限定）。启动阶段默认采用严格预热（Strict Preload，`PROMPT_PRELOAD_STRICT=true`）；生产环境强制严格预热（即便显式将其设为 false 也会被忽略），开发/调试环境可通过显式配置关闭并打印高亮警告。
+**Constraints**: 限制单请求附件体积（由前端/后端共同限定）。启动阶段在所有环境均采用严格预热（Strict Preload）；若任一必需提示词缺失或语义性空白，服务必须 fail-fast 并中止启动（退出码非 0）。任何配置不得在服务进程内放宽该策略；仅允许通过外部“预检脚本”进行调试场景的临时跳过，不影响服务进程行为。
 **Scale/Scope**: 目标为小至中等并发（数百并发用户）；非大规模流量工程。
 
 ## Verification scripts and CI gates
@@ -72,51 +72,35 @@ specs/[###-feature]/
 ```
 
 ### Source Code (repository root)
-<!--
-  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
-  for this feature. Delete unused options and expand the chosen structure with
-  real paths (e.g., apps/admin, packages/something). The delivered plan must
-  not include Option labels.
--->
 
 ```
-# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
-src/
-├── models/
-├── services/
-├── cli/
-└── lib/
-
-tests/
-├── contract/
-├── integration/
-└── unit/
-
-# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
-backend/
-├── src/
-│   ├── models/
-│   ├── services/
-│   └── api/
-└── tests/
-
 frontend/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   └── services/
-└── tests/
-
-# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
-api/
-└── [same as backend above]
-
-ios/ or android/
-└── [platform-specific structure: feature modules, UI flows, platform tests]
+  src/
+    agents/
+    components/
+    config/
+    types/
+    utils/
+  tests/
+    e2e/
+services/
+  circuit-agent/
+    src/
+      interface/http/routes/
+      infra/prompts/
+      app/usecases/
+      infra/storage/
+    tests/
+  circuit-fine-agent/
+ReviewAIPrompt/
+scripts/
+specs/
+  004-audit-constitution/
+    contracts/
+    ...
 ```
 
-**Structure Decision**: [Document the selected structure and reference the real
-directories captured above]
+**Structure Decision**: Web application（frontend + services/*）
 
 ## Complexity Tracking
 

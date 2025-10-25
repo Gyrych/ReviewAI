@@ -11,9 +11,9 @@ generated_by: speckit.tasks
 
 Phase 1 — 初始化（项目准备与先决检查）
 
-- [ ] T001 运行前置检查脚本并记录 FEATURE_DIR 与 AVAILABLE_DOCS（`.specify/scripts/powershell/check-prerequisites.ps1`）
-- [ ] T002 [P] 使用现有脚本执行提示词完整性校验并保存输出（`scripts/check-prompts.ps1`）
-- [ ] T003 确保 Playwright 报告目录存在并在 `specs/004-audit-constitution/quickstart.md` 中记录运行命令（`specs/004-audit-constitution/quickstart.md`）
+- [ ] T001 [Support] 运行前置检查脚本并记录 FEATURE_DIR 与 AVAILABLE_DOCS（`.specify/scripts/powershell/check-prerequisites.ps1`）
+- [ ] T002 [P] [Support] 使用现有脚本执行提示词完整性校验并保存输出（`scripts/check-prompts.ps1`）
+- [ ] T003 [Support] 确保 Playwright 报告目录存在并在 `specs/004-audit-constitution/quickstart.md` 中记录运行命令（`specs/004-audit-constitution/quickstart.md`）
 
 Phase 2 — 基础准备（所有用户故事前的阻塞项）
 
@@ -21,7 +21,7 @@ Phase 2 — 基础准备（所有用户故事前的阻塞项）
 - [ ] T005 修改 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`，增加严格预热模式（遇到缺失或空文件立即抛出）并记录使用说明（`services/circuit-agent/src/infra/prompts/PromptLoader.ts`）
 - [ ] T006 在 CI 或仓库说明中添加/校验提示词检查脚本的调用（更新 `package.json` 文档或 `.github/workflows/*`）（`package.json`、`.github/workflows/*`（如存在））
 
-- [ ] T020 在配置中添加 `PROMPT_PRELOAD_STRICT` 环境变量支持（默认 true），并在 `services/circuit-agent/src/config/config.ts` 中读取该配置；在 `bootstrap/server.ts` 中：生产环境强制严格预热（忽略 false），开发/调试可显式关闭并打印高亮警告；据此选择 fail-fast 或记录警告（`services/circuit-agent/src/config/config.ts`、`services/circuit-agent/src/bootstrap/server.ts`）
+- [ ] T020 在配置中添加 `PROMPT_PRELOAD_STRICT` 环境变量支持（默认 true），并在 `services/circuit-agent/src/config/config.ts` 中读取该配置；在 `bootstrap/server.ts` 中：任何环境下服务进程一律严格预热，缺失即 fail-fast（忽略任何放宽开关）；`PROMPT_PRELOAD_STRICT` 仅供外部“预检脚本”使用，不影响服务进程行为（`services/circuit-agent/src/config/config.ts`、`services/circuit-agent/src/bootstrap/server.ts`）
 - [ ] T021 [P] 添加合约與实现一致性检查脚本 `scripts/check-contract-implementation.js`，用于比较 `specs/004-audit-constitution/contracts/openapi.yaml` 与 `services/circuit-agent/src/interface/http/routes/` 的路由实现并在检测到不一致时返回非零退出码（`scripts/check-contract-implementation.js`）
 
 Phase 3 — 用户故事（按优先级依次实现）
@@ -42,6 +42,7 @@ US2 — 前端契约化调用与错误兜底（优先级：P1）
 
 独立测试：模拟后端返回提示词加载错误或 5xx，验证前端显示“导出请求/响应”按钮并能调用导出接口获取 artifact URL。
 
+- [ ] T009A [US2] 实现后端路由 `POST /api/v1/circuit-agent/diagnostics/export` 并返回 `201 + { artifactUrl }`（依赖 `contracts/openapi.yaml`）
 - [ ] T010 [US2] 添加可复用前端组件 `ErrorDiagnostic.tsx`，用于渲染可操作的错误信息并提供“导出诊断”按钮（`frontend/src/components/ErrorDiagnostic.tsx`）
 - [ ] T011 [US2] 在全局 API 错误处理处集成 `ErrorDiagnostic`（例如 `frontend/src/config/apiBase.ts`）
 - [ ] T012 [P] [US2] 在前端实现调用诊断导出接口 `/api/v1/circuit-agent/diagnostics/export` 并处理返回的 `artifactUrl`（`frontend/src/components/ErrorDiagnostic.tsx`）
@@ -110,19 +111,18 @@ US1 追加指标任务
 报告与校验
 
 - 生成文件路径：`specs/004-audit-constitution/tasks.md`
-- 总任务数：21（T001..T021）
-- 各相/故事任务数：
+- 总任务数：35（T001..T035）
+- 各相/故事/新增任务数：
   - Phase 1（初始化）：3
   - Phase 2（基础准备）：5
   - US1：3
   - US2：4
   - US3：3
   - Final Phase：3
+  - 新增任务（治理/门控/指标）：10
+  - US1 追加指标任务：2
+  - 测试阈值门控：2
 - 已识别并行机会：T002、T003、T012、T017、T021
-- 每个用户故事的独立测试准则已写在对应章节下。
-- 推荐 MVP：US1（T007、T008、T009）
-
----
 
 下面是逐项核对结果与建议（基于 `plan.md`、`spec.md`、`data-model.md`、`research.md`、`quickstart.md` 与 `contracts/openapi.yaml`）：
 

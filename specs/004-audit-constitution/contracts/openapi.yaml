@@ -83,13 +83,20 @@ components:
       properties:
         code:
           type: string
-          description: 机器可读的错误码
+          description: 机器可读的错误码（例如 PROMPT_LOAD_ERROR）
+          example: PROMPT_LOAD_ERROR
         message:
           type: string
           description: 面向用户的错误提示（可直接展示）
         details:
           type: object
           description: 可选的结构化错误细节（例如 field errors）
+          properties:
+            missingPaths:
+              type: array
+              items:
+                type: string
+              description: 缺失或语义性空白的提示词绝对路径
         artifactUrl:
           type: string
           description: 可选，错误时关联的诊断 artifact URL
