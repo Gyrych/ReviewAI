@@ -205,3 +205,5 @@
 - 2025-10-26: T027-T031（治理文档）
   - 新增：`doc/service-boundary-audit.md`（服务边界审计）、`doc/dead-code-report.md`（建议稿）、`doc/analysis-report.md`（合规汇总）、`doc/feature-flags.md`（Feature Flag 治理）。
  - 2025-10-25: 修复 `.specify/scripts/powershell/check-prerequisites.ps1` 的重复参数块，恢复脚本可执行；执行 `/speckit.implement` 第 1 步并在 `specs/004-audit-constitution/tasks.md` 勾选 T001。
+
+- 2025-10-26: 在 `specs/005-single-shot-search-summary/spec.md` 中新增澄清：引用（Citation）将作为独立实体存在，包含完整追溯字段（`url`,`title`,`snippet`,`start_index`,`end_index`,`domain`,`confidence_score`,`raw_html`,`fetch_timestamp`,`mime_type`,`favicon`）。
