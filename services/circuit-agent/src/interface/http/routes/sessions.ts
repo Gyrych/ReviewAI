@@ -1,4 +1,14 @@
 // 中文注释：sessions 路由处理会话的保存、列表、读取与删除请求，SessionStore 可由文件系统或 Redis 实现
+/*
+功能：会话管理路由
+用途：提供会话保存/列表/读取/删除的 REST 处理器，供前端导入导出。
+参数：
+- makeSessionsHandlers(store)
+返回：
+- { save, list, read, remove } 多个 Express 处理函数
+示例：
+// const h = makeSessionsHandlers(store); app.post('/sessions', h.save)
+*/
 import type { Request, Response } from 'express'
 import type { SessionStore } from '../../../domain/contracts/index.js'
 

@@ -1,3 +1,13 @@
+/*
+功能：电路评审表单（主副模型架构）
+用途：封装与 ReviewForm 的集成与会话操作入口，提供保存/列表/导入导出。
+参数：
+- 无显式 props（由父组件传入透传）
+返回：
+- React 组件
+示例：
+// <CircuitReviewForm />
+*/
 import React, { useRef, useState } from 'react'
 import ReviewForm from '../../components/ReviewForm'
 import { useI18n } from '../../i18n'

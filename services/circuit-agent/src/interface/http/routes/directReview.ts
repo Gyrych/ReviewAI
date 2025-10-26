@@ -1,3 +1,13 @@
+/*
+功能：/direct-review 路由
+用途：接收文件与表单，调用 DirectReviewUseCase 执行评审并返回产物。
+参数：
+- makeDirectReviewRouter({ usecase, artifact, storageRoot })
+返回：
+- Express 路由处理器集合
+示例：
+// app.post('/direct-review', router.handler)
+*/
 import type { Request, Response } from 'express'
 import multer from 'multer'
 import path from 'path'

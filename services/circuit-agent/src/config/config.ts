@@ -1,4 +1,14 @@
 // 中文注释：集中配置读取，提供默认值，避免在业务代码中直接访问 process.env
+/*
+功能：配置加载（loadConfig）
+用途：集中读取环境变量/默认值，避免业务层直接访问 process.env；提供严格预加载等特性开关。
+参数：
+- 无（通过 process.env 读取）
+返回：
+- ServiceConfig 含端口、基础路径、超时、重试、存储位置、严格预热等字段
+示例：
+// const cfg = loadConfig(); console.log(cfg.port)
+*/
 import fs from 'fs'
 import path from 'path'
 
@@ -11,6 +21,7 @@ export type ServiceConfig = {
   fetchRetries: number
   keepAliveMsecs: number
   storageRoot: string
+  promptPreloadStrict: boolean
 }
 
 export function loadConfig(): ServiceConfig {
@@ -26,7 +37,9 @@ export function loadConfig(): ServiceConfig {
     },
     fetchRetries: Number(env.FETCH_RETRIES || 1),
     keepAliveMsecs: Number(env.KEEP_ALIVE_MSECS || 60000),
-    storageRoot: String(env.STORAGE_ROOT || 'services/circuit-agent/storage')
+    storageRoot: String(env.STORAGE_ROOT || 'services/circuit-agent/storage'),
+    // 注意：服务端仍强制严格预热；此开关仅供外部预检脚本/工具读取
+    promptPreloadStrict: String(env.PROMPT_PRELOAD_STRICT || 'true').toLowerCase() !== 'false'
   }
   return cfg
 }

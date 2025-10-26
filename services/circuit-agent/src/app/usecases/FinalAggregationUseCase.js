@@ -1,3 +1,15 @@
+/*
+功能：最终整合用例（FinalAggregationUseCase）
+用途：对多份评审报告与附件摘要进行整合，输出统一的 Markdown 报告。
+参数：
+- constructor(llm, timeline) 上游文本模型与时间线服务
+- execute({ apiUrl, model, circuit, reports, attachments, progressId, authHeader? })
+返回：
+- Promise<{ markdown: string; timeline: any[] }>
+示例：
+// const uc = new FinalAggregationUseCase(llm, timeline)
+// const out = await uc.execute({ apiUrl, model, circuit, reports })
+*/
 // 中文注释：使用固定 gpt-5 对多份报告与附件摘要进行最终整合
 export class FinalAggregationUseCase {
     constructor(llm, timeline) {

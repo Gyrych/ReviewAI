@@ -3,10 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start:all": "node start-all.js"
+    "start:all": "node start-all.js",
+    "check:prompts": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-prompts.ps1 -AgentDir ./ReviewAIPrompt/circuit-agent",
+    "check:readme": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-readme-sections.ps1 -ServiceDir ./services/circuit-agent",
+    "check:contract": "node ./scripts/check-contract-implementation.js",
+    "check:comments": "bash ./scripts/check-head-comments.sh . docs/comment-coverage-report.json",
+    "check:e2e-threshold": "node ./scripts/check-e2e-threshold.js 0.95",
+    "check:all": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-all.ps1 -E2EThreshold 0.95",
+    "check:missing-prompts-ci": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/check-missing-prompts-ci.ps1"
   },
   "dependencies": {
-    "sharp": "^0.34.4"
+    "sharp": "^0.34.4",
+    "yaml": "^2.5.0"
   },
   "license": "MIT"
 }

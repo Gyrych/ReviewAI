@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useImperativeHandle } from 'react'
+import ErrorDiagnostic from './ErrorDiagnostic'
 import FileUpload from './FileUpload'
 import type { SessionSeed } from '../types/session'
 import ReactMarkdown from 'react-markdown'
 import { useI18n } from '../i18n'
+import { parseApiError } from '../config/apiBase'
 
 const ReviewForm = React.forwardRef(function ReviewForm({
   agentBaseUrl,
@@ -532,7 +534,12 @@ const ReviewForm = React.forwardRef(function ReviewForm({
           } catch (e) {}
           // 继续向下走 Markdown 展示逻辑（若包含）
         } else {
-          throw new Error(bodyText || `Status ${res.status}`)
+          // 全局错误处理：优先解析标准错误负载（含 code/message/details）
+          const parsed = parseApiError(bodyJson || bodyText, res.status)
+          setError(parsed.message)
+          // 将错误简要信息注入 timeline，便于复盘
+          setTimeline((t) => t.concat([{ step: 'error', ts: Date.now(), meta: { status: res.status, code: (bodyJson && (bodyJson.code || bodyJson.errorCode)) || '', message: parsed.message } }]))
+          return
         }
       }
 
@@ -998,6 +1005,10 @@ const ReviewForm = React.forwardRef(function ReviewForm({
         </div>
       </div>
       {/* API Key 在 App 层统一配置，ReviewForm 不再展示 */}
+
+      {error ? (
+        <ErrorDiagnostic message={String(error || '')} details={null} agentBase={agentBase} progressId={progressIdRef.current || progressId} />
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2">
         <div>

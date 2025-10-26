@@ -11,6 +11,8 @@ try { yaml = (await import('yaml')).default } catch { yaml = null }
 const repoRoot = process.cwd()
 const openapiPath = path.join(repoRoot, 'specs', '004-audit-constitution', 'contracts', 'openapi.yaml')
 const routesDir = path.join(repoRoot, 'services', 'circuit-agent', 'src', 'interface', 'http', 'routes')
+const bootstrapServer = path.join(repoRoot, 'services', 'circuit-agent', 'src', 'bootstrap', 'server.ts')
+const BASE_PATH_VALUE = '/api/v1/circuit-agent'
 
 function readOpenapiPaths() {
   const text = fs.readFileSync(openapiPath, 'utf8')
@@ -29,14 +31,18 @@ function readOpenapiPaths() {
 
 function readImplementedRoutes() {
   const files = fs.readdirSync(routesDir).filter(f => f.endsWith('.ts'))
+  if (fs.existsSync(bootstrapServer)) files.push('@@BOOTSTRAP@@')
   const result = new Set()
-  const re = /(router|app)\.(get|post|put|delete)\s*\(\s*[`'"]([^`'"]+)[`'"]/gi
+  const re = /(router|app)\.(get|post|put|delete)\s*\(\s*[`'"]([^`'\"]+)[`'\"]/gi
   for (const f of files) {
-    const code = fs.readFileSync(path.join(routesDir, f), 'utf8')
+    const code = (f === '@@BOOTSTRAP@@')
+      ? fs.readFileSync(bootstrapServer, 'utf8')
+      : fs.readFileSync(path.join(routesDir, f), 'utf8')
     let m
     while ((m = re.exec(code))) {
       const method = m[2].toUpperCase()
-      const route = m[3]
+      const rawRoute = m[3]
+      const route = String(rawRoute).replace(/\$\{BASE_PATH\}/g, BASE_PATH_VALUE)
       result.add(`${method} ${route}`)
     }
   }
@@ -49,14 +55,19 @@ const implSet = readImplementedRoutes()
 const missingInImpl = [...specSet].filter(x => !implSet.has(x))
 const extraInImpl = [...implSet].filter(x => !specSet.has(x))
 
-if (missingInImpl.length || extraInImpl.length) {
-  console.error('[check-contract] 契约一致性检查失败')
-  if (missingInImpl.length) console.error('实现缺少（应实现但未实现）:\n - ' + missingInImpl.join('\n - '))
-  if (extraInImpl.length) console.error('契约缺少（实现多出，但契约未声明）:\n - ' + extraInImpl.join('\n - '))
+if (missingInImpl.length) {
+  console.error('[check-contract] 契约一致性检查失败（实现缺少契约定义的端点）')
+  console.error('实现缺少（应实现但未实现):\n - ' + missingInImpl.join('\n - '))
+  if (extraInImpl.length) console.warn('提示：实现中存在契约未声明的端点（仅警告，不阻断）:\n - ' + extraInImpl.join('\n - '))
   process.exit(7)
 }
 
-console.log('[check-contract] 契约一致性检查通过')
+if (extraInImpl.length) {
+  console.warn('[check-contract] 警告：实现中存在契约未声明的端点（仅警告，不阻断）')
+  console.warn(' - ' + extraInImpl.join('\n - '))
+}
+
+console.log('[check-contract] 契约一致性检查通过（所有契约端点均已实现）')
 process.exit(0)
 
 

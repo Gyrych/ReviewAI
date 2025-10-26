@@ -1,3 +1,13 @@
+/*
+功能：/orchestrate/review 编排路由
+用途：根据参数在 direct 与 fine 流程间进行编排，调用相应 usecase 并产出结果。
+参数：
+- Express 依赖注入：ArtifactStore、UseCases、SearchProvider 等
+返回：
+- 统一 JSON 响应，包含 timeline/artifacts 等字段
+示例：
+// app.post('/orchestrate/review', handler)
+*/
 import type { Request, Response } from 'express'
 // multer types may be unavailable in some environments; import as any to avoid TS type error
 // multer types may be unavailable in some environments; import as any to avoid TS type error

@@ -4,6 +4,39 @@
 ---
 `circuit-agent` 是 ReviewAI 项目中负责电路原理图视觉识别与基于 LLM 的自动评审编排后端服务。它接收图片/PDF 附件与文本上下文，调用视觉/文本上游模型进行识别与评审，并将生成的 Markdown 报告与调试工件以 artifact 形式保存供前端与运维查看。
 
+API 列表
+---
+- `GET /api/v1/circuit-agent/health`
+- `GET /api/v1/circuit-agent/progress/:id`
+- `GET /api/v1/circuit-agent/system-prompt?lang=zh|en`
+- `POST /api/v1/circuit-agent/orchestrate/review`
+- `POST /api/v1/circuit-agent/modes/direct/review`
+- `POST /api/v1/circuit-agent/diagnostics/export`
+- 会话：`POST /sessions/save`、`GET /sessions/list`、`GET /sessions/:id`、`DELETE /sessions/:id`
+- 工件：`GET /artifacts`、`GET /artifacts/:filename`
+
+示例调用
+---
+```bash
+curl -X POST "http://localhost:4001/api/v1/circuit-agent/orchestrate/review" \
+  -F "apiUrl=https://openrouter.ai/api/v1/chat/completions" \
+  -F "model=openai/gpt-5-mini" \
+  -F "directReview=true" \
+  -F "language=zh" \
+  -F "files=@schematic.png"
+```
+
+启动/停止
+---
+- 启动（开发）：仓库根 `node start-all.js` 或服务目录 `npm run dev`
+- 停止：在终端使用 Ctrl+C 结束进程
+
+依赖说明
+---
+- 运行时：Node.js >= 18；`express`、`multer`、`cors`、`dotenv`、`redis`
+- 构建/测试：`typescript`、`vitest`、`tsx`
+- 可选：`yaml`（用于契约检查脚本）
+
 主要功能
 ---
 - 图像/PDF 附件上传（multipart）并转换为 data-url 发送给视觉上游；
@@ -53,6 +86,15 @@ npm run dev
 服务在所有环境中强制启用严格预热（Strict Preload）：任一必需提示词缺失或语义空白将导致启动阶段在 10s 内 fail-fast 并中止（非 0 退出）。服务进程内不允许通过任何配置放宽该策略；如需排障，仅可在服务外部使用“预检脚本”临时跳过，不影响服务进程的严格策略。
 
 健康端点可暴露最近一次预热耗时指标，便于监控与验收（参见本特性规格的 SC-001/SC-002）。
+
+配置与故障排查
+---
+- 环境提示：
+  - `PROMPT_PRELOAD_STRICT`：仅供外部预检脚本使用；服务进程内始终强制严格预热，任何“放宽开关”在服务进程中均无效。
+- 常见失败：
+  - 提示词缺失 → 确认 `ReviewAIPrompt/circuit-agent/*.md` 存在且非空；执行 `npm run check:prompts` 复核。
+  - 合约偏移 → 执行 `npm run check:contract` 比较 OpenAPI 与路由实现。
+  - 注释覆盖 → 执行 `npm run check:comments` 校验导出模块是否包含结构化中文头部注释。
 
 核心架构（Mermaid）
 ---
@@ -114,6 +156,11 @@ OpenRouter -->|"响应"| 直接
   - 描述：直接调用 `DirectReviewUseCase`，行为与 `orchestrate` 中 direct 分支一致
   - 请求：multipart/form-data，字段同上（省略 orchestrate 的 wrapper 逻辑）
 
+- `POST /diagnostics/export`
+  - 描述：导出诊断信息（请求/响应片段、元数据等），生成 artifact 并返回 URL
+  - 请求体（application/json）：`{ sessionId: string, includeResponses?: boolean }`（必须提供 sessionId）
+  - 响应 201（application/json）：`{ artifactUrl: string }`
+
 - `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
   - 描述：会话的持久化与管理（SessionStoreFs）
 
@@ -157,6 +204,13 @@ flowchart TD
   K --> L[保存响应 artifact & 生成 Markdown]
   L --> M[返回 markdown + timeline + searchSummaries]
 ```
+
+健康端点指标
+---
+- `GET /api/v1/circuit-agent/health` 响应包含 `preload` 字段：
+  - `preload.durationMs` 最近一次提示词预热耗时（毫秒）
+  - `preload.at` 预热时间戳（ISO）
+  - `preload.ok` 预热是否成功
 
 常见故障与排查
 ---

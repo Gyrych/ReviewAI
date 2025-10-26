@@ -167,3 +167,41 @@
    - `scripts/check-head-comments.sh`：输出 JSON 报告 `docs/comment-coverage-report.json` 并使用非 0 退出门槛。
    - `scripts/check-contract-implementation.js`：新增契约-实现一致性校验脚本（OpenAPI vs Express 路由）。
    - `specs/004-audit-constitution/tasks.md`：为 T017/T028 增补完成定义与产出（注释覆盖报告、dead-code 报告）。
+ - 2025-10-26: US1 实施推进与契约检查优化
+   - 新增与修改：
+     - `PromptLoader.preloadPrompts` 增加严格预热选项并在启动启用；
+     - 启动日志新增已加载提示词绝对路径与修复建议（T008/T009 完成）；
+     - `scripts/check-contract-implementation.js` 支持扫描 `bootstrap/server.ts` 并规范化 `${BASE_PATH}`，仅对缺失契约端点失败，额外端点告警；
+     - 在 `services/circuit-agent` 添加 `tests/promptloader.test.ts` 并修正 Vitest 配置，单测通过（T007 完成）；
+     - 勾选 `tasks.md` 的 T007、T009A；
+ - 2025-10-26: US2 前端错误兜底与诊断导出
+   - 新增 `frontend/src/components/ErrorDiagnostic.tsx`（错误提示+导出诊断按钮，调用 `/diagnostics/export`）；
+   - 在 `frontend/src/components/ReviewForm.tsx` 集成错误兜底组件，错误时渲染并传入 `agentBase` 与 `progressId`；
+   - 在 `frontend/src/config/apiBase.ts` 新增 `parseApiError` 并在 `ReviewForm` 使用，完成全局错误处理集成；
+   - 勾选 `tasks.md` 的 T010、T011、T012。
+ - 2025-10-26: US3 README 双语同步
+   - `services/circuit-agent/README.md` 与 `README.zh.md`：补充 `/diagnostics/export` 接口说明；
+   - `frontend/README.md` 与 `README.zh.md`：加入 Mermaid 架构图与 Playwright 执行步骤；
+   - 在 `specs/004-audit-constitution/tasks.md` 勾选 T014、T015、T016。
+ - 2025-10-26: 严格预热与实施推进（/speckit.implement）
+   - 修复与增强：
+     - 更新 `services/circuit-agent/src/infra/prompts/PromptLoader.ts`，为 `preloadPrompts` 增加严格预热选项；
+     - 在 `services/circuit-agent/src/bootstrap/server.ts` 启用严格预热（缺失即退出，满足 FR-001）；
+     - 在 `services/circuit-agent/src/config/config.ts` 读取 `PROMPT_PRELOAD_STRICT`（服务端仍强制严格，变量供外部预检脚本使用）；
+     - 在根 `package.json` 增加 `check:prompts`、`check:readme`、`check:contract` 脚本；
+   - 文档与任务：
+     - 在 `specs/004-audit-constitution/tasks.md` 勾选 T004、T005、T006、T020、T021；
+     - 完成 Phase 1（T001-T003），保存 `prompt-check.log`；
+     - 完成 `checklists/requirements.md` 阻断项并通过；
+- 2025-10-26: 完成 T017（中文头部注释覆盖）
+  - 脚本：强化 `scripts/check-head-comments.sh`，限制扫描 `services/circuit-agent/src` 与 `frontend/src`，忽略 `node_modules/dist/build`；修复子进程聚合导致的“误判通过”；输出 `docs/comment-coverage-report.json`。
+  - 代码：为关键导出（usecases、infra、routes、frontend 组件与类型等）补充结构化中文头注（用途/参数/返回/示例）。
+  - 结果：检查通过，退出码 0；产出报告覆盖率合格。
+- 2025-10-26: 完成 T022-T026（治理与门控）
+  - 规范：`specs/004-audit-constitution/spec.md` 强化 FR-001 与 Clarifications Q5（≤10s、服务内不得放宽）；
+  - 文档：`services/circuit-agent/README(.zh).md` 增补 Strict Preload 配置与排查章节；
+  - 脚本：根 `package.json` 新增 `check:comments`；`quickstart.md` 增补执行说明；
+  - 结果：注释覆盖脚本通过；契约/README 检查通过。
+- 2025-10-26: T027-T031（治理文档）
+  - 新增：`doc/service-boundary-audit.md`（服务边界审计）、`doc/dead-code-report.md`（建议稿）、`doc/analysis-report.md`（合规汇总）、`doc/feature-flags.md`（Feature Flag 治理）。
+ - 2025-10-25: 修复 `.specify/scripts/powershell/check-prerequisites.ps1` 的重复参数块，恢复脚本可执行；执行 `/speckit.implement` 第 1 步并在 `specs/004-audit-constitution/tasks.md` 勾选 T001。

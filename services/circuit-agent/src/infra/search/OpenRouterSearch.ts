@@ -1,3 +1,14 @@
+/*
+功能：OpenRouter 搜索提供者（OpenRouterSearch）
+用途：封装对 OpenRouter :online 模型的调用，支持可选强制联网与模型覆盖；集成提示词与时间线追踪。
+参数：
+- constructor(baseUrl, defaultTimeoutMs, headers?, { modelOverride?, forceOnline?, trace? })
+- search(query: string, context?: any)
+返回：
+- Promise<{ summary: string; raw: string }>
+示例：
+// const sp = new OpenRouterSearch(base, 60000, headers, { forceOnline: true })
+*/
 import type { SearchProvider } from '../../domain/contracts/index.js'
 import { OpenRouterTextProvider } from '../providers/OpenRouterTextProvider.js'
 import { logger } from '../log/logger.js'

@@ -1,3 +1,11 @@
+/*
+功能：Agent 类型定义
+用途：用于前端不同 Agent 组件之间的一致集成约定。
+参数：无
+返回：导出 AgentDescriptor 与 AgentSessionFile 类型
+示例：
+// import type { AgentDescriptor } from './types/agent'
+*/
 // frontend/src/types/agent.ts
 // Agent 类型定义：用于前端不同 Agent 组件之间的一致集成约定
 

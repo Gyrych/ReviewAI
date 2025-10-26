@@ -1,3 +1,16 @@
+/*
+功能：文件上传组件（FileUpload）
+用途：统一处理多文件选择/预览/大小与数量限制，供评审表单复用。
+参数：
+- files: File[] 受控文件列表
+- onChange(files): 回调返回新文件列表
+- maxFiles?: number 最大文件数（默认 20）
+- maxSizeMB?: number 单文件大小 MB（默认 10）
+返回：
+- React 组件
+示例：
+// <FileUpload files={files} onChange={setFiles} />
+*/
 import React, { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
 

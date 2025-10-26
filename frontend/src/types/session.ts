@@ -1,3 +1,11 @@
+/*
+功能：前端会话类型定义
+用途：描述前端保存/导入导出的会话文件与时间线结构。
+参数：无
+返回：导出 SessionFileV1、SessionTimelineItem 等类型
+示例：
+// import type { SessionFileV1 } from './types/session'
+*/
 // 中文注释：前端会话相关类型定义
 
 // 中文注释：会话消息历史条目

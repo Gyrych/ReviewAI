@@ -1,0 +1,44 @@
+name: Quality Gates
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Install frontend deps
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Install circuit-agent deps
+        run: |
+          cd services/circuit-agent
+          npm ci
+
+      - name: Run all checks (prompts/readme/contract/comments + E2E + coverage)
+        shell: pwsh
+        run: |
+          ./scripts/check-all.ps1 -E2EThreshold 0.95
+
+      - name: SC-002 Missing prompts fail-fast
+        shell: pwsh
+        run: |
+          npm run check:missing-prompts-ci
+
+

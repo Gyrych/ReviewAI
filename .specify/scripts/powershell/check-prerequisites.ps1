@@ -1,32 +1,3 @@
-Param(
-  [switch]$Json,
-  [switch]$RequireTasks,
-  [switch]$IncludeTasks
-)
-
-$featureDir = "specs/004-audit-constitution"
-$docs = @("spec.md","plan.md")
-if ($IncludeTasks -or $RequireTasks) { $docs += "tasks.md" }
-
-$missing = @()
-foreach ($d in $docs) {
-  if (-not (Test-Path "$featureDir/$d")) { $missing += $d }
-}
-
-$result = @{
-  FEATURE_DIR = $featureDir
-  AVAILABLE_DOCS = @()
-  HasTasks = (Test-Path "$featureDir/tasks.md")
-}
-
-foreach ($d in $docs) {
-  if (Test-Path "$featureDir/$d") { $result.AVAILABLE_DOCS += $d }
-}
-
-if ($Json) { $result | ConvertTo-Json -Depth 4 | Write-Output } else { Write-Output $result }
-if ($RequireTasks -and -not $result.HasTasks) { exit 2 }
-if ($missing.Count -gt 0) { exit 1 } else { exit 0 }
-
 #!/usr/bin/env pwsh
 
 # Consolidated prerequisite checking script (PowerShell)

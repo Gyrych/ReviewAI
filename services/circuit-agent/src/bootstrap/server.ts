@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 import cors from 'cors'
 import { PromptLoader } from '../infra/prompts/PromptLoader'
+import { setPreloadMetrics } from '../infra/metrics/runtimeMetrics'
 import { validateAndWriteSummary, defaultPromptFileList } from '../infra/prompts/PromptValidator'
 import { ProgressMemoryStore } from '../infra/progress/ProgressMemoryStore'
 import { ProgressRedisStore } from '../infra/progress/ProgressRedisStore'
@@ -47,7 +48,7 @@ try {
     { type: 'system', variant: 'initial' },
     { type: 'system', variant: 'revision' },
     { type: 'pass', variant: 'identify' },
-  ], ['zh', 'en'])
+  ], ['zh', 'en'], { strict: true })
   console.log('[circuit-agent] PromptLoader.preloadPrompts triggered')
   const repoRoot = path.resolve(__dirname, '..', '..', '..', '..')
   const out = path.resolve(repoRoot, 'specs', '003-validate-code-against-constitution', 'prompt-validation.json')
@@ -57,13 +58,30 @@ try {
     for (const r of summary.results.filter((x) => !x.exists || x.sizeBytes === 0)) {
       console.error('  - ' + r.path + ` (size=${r.sizeBytes})`)
     }
+    // 修复建议（便于开发者快速定位与处理）
     console.error('[circuit-agent] See ' + out + ' for full validation summary. Aborting startup.')
+    console.error('[circuit-agent] 修复建议：')
+    console.error('  1) 确认以上绝对路径是否存在并非空；')
+    console.error('  2) 若为 system 提示词，请补齐 initial/revision 与 zh/en 变体；')
+    console.error('  3) 若未初始化提示词，请参考 ReviewAIPrompt/circuit-agent 下的样例文件；')
+    console.error('  4) 修复后重启服务，或先运行 npm run check:prompts 进行预检。')
     process.exit(1)
   }
   const t1 = Date.now()
-  console.log('[circuit-agent] preload ok, ms=', (t1 - t0))
+  const dt = (t1 - t0)
+  console.log('[circuit-agent] preload ok, ms=', dt)
+  try { setPreloadMetrics({ durationMs: dt, at: new Date().toISOString(), ok: true }) } catch {}
+  // 记录成功预热的提示词绝对路径（用于审计与问题排查）
+  try {
+    const loaded = summary.results.filter((x) => x.exists && x.sizeBytes > 0).map((x) => x.path)
+    if (loaded.length > 0) {
+      console.log('[circuit-agent] loaded prompts:')
+      for (const p of loaded) console.log('  - ' + p)
+    }
+  } catch {}
 } catch (e: any) {
   console.error('[circuit-agent] Prompt preload/validation threw error:', e?.message || e)
+  try { setPreloadMetrics({ ok: false, at: new Date().toISOString() }) } catch {}
   process.exit(1)
 }
 

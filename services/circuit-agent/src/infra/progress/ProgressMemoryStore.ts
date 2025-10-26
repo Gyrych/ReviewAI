@@ -1,3 +1,15 @@
+/*
+功能：进度存储（内存实现）
+用途：开发/无 Redis 环境下记录会话时间线，便于前端查询。
+参数：
+- init(id)
+- push(id, item)
+- get(id)
+返回：
+- Promise<void> 或 TimelineItem[]
+示例：
+// const store = new ProgressMemoryStore(); await store.init(id); await store.push(id, item)
+*/
 import type { ProgressStore, TimelineItem } from '../../domain/contracts/index.js'
 
 // 中文注释：简单内存实现，适用于开发环境或未配置 Redis 时的回退

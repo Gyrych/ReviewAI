@@ -1,3 +1,18 @@
+/*
+功能：结果视图（ResultView）
+用途：渲染 Markdown 评审结果、可选的结构化 JSON/覆盖图/时间线，并支持代码高亮与折叠。
+参数：
+- markdown: string 主体文档
+- enrichedJson?: any 结构化增强数据
+- overlay?: any 叠加数据
+- setEnrichedJson?: (j:any)=>void 状态回传
+- timeline?: { step:string; ts?:number; meta?:any }[]
+- searchSummaries?: string[] 联网搜索摘要
+返回：
+- React 组件
+示例：
+// <ResultView markdown={md} timeline={tl} />
+*/
 import React from 'react'
 import { useI18n } from '../i18n'
 import ReactMarkdown from 'react-markdown'

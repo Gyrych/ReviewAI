@@ -1,3 +1,15 @@
+/*
+功能：直接评审用例（DirectReviewUseCase）
+用途：将附件/提示词/需求直接提交给视觉模型进行单次评审，产出 Markdown 报告与时间线。
+参数：
+- constructor(vision, artifact, timeline, searchProvider?) 依赖注入模型/存储/时间线与可选搜索
+- execute({ apiUrl, model, request, authHeader?, enableSearch?, ... }) 评审入参
+返回：
+- Promise<{ markdown: string; timeline: any[]; enrichedJson?: any; searchSummaries?: string[] }>
+示例：
+// const uc = new DirectReviewUseCase(vision, store, timeline)
+// const result = await uc.execute({ apiUrl, model, request })
+*/
 import type { ReviewRequest, ReviewReport, VisionChatProvider, ArtifactStore, RichMessage, SearchProvider } from '../../domain/contracts/index.js'
 import { logger } from '../../infra/log/logger.js'
 import { AnonymizationService } from '../services/AnonymizationService.js'

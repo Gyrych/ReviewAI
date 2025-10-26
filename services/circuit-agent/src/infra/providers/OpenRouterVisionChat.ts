@@ -1,3 +1,15 @@
+/*
+功能：上游多模态聊天提供者（OpenRouterVisionChat）
+用途：调用 OpenRouter/OpenAI 兼容接口进行富消息（图文）对话，封装请求与文本提取。
+参数：
+- constructor(baseUrl, defaultTimeoutMs)
+- chatRich({ apiUrl, model, messages, timeoutMs?, headers? })
+返回：
+- Promise<{ text: string; raw: string }>
+示例：
+// const p = new OpenRouterVisionChat(base, 60000)
+// const r = await p.chatRich({ model, messages })
+*/
 import type { VisionChatProvider, RichMessage } from '../../domain/contracts/index.js'
 import { postJson, extractTextFromOpenAICompat } from '../http/OpenRouterClient.js'
 

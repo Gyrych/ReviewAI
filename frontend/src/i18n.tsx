@@ -1,3 +1,14 @@
+/*
+功能：轻量级国际化（i18n）
+用途：提供语言上下文、切换与简单占位符替换，不引入第三方库。
+参数：
+- I18nProvider 包裹应用
+- useI18n() 获取 { lang, setLang, t }
+返回：
+- React 上下文能力与 hooks
+示例：
+// const { t } = useI18n(); t('hello', { name: '张三' })
+*/
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 // 中文注释：轻量级国际化实现，不引入第三方依赖

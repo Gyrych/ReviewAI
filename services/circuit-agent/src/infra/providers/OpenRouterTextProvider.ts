@@ -1,4 +1,16 @@
 // 中文注释：OpenRouterTextProvider 用于与上游文本模型交互，封装请求/响应格式并处理超时与重试策略
+/*
+功能：上游文本模型提供者（OpenRouterTextProvider）
+用途：封装与 OpenRouter/OpenAI 兼容的文本对话接口，处理 headers/超时/插件扩展。
+参数：
+- constructor(baseUrl, defaultTimeoutMs)
+- chat({ apiUrl, model, system, messages, timeoutMs?, headers?, plugins?, extraBody? })
+返回：
+- Promise<{ text: string; raw: string }>
+示例：
+// const p = new OpenRouterTextProvider(base, 60000)
+// const r = await p.chat({ model, system, messages })
+*/
 import type { LlmProvider, Conversation } from '../../domain/contracts/index.js'
 import { postJson, extractTextFromOpenAICompat } from '../http/OpenRouterClient.js'
 

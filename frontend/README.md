@@ -4,6 +4,21 @@ Vite + React + TypeScript + Tailwind UI for `ReviewAI`. It connects to the backe
 
 For Chinese documentation, see `frontend/README.zh.md`.
 
+## Architecture (Mermaid)
+
+```mermaid
+flowchart TD
+UI[React/Vite Frontend] -->|multipart/json| API[Backend /api/v1/circuit-agent]
+API --> Review[DirectReviewUseCase]
+API --> Identify[IdentifyKeyFactsUseCase]
+Review --> Vision[Vision/Text Provider]
+Identify --> Search[OpenRouterSearch]
+Search --> Web[External Web]
+Review --> Artifacts[ArtifactStoreFs]
+UI --> Sessions[Sessions APIs]
+Artifacts --> Static[/artifacts]
+```
+
 ## Critical requirement
 
 The frontend relies on system prompts and per-pass vision prompts located in `ReviewAIPrompt/`. These files must be present and non-empty; the backend will throw an Error and fail fast if any required specialized prompt file is missing or empty. For system prompts only, the backend will fall back to root-level files if needed.
@@ -35,6 +50,13 @@ If you change ports, also update the proxy target in `vite.config.ts`.
 cd frontend
 npm install
 npm run dev
+```
+
+## Playwright (E2E)
+
+```bash
+cd frontend
+npx playwright test --reporter=list,html --output=./test-reports --config=playwright.config.ts
 ```
 
 ## UI guide

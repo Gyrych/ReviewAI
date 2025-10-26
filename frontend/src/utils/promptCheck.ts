@@ -1,3 +1,13 @@
+/*
+功能：前端提示词健康检查
+用途：开发模式下调用后端 /system-prompt 接口以验证提示词存在且可读取。
+参数：
+- checkPromptHealth(lang?: 'zh'|'en')
+返回：
+- Promise<{ ok: boolean; status: number; text?: string; error?: string }>
+示例：
+// const r = await checkPromptHealth('zh')
+*/
 // 中文注释：在开发模式下用于检查后端提示词健康（存在且可读取）
 export async function checkPromptHealth(lang = 'zh') {
   try {

@@ -41,6 +41,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-prompts.ps1 
 
 # 校验 README 必需章节
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-readme-sections.ps1 -ServiceDir .\services\circuit-agent
+
+# 校验导出模块中文头注覆盖
+bash .\scripts\check-head-comments.sh . docs/comment-coverage-report.json
 ```
 
 

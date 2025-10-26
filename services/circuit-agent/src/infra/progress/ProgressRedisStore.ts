@@ -1,3 +1,14 @@
+/*
+功能：进度存储（Redis 实现占位）
+用途：提供基于 Redis 的时间线存取；未安装客户端时自动回退到内存。
+参数：
+- constructor(client, { ttlSeconds?, prefix? })
+- init/push/get 同 ProgressStore 接口
+返回：
+- Promise<void> 或 TimelineItem[]
+示例：
+// const store = new ProgressRedisStore(redis)
+*/
 import type { ProgressStore, TimelineItem } from '../../domain/contracts/index.js'
 
 // 中文注释：Redis 适配器占位（不引入依赖，用户可后续安装 ioredis/redis 客户端）；

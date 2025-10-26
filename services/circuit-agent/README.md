@@ -4,6 +4,39 @@ Summary
 ---
 `circuit-agent` is the backend microservice in ReviewAI responsible for schematic image/PDF recognition and LLM-based review orchestration. It accepts attachments and context, calls vision/text upstream providers, and stores generated artifacts (requests, responses, summaries) for frontend and devops inspection.
 
+API 列表
+---
+- `GET /api/v1/circuit-agent/health`
+- `GET /api/v1/circuit-agent/progress/:id`
+- `GET /api/v1/circuit-agent/system-prompt?lang=zh|en`
+- `POST /api/v1/circuit-agent/orchestrate/review`
+- `POST /api/v1/circuit-agent/modes/direct/review`
+- `POST /api/v1/circuit-agent/diagnostics/export`
+- Sessions: `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
+- Artifacts: `GET /artifacts`, `GET /artifacts/:filename`
+
+示例调用
+---
+```bash
+curl -X POST "http://localhost:4001/api/v1/circuit-agent/orchestrate/review" \
+  -F "apiUrl=https://openrouter.ai/api/v1/chat/completions" \
+  -F "model=openai/gpt-5-mini" \
+  -F "directReview=true" \
+  -F "language=zh" \
+  -F "files=@schematic.png"
+```
+
+启动/停止
+---
+- 启动（开发）：在仓库根目录执行 `node start-all.js` 或在服务目录执行 `npm run dev`
+- 停止：在终端使用 Ctrl+C 结束进程
+
+依赖说明
+---
+- 运行时：Node.js >= 18；`express`、`multer`、`cors`、`dotenv`、`redis`
+- 构建/测试：`typescript`、`vitest`、`tsx`
+- 可选：`yaml`（用于契约检查脚本）
+
 Key Capabilities
 ---
 - Accept multipart uploads (images/PDF) and convert attachments into data-URLs for vision providers.
@@ -11,6 +44,28 @@ Key Capabilities
 - Optional online search (`enableSearch`) performs per-keyword queries and URL summarization; summaries are injected as system messages.
 - Direct review use case: build rich messages, call upstream vision/text models, return Markdown report and timeline.
 - Artifacts saved to `STORAGE_ROOT` and exposed via static `/artifacts` route.
+
+Example (curl)
+---
+```bash
+curl -X POST "http://localhost:4001/api/v1/circuit-agent/orchestrate/review" \
+  -F "apiUrl=https://openrouter.ai/api/v1/chat/completions" \
+  -F "model=openai/gpt-5-mini" \
+  -F "directReview=true" \
+  -F "language=zh" \
+  -F "files=@schematic.png"
+```
+
+Start/Stop
+---
+- Start (dev): repo root `node start-all.js` or service folder `npm run dev`
+- Stop: Ctrl+C in the service terminal
+
+Dependencies
+---
+- Runtime: Node.js >= 18; `express`, `multer`, `cors`, `dotenv`, `redis`
+- Build/Test: `typescript`, `vitest`, `tsx`
+- Optional: `yaml` (for contract check script)
 
 Quickstart (development)
 ---
@@ -54,6 +109,15 @@ The service enforces Strict Preload of prompt files in all environments: any mis
 
 The health endpoint can expose the latest preload duration metric for monitoring (see SC-001/SC-002 in the feature spec).
 
+Configuration & troubleshooting
+---
+- Environment hints:
+  - `PROMPT_PRELOAD_STRICT`: used only by external pre-check scripts; the service itself always enforces strict preload and will not honor any relax switch inside process.
+- Common failures:
+  - Missing prompt → ensure `ReviewAIPrompt/circuit-agent/*.md` exists and non-empty; re-run `npm run check:prompts`.
+  - Contract drift → run `npm run check:contract` to compare OpenAPI vs implemented routes.
+  - Comment coverage → run `npm run check:comments` to ensure exported modules contain structured Chinese headers.
+
 Architecture (Mermaid)
 ---
 ```mermaid
@@ -71,6 +135,13 @@ Timeline --> ProgressStore[("Redis or Memory")]
 Artifact --> Static["/artifacts"]
 OpenRouter -->|responses| Direct
 ```
+
+Health endpoint metrics
+---
+- `GET /api/v1/circuit-agent/health` 返回字段包含 `preload`：
+  - `preload.durationMs` 最近一次提示词预热耗时（毫秒）
+  - `preload.at` 预热时间戳（ISO）
+  - `preload.ok` 预热是否成功
 
 Major APIs
 ---
@@ -108,6 +179,11 @@ All endpoints are prefixed by the service base path (e.g. `/api/v1/circuit-agent
 
 - `POST /modes/direct/review`
   - Direct entrypoint mapped to `DirectReviewUseCase` (same semantics as the orchestrate direct branch).
+
+- `POST /diagnostics/export`
+  - Export diagnostic payload (request/response snippets, metadata) as an artifact
+  - RequestBody (application/json): `{ sessionId: string, includeResponses?: boolean }` (sessionId required)
+  - Response 201 (application/json): `{ artifactUrl: string }`
 
 - Session APIs: `POST /sessions/save`, `GET /sessions/list`, `GET /sessions/:id`, `DELETE /sessions/:id`
 

@@ -1,3 +1,13 @@
+/*
+功能：轻量日志器（JSON 行）
+用途：在控制台输出结构化日志，便于本地/CI/收集系统统一检索与分析。
+参数：
+- logger.debug/info/warn/error(message: string, meta?: any)
+返回：
+- 无（副作用：输出一行 JSON 字符串到 stdout）
+示例：
+// logger.info('server_started', { port })
+*/
 // 中文注释：轻量日志器，将关键信息以 JSON 行输出到 stdout，便于收集/检索
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 

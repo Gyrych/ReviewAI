@@ -1,3 +1,11 @@
+/*
+功能：前端应用入口（App）
+用途：路由与主视图编排，提供语言切换、Agent 切换与结果展示。
+参数：无
+返回：React 组件
+示例：
+// createRoot(...).render(<App />)
+*/
 import React, { useState, useEffect } from 'react'
 import ReviewForm from './components/ReviewForm'
 import { getAgentBase } from './config/apiBase'

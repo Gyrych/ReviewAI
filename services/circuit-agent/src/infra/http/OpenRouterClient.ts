@@ -1,3 +1,14 @@
+/*
+功能：OpenRouter HTTP 客户端与工具函数
+用途：与 OpenRouter/OpenAI 兼容接口交互；记录请求/响应到 artifacts，便于诊断；提供文本抽取工具。
+参数：
+- postJson(url, body, headers, timeoutMs)
+- extractTextFromOpenAICompat(raw)
+返回：
+- 上游响应包装（{ ok:boolean, status:number, text:string }）与提取文本结果
+示例：
+// const r = await postJson(base, { model, messages }, headers, 60000)
+*/
 import https from 'https'
 import fs from 'fs'
 import path from 'path'

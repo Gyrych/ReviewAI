@@ -1,3 +1,14 @@
+/*
+功能：提示词加载器（PromptLoader）
+用途：从 ReviewAIPrompt/ 目录读取提示词文本并缓存；在严格模式下缺失或空文件抛出 PromptLoadError。
+参数：
+- loadPrompt(agentName, filename)
+- preloadPrompts(agentName, filenames, { strict })
+返回：
+- Promise<string> 或 Promise<void>
+示例：
+// await PromptLoader.preloadPrompts('circuit-agent', ['system_prompt_initial_zh.md'], { strict: true })
+*/
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -108,17 +119,23 @@ export class PromptLoader {
   static preloadPrompts(
     agentName: string,
     variants: Array<{ type: 'system' | 'pass'; variant?: string }>,
-    languages: Array<'zh' | 'en'>
+    languages: Array<'zh' | 'en'>,
+    options?: { strict?: boolean }
   ): void {
+    const strict = Boolean(options?.strict)
     for (const { type, variant } of variants) {
       for (const language of languages) {
         try {
           this.loadPrompt(agentName, type, language, variant);
         } catch (error) {
-          // 预热失败时记录错误但不中断
-          console.error(
-            `[PromptLoader] Failed to preload prompt: ${(error as Error).message}`
-          );
+          const msg = `[PromptLoader] Failed to preload prompt: ${(error as Error).message}`
+          if (strict) {
+            // 严格模式：直接抛出，以便调用方 fail-fast
+            throw new PromptLoadError(msg, (error as any)?.path || '')
+          } else {
+            // 非严格模式：记录错误但不中断
+            console.error(msg)
+          }
         }
       }
     }

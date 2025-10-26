@@ -4,6 +4,21 @@
 
 英文说明见 `frontend/README.md`。
 
+## 架构（Mermaid）
+
+```mermaid
+flowchart TD
+UI[React/Vite 前端] -->|multipart/json| API[后端 /api/v1/circuit-agent]
+API --> 直评[DirectReviewUseCase]
+API --> 识别[IdentifyKeyFactsUseCase]
+直评 --> 视觉[视觉/文本模型]
+识别 --> 搜索[OpenRouterSearch]
+搜索 --> 外网[External Web]
+直评 --> 工件[ArtifactStoreFs]
+UI --> 会话[Sessions 接口]
+工件 --> 静态[/artifacts]
+```
+
 ## 重要必读（强提醒）
 
 - **首选位置**：将系统提示词放在 `./ReviewAIPrompt/` 子目录：`ReviewAIPrompt/系统提示词.md`（中文）和 `ReviewAIPrompt/SystemPrompt.md`（英文）。
@@ -24,6 +39,13 @@
 cd frontend
 npm install
 npm run dev
+```
+
+## Playwright（端到端）
+
+```bash
+cd frontend
+npx playwright test --reporter=list,html --output=./test-reports --config=playwright.config.ts
 ```
 
 ## 界面使用指南

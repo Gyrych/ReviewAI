@@ -1,3 +1,13 @@
+/*
+功能：领域层抽象接口与类型定义
+用途：为应用层/接口层提供稳定的契约，不依赖具体基础设施实现；便于替换/测试。
+参数：
+- 无（类型与接口声明文件）
+返回：
+- 导出电路图实体、附件/会话/存储/进度等接口与类型
+示例：
+// import type { ReviewRequest } from '../domain/contracts'
+*/
 // 中文注释：领域层抽象接口（高内聚、低耦合，不依赖基础设施）
 
 export type PinRef = { componentId: string; pin: string; confidence?: number }

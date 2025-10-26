@@ -1,3 +1,15 @@
+/*
+功能：关键事实识别用例（IdentifyKeyFactsUseCase）
+用途：从输入资料中抽取关键元器件与技术路线，产出结构化 JSON 清单。
+参数：
+- constructor(vision, artifact, timeline)
+- execute({ apiUrl, model, request, authHeader? })
+返回：
+- Promise<{ keyComponents: string[]; keyTechRoutes: string[]; timeline: any[] }>
+示例：
+// const uc = new IdentifyKeyFactsUseCase(vision, store, timeline)
+// const r = await uc.execute({ apiUrl, model, request })
+*/
 import type { ReviewRequest, VisionChatProvider, ArtifactStore, RichMessage } from '../../domain/contracts/index.js'
 import { TimelineService } from '../services/TimelineService.js'
 import { PromptLoader } from '../../infra/prompts/PromptLoader.js'

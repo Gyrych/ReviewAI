@@ -1,3 +1,13 @@
+/*
+功能：进度查询路由
+用途：查询某进度 ID 的时间线，供前端轮询或按需获取。
+参数：
+- makeProgressHandler(store)
+返回：
+- (req,res)=>Promise<void> Express 处理函数
+示例：
+// app.get('/progress/:id', makeProgressHandler(store))
+*/
 import type { Request, Response } from 'express'
 import type { ProgressStore } from '../../../domain/contracts/index.js'
 

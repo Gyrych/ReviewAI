@@ -1,3 +1,15 @@
+/*
+功能：结构化识别用例（StructuredRecognitionUseCase）
+用途：对图片进行多轮识别，必要时结合联网搜索，最终汇总为结构化 JSON。
+参数：
+- constructor(vision, search, timeline)
+- execute({ images, visionModel, enableSearch?, searchTopN?, progressId })
+返回：
+- Promise<{ circuit: any; timeline: any[] }>
+示例：
+// const uc = new StructuredRecognitionUseCase(vision, search, timeline)
+// const out = await uc.execute({ images, visionModel, progressId })
+*/
 // 中文注释：固定5轮识别 + 可选 datasheet 搜索 + consolidate
 export class StructuredRecognitionUseCase {
     constructor(vision, search, timeline) {
