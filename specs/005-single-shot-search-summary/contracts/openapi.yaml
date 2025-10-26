@@ -1,0 +1,86 @@
+openapi: 3.0.0
+info:
+  title: Search+Summary API
+  version: 1.0.0
+paths:
+  /api/v1/search-summary:
+    post:
+      summary: Single-shot search + summary with citations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                roundConfig:
+                  $ref: '#/components/schemas/RoundConfig'
+      responses:
+        '200':
+          description: Successful response with summary and optional citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnnotatedMessage'
+        '4xx':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    RoundConfig:
+      type: object
+      properties:
+        enable_search:
+          type: boolean
+        engine:
+          type: string
+          enum: [auto, native, exa]
+        max_results:
+          type: integer
+        context_scale:
+          type: string
+          enum: [low, medium, high]
+        timeout_ms:
+          type: integer
+    Citation:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        title:
+          type: string
+        snippet:
+          type: string
+        domain:
+          type: string
+        confidence_score:
+          type: number
+    AnnotatedMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+        raw_response_artifact:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+
+
