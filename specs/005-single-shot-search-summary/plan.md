@@ -62,4 +62,8 @@ specs/005-single-shot-search-summary/
 └── tasks.md         # /speckit.tasks 输出（非本命令创建）
 ```
 
+## 分阶段移除计划
+
+在新功能稳定运行 30 天后，计划移除旧功能。移除前需通知相关维护人员，并提供迁移指南与回滚演练记录。
+
 

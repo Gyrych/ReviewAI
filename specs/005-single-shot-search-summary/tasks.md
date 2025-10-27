@@ -113,6 +113,25 @@ description: 该文档为“单次交互的搜索轮与摘要轮”功能生成�
 
 - [ ] T037 [P] 将前端任务及迁移脚本标记为可并行（在本文件中为 T017,T018,T019,T005,T006,T008 添加 `[P]` 标识）
 
+## 新增任务（回滚/迁移/保护/复核）
+
+- [ ] T038 [P1] 编写并验证用于删除旧多轮实现的可回放迁移脚本（路径：`specs/005-single-shot-search-summary/migrations/`），并输出回放说明文档。
+- [ ] T039 [P1] 计划并执行回滚验证窗口（建议 24 小时），包含演练步骤、回滚验证检查项与验收标准（输出：`specs/005-single-shot-search-summary/migrations/rollback_playbook.md`）。
+- [ ] T040 [P1] 实现请求级超时保护中间件（`services/circuit-agent/src/middleware/timeoutMiddleware.ts`），并在配置中暴露 soft/hard 超时参数。
+- [ ] T041 [P1] 实现成本/预算保护模块（`services/circuit-agent/src/services/budgetControl.ts`），包含实时消耗监控与触发限流/告警接口。
+- [ ] T042 [P1] 为超时与预算保护编写集成测试与回归测试（`services/circuit-agent/tests/`）。
+- [ ] T043 [P1] 设计并实现人工复核队列（`services/circuit-agent/src/services/reviewQueueService.ts`），包含入列、分配、状态机与审计字段。
+- [ ] T044 [P2] 实现复核队列通知机制（邮件/Webhook/消息中心）（`services/circuit-agent/src/infra/notifications/`）。
+- [ ] T045 [P2] 实现复核队列权限控制（RBAC/角色验证）（`services/circuit-agent/src/middleware/authorization.ts`）。
+- [ ] T046 [P1] 实现删除请求的验证逻辑（权限与合法性校验）（`services/circuit-agent/src/validators/deleteValidator.ts`）。
+- [ ] T047 [P1] 实现删除前的依赖/影响检查模块（`services/circuit-agent/src/services/predeleteChecker.ts`）。
+- [ ] T048 [P1] 实现删除执行器与日志记录（`services/circuit-agent/src/services/deleteExecutor.ts`）。
+- [ ] T049 [P2] 实现删除后的后处理（索引/缓存更新）（`services/circuit-agent/src/services/postDeleteProcessor.ts`）。
+- [ ] T050 [P1] 实现删除回滚机制（`specs/005-single-shot-search-summary/migrations/rollback_multi_round.ps1` 与后端回滚 API 支持）。
+- [ ] T051 [P1] 在文档中明确量化值（context_scale、timeout、budget、rollback window），并将其写入 `specs/005-single-shot-search-summary/spec.md` 与 `plan.md`（任务输出：`specs/005-single-shot-search-summary/quantified_thresholds.md`）。
+- [ ] T052 [P1] 完成 `data-model.md` 的 Citation 与 AnnotatedMessage 字段定义（见下文 data-model 草案），并将定义移入 `specs/005-single-shot-search-summary/data-model.md`。
+- [ ] T053 [P1] 完成并校验迁移脚本（T005/T006）与数据模型的一致性，执行一次本地回放验证（输出：`specs/005-single-shot-search-summary/migrations/validation_report.md`）。
+
 ## 依赖关系（按用户故事级别）
 
 - US1（后端实现） → 在进行 US2（前端展示）与 US3（引擎策略）集成测试前必须完成

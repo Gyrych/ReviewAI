@@ -1,3 +1,34 @@
+## Data Model: AnnotatedMessage 与 Citation
+
+## AnnotatedMessage
+- id: string (UUID)
+- created_at: datetime
+- request_id: string (关联请求/轮次)
+- model_response_raw: json (原始模型响应)
+- text_content: text (模型返回的综合回答文本)
+- citations: Citation[] (外键/引用列表)
+- parsed_metadata: json (解析器输出的元数据，如片段位置索引)
+- artifact_path: string (保存原始响应的 artifact URL)
+- status: enum (processed / needs_review / failed)
+- reviewer_id: string|null (人工复核处理人)
+- review_notes: text|null
+
+## Citation
+- id: string (UUID)
+- annotated_message_id: string (外键 -> AnnotatedMessage.id)
+- url: string
+- domain: string
+- title: string|null
+- snippet: text|null
+- start_index: int|null
+- end_index: int|null
+- confidence_score: float|null
+- raw_html: text|null
+- fetch_timestamp: datetime|null
+- mime_type: string|null
+- favicon: string|null
+- created_at: datetime
+
 # Data Model: 单次交互搜索+摘要
 
 ## Entities
