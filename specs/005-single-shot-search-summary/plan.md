@@ -47,6 +47,11 @@
 2. OpenAPI 与实现的一致性校验（`scripts/check-contract-implementation.js`）
 3. 注释覆盖与 README 同步检查（`scripts/check-head-comments.sh`、`scripts/check-readme-sections.ps1`）
 
+CI 门控矩阵（建议）:
+- pre-merge: 静态检查（OpenAPI lint、`npm run check:prompts`）、单元测试快速套件
+- merge: 完整单元测试、契约一致性校验（`scripts/check-contract-implementation.js`）
+- post-merge: 集成/端到端回归（Playwright/集成套件），并验证 `specs/005-single-shot-search-summary/quantified_thresholds.md` 中定义的量化阈值（例如单轮请求计数、P95 时延目标）
+
 合规等级：可进入 Phase 1（实现）—— 无阻塞性违例，但需在合并前通过上述 CI 校验。
 
 ## Project Structure

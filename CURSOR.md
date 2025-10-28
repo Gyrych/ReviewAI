@@ -207,3 +207,10 @@
  - 2025-10-25: 修复 `.specify/scripts/powershell/check-prerequisites.ps1` 的重复参数块，恢复脚本可执行；执行 `/speckit.implement` 第 1 步并在 `specs/004-audit-constitution/tasks.md` 勾选 T001。
 
 - 2025-10-26: 在 `specs/005-single-shot-search-summary/spec.md` 中新增澄清：引用（Citation）将作为独立实体存在，包含完整追溯字段（`url`,`title`,`snippet`,`start_index`,`end_index`,`domain`,`confidence_score`,`raw_html`,`fetch_timestamp`,`mime_type`,`favicon`）。
+
+- 2025-10-27: 文档修正（AI 助手） — 对 `specs/005-single-shot-search-summary` 执行以下只读式规范修订并同步：
+  - 在 `spec.md` 中统一 FR-008/FR-017 语义，改为“不得对外暴露多轮切换开关；旧多轮仅可分阶段退役且须包含备份/回滚”；为 FR-005 和 FR-013 添加量化建议（context_scale tokens、soft/hard timeout、默认 token budget）；
+  - 新增 `specs/005-single-shot-search-summary/quantified_thresholds.md`，列出 context_scale、timeout、budget 与 CI 可验证阈值（供 T051 使用）；
+  - 在 `tasks.md` 中将 T001 标记为已完成、将 T002/T003 标注为阻塞优先、添加 T054（摘要长度自定义）与 T055（API 版本化）两个任务，并更新任务总数注记；
+  - 在 `data-model.md` 中对 `Citation` 实体追加索引、脱敏、审计字段与保留策略建议；
+  - 目的：消除文档间语义冲突（宪法一致性）、提供可测试的非功能阈值、补充缺失任务并增强数据模型供迁移与实现参考。

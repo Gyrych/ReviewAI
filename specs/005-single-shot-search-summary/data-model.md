@@ -85,3 +85,35 @@
 - 原始模型响应保存为 artifact（文件系统），引用字段在 DB 中存储索引以便审计与展示
 
 
+### Citation 存储与审计补充（建议）
+
+- **必需字段与元数据**:
+  - `id` (PK)
+  - `annotated_message_id` (FK -> AnnotatedMessage.id)
+  - `url` (索引)
+  - `domain` (索引)
+  - `title`
+  - `snippet` (可选，建议长度上限 1024 字符)
+  - `start_index`, `end_index`
+  - `confidence_score` (小数)
+  - `raw_html` (可选，敏感/大内容需脱敏或存储到受控 artifact)
+  - `fetch_timestamp` (UTC)
+  - `mime_type`
+  - `favicon` (可选)
+  - `created_by`, `created_at` (审计字段)
+
+- **索引建议**:
+  - 对 `annotated_message_id`、`url`、`domain` 建立索引以便快速查询与展示
+  - 对 `fetch_timestamp` 建立时间序列索引用于审计与过期清理
+
+- **隐私/脱敏策略**:
+  - `raw_html` 若包含敏感信息，先进行脱敏或将其存储为受限 artifact，仅在审计/复核场景下提供访问
+  - `snippet` 长度上限建议 1024 字符，超过则截断并记录截断标记
+
+- **保留/清理策略**:
+  - 原始抓取数据默认保留 180 天，过期后异步归档或脱敏化存储；关键审计记录（metadata）应长期保留
+
+- **一致性校验**:
+  - 在迁移脚本中验证字段与索引是否已创建，并在回放验证中确认查询/恢复能力
+
+
