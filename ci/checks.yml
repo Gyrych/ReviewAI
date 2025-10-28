@@ -1,0 +1,10 @@
+# CI checks configuration (alternate location)
+checks:
+  - name: prompts
+    cmd: npm run check:prompts
+  - name: contract
+    cmd: npm run check:contract
+  - name: comments
+    cmd: bash ./scripts/check-head-comments.sh . docs/comment-coverage-report.json
+
+

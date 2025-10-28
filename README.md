@@ -4,7 +4,7 @@ Local skeleton for AI-assisted schematic review: images → structured circuit J
 
 This repository contains a Vite/React frontend and two backend microservices (`circuit-agent` and `circuit-fine-agent`) that implement image-to-JSON extraction, multi-pass recognition, and LLM-based review/report generation.
 
-Important: The services require a set of prompt files under `ReviewAIPrompt/` (see "Prompts" section). Missing prompts cause the backend to fail fast.
+Important: The services require a set of prompt files under `ReviewAIPrompt/` (see "Prompts" section). Missing prompts cause the backend to fail fast. The project defaults to a single-shot review mode; legacy multi-round routes are deprecated and scheduled for removal—see `specs/005-single-shot-search-summary/removal_plan.md` for the deprecation and rollback plan.
 
 Prerequisites
 - Node.js >= 18

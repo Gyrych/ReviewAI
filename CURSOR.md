@@ -214,3 +214,13 @@
   - 在 `tasks.md` 中将 T001 标记为已完成、将 T002/T003 标注为阻塞优先、添加 T054（摘要长度自定义）与 T055（API 版本化）两个任务，并更新任务总数注记；
   - 在 `data-model.md` 中对 `Citation` 实体追加索引、脱敏、审计字段与保留策略建议；
   - 目的：消除文档间语义冲突（宪法一致性）、提供可测试的非功能阈值、补充缺失任务并增强数据模型供迁移与实现参考。
+
+变更记录（AI 实施）
+
+- 2025-10-28: 添加 `services/circuit-agent/src/models/citation.ts` 实体定义与 `specs/005-single-shot-search-summary/migrations/001_create_citation_table.sql` 迁移脚本以实现 T010/T005。目的：实现 Citation 实体与持久化迁移，满足规格中关于引用审计与检索展示的要求。
+
+- 2025-10-28: 添加 `services/circuit-agent/src/models/annotatedMessage.ts` 实体与 `specs/005-single-shot-search-summary/migrations/002_create_annotated_message_table.sql` 迁移脚本以实现 T011/T006。目的：实现 AnnotatedMessage 实体以保存模型原始响应、引用索引与审计元数据。
+- 2025-10-28: 添加 `services/circuit-agent/src/services/responseParser.ts` 及单元测试 `services/circuit-agent/tests/responseParser.unit.spec.ts`，并新增 `/api/v1/search-summary` 路由实现 `services/circuit-agent/src/interface/http/routes/search-summary.ts`。目的：完成 US1 的最小可用实现，支持原始响应解析、引用保存与 artifact 归档。
+
+- 2025-10-28: 前端变更：新增 `frontend/src/utils/apiClient.ts`，更新 `frontend/src/components/ResultView.tsx` 以渲染 `citations`，并添加样式 `frontend/src/styles/result-card.css`。目的：在前端展示解析出的引用并支持对 `/search-summary` 的请求。已同步更新 `specs/005-single-shot-search-summary/tasks.md` 对应 T017–T019 为已完成。
+ - 2025-10-28: 退役计划：为移除旧多轮实现添加 `specs/005-single-shot-search-summary/removal_plan.md`（描述发现、备份、迁移、验证与回滚流程），并在根 README（中/英）中加入退役说明与回滚链接，确保使用者了解单轮默认行为与移除流程。

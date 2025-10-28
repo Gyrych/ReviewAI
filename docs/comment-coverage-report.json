@@ -1,6 +1,18 @@
 {
-  "missingCount": 1,
+  "missingCount": 13,
   "files": [
+    "./services/circuit-agent/src/config/defaults.ts",
     "./services/circuit-agent/src/interface/http/routes/health.ts",
+    "./services/circuit-agent/src/interface/http/routes/search-summary.ts",
+    "./services/circuit-agent/src/middleware/roundConfigMiddleware.ts",
+    "./services/circuit-agent/src/middleware/timeoutMiddleware.ts",
+    "./services/circuit-agent/src/models/citation.ts",
+    "./services/circuit-agent/src/services/deleteExecutor.ts",
+    "./services/circuit-agent/src/services/engineSelector.ts",
+    "./services/circuit-agent/src/services/metrics.ts",
+    "./services/circuit-agent/src/services/storageService.ts",
+    "./services/circuit-agent/src/utils/retry.ts",
+    "./services/circuit-agent/src/validators/deleteValidator.ts",
+    "./frontend/src/utils/apiClient.ts",
   ]
 }

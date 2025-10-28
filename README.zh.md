@@ -4,7 +4,7 @@
 
 仓库包含一个 Vite/React 前端和两个后端子服务（`circuit-agent` 与 `circuit-fine-agent`），实现图像解析、多轮识别与 LLM 评审/整合。
 
-重要：运行时要求 `ReviewAIPrompt/` 下存在一组提示词文件（见“提示词”一节）。缺失提示词会导致后端 fail-fast。
+重要：运行时要求 `ReviewAIPrompt/` 下存在一组提示词文件（见“提示词”一节）。缺失提示词会导致后端 fail-fast。项目当前默认采用单轮（single-shot）评审模式；旧的多轮实现已退役并计划移除，详情见 `specs/005-single-shot-search-summary/removal_plan.md`。
 
 前置条件
 - Node.js >= 18

@@ -1,3 +1,44 @@
+openapi: 3.0.1
+info:
+  title: ReviewAI Search Summary API
+  version: '1.0.1'
+paths:
+  /search-summary:
+    post:
+      summary: Parse provider response and return annotated message with citations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: object
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        title:
+                          type: string
+                        snippet:
+                          type: string
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Error
+
 openapi: 3.0.0
 info:
   title: Search+Summary API

@@ -1,0 +1,16 @@
+.citation-list {
+  display: block;
+}
+.citation-list li {
+  margin: 6px 0;
+}
+.citation-list a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+.citation-host {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+

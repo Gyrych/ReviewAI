@@ -27,6 +27,12 @@ export function getAgentBase(agentId: 'circuit' | 'circuit-fine') {
 
 export default { getAgentBase }
 
+export function buildSearchSummaryPayload(providerResponse: any, summaryLength?: 'short' | 'medium' | 'long') {
+  const payload: any = { response: providerResponse }
+  if (summaryLength) payload.summary_length = summaryLength
+  return payload
+}
+
 
 // 中文注释：统一的 API 错误解析函数，供全局调用
 export function parseApiError(payload: any, status: number): { message: string; details?: any } {

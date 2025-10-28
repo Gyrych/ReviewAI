@@ -22,6 +22,7 @@ import { FinalAggregationUseCase } from '../../../app/usecases/FinalAggregationU
 import { PromptLoader } from '../../../infra/prompts/PromptLoader.js'
 import { IdentifyKeyFactsUseCase } from '../../../app/usecases/IdentifyKeyFactsUseCase.js'
 import { OpenRouterSearch } from '../../../infra/search/OpenRouterSearch.js'
+import retry from '../../../utils/retry.js'
 import type { SearchProvider } from '../../../domain/contracts/index.js'
 import { logger } from '../../../infra/log/logger.js'
 import { ArtifactStoreFs } from '../../../infra/storage/ArtifactStoreFs.js'
@@ -239,7 +240,7 @@ export function makeOrchestrateRouter(deps: {
                   try { if (deps.timeline && typeof deps.timeline.push === 'function') { deps.timeline.push(progressId, qEntry).catch(() => {}) } } catch {}
                   // 异步保存 trace，便于离线分析（不阻塞主流程）
                   try { const fn: any = await deps.artifact.save(JSON.stringify(qEntry), 'search_trace', { ext: '.log', contentType: 'text/plain' }); if (fn && (fn.filename || fn.url)) searchTraceFiles.push(fn.filename || fn.url || String(fn)) } catch {}
-                  const hits = await search.search(String(kw), perKeywordLimit)
+                  const hits = await retry.retryOnce(() => search.search(String(kw), perKeywordLimit))
                   for (const h of hits) {
                     logger.info('search.pipeline.summary', { url: h.url })
                     // 记录查询命中步骤

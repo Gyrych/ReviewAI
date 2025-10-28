@@ -61,6 +61,13 @@
   - `fetch_timestamp` (timestamp, optional)
   - `mime_type` (string, optional)
   - `favicon` (string, optional)
+- `created_at` (timestamp)
+
+### 索引与约束建议
+
+- 对 `annotated_message_id`、`url`、`domain` 建立索引；
+- 若使用关系型数据库，建议为 `annotated_message_id` 建立外键约束指向 `AnnotatedMessage.id`；
+
 
 ### RoundConfig
 

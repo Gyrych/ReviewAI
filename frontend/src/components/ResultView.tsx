@@ -20,7 +20,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
-export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson, timeline, searchSummaries }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void, timeline?: { step: string; ts?: number; meta?: any }[], searchSummaries?: string[] }) {
+export default function ResultView({ markdown, enrichedJson, overlay, setEnrichedJson, timeline, searchSummaries, citations }: { markdown: string, enrichedJson?: any, overlay?: any, setEnrichedJson?: (j:any)=>void, timeline?: { step: string; ts?: number; meta?: any }[], searchSummaries?: string[], citations?: { url: string; title?: string }[] }) {
   const { t } = useI18n()
   const [expanded, setExpanded] = React.useState<Record<number, boolean>>({})
   function toggleExpand(i: number) { setExpanded((s) => ({ ...s, [i]: !s[i] })) }
@@ -80,6 +80,23 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
     )
   }
 
+  function renderCitations() {
+    if (!Array.isArray(citations) || citations.length === 0) return null
+    return (
+      <div className="mt-4 p-2 border rounded bg-white dark:bg-cursorPanel dark:border-cursorBorder">
+        <div className="text-sm font-medium mb-2">引用 (Citations)</div>
+        <ul className="text-xs space-y-1">
+          {citations.map((c, i) => (
+            <li key={i} className="flex items-center justify-between">
+              <a href={c.url} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 truncate">{c.title || c.url}</a>
+              <div className="text-gray-500 text-xs ml-2">{(() => { try { return new URL(c.url).hostname } catch { return c.url } })()}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   return (
     <div className="prose dark:prose-invert max-w-none bg-white dark:bg-cursorPanel p-4 rounded border dark:border-cursorBorder dark:text-cursorText glass">
       {renderOverlay()}
@@ -109,6 +126,7 @@ export default function ResultView({ markdown, enrichedJson, overlay, setEnriche
         </details>
       )}
       {renderSearchSummaries()}
+      {renderCitations()}
     </div>
   )
 }
