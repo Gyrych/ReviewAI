@@ -58,10 +58,10 @@ npm run dev
 模型说明
 ------
 
-本应用区分两类模型角色：
+本应用区分两类模型角色；当 `enableSearch=true` 时，编排器默认采用“单次请求（single-shot）检索+摘要”流程：
 
 - **主模型**：用于视觉识别与最终评审/报告生成。由顶部第一行 `model` 下拉配置，并随会话保存为 `model` 字段。
-- **副模型**：用于检索与逐 URL 摘要（search/summarize）。由顶部位于主模型下方的 `auxModel` 下拉配置，并随表单通过 `auxModel` 字段提交到后端；后端优先使用 `body.auxModel`，若缺失则回退到 `body.model`。
+- **副模型**：用于检索。开启 `enableSearch=true` 后端会发起一次上游调用，在一次推理中完成检索→去重→整合，并返回合并后的摘要与 `citations`；由 `auxModel` 选择器配置并随 `/orchestrate/review` 提交。时间线会记录 `search.single_shot.request/response` 与 `search_trace_summary` 工件。
 
 架构概览
 -------

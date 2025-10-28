@@ -58,10 +58,10 @@ Minimum required files (examples present in the repo):
 Models
 ------
 
-This application distinguishes between two model roles:
+This application distinguishes between two model roles. When `enableSearch=true`, the orchestrator defaults to a single-shot search+summary flow:
 
 - **Main model**: used for vision recognition and final review/report generation. Configured by the top-level `model` selector in the header and saved in sessions as the primary `model`.
-- **Aux model**: used for retrieval and per-URL summarization (search/summarize). Configured by the second selector under the main model (`auxModel`) in the header and submitted to the backend as `auxModel` in the `/orchestrate/review` multipart request; the backend will use `body.auxModel` if present, otherwise fallback to `body.model`.
+- **Aux model**: used for retrieval. When `enableSearch=true`, the backend issues a single upstream call that performs search→dedupe→merge and returns a consolidated summary plus `citations` in one response. Configured by the `auxModel` selector and submitted with `/orchestrate/review`. Timeline records `search.single_shot.request/response` and a compact `search_trace_summary` artifact.
 
 If any required prompt file is missing the backend will respond with 500 and log a `Failed to load system prompt` error.
 

@@ -1,40 +1,40 @@
 {
   "results": [
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_initial_zh.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_initial_zh.md",
       "exists": true,
       "sizeBytes": 19789,
       "sha256": "c2d1b81c9c63820bb857123cb6fb8f82ccdcfc9dbc9e7b2f54ea3d6b5f31ffad"
     },
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_initial_en.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_initial_en.md",
       "exists": true,
       "sizeBytes": 22744,
       "sha256": "5a2d027bc447883684565f096bc829b8f6ad28c7c108affbbd7196af08cf05c1"
     },
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_revision_zh.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_revision_zh.md",
       "exists": true,
       "sizeBytes": 11048,
       "sha256": "436e67597436875cf4ec41ef21d1593a3c6efe0287fa8953a5db658ea76f18a3"
     },
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_revision_en.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\system_prompt_revision_en.md",
       "exists": true,
       "sizeBytes": 13138,
       "sha256": "d6bf04d981ebb5166d035bf6efa6544dbfe4ad83321eafecdc3ac256b0a4d552"
     },
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\identify_prompt_zh.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\identify_prompt_zh.md",
       "exists": true,
-      "sizeBytes": 2344,
-      "sha256": "a76e6d506091514d0c39d5f389957b4eff7a509efd1dee9762b8718737395ef4"
+      "sizeBytes": 2514,
+      "sha256": "ef79ed8207611e22423acd1f5e526881a5846f06ecff56a8293cd849f5829ff7"
     },
     {
-      "path": "E:\\NewWorkplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\search_prompt_zh.md",
+      "path": "E:\\05_selfplace\\10_ReviewAI\\ReviewAIPrompt\\circuit-agent\\search_prompt_zh.md",
       "exists": true,
-      "sizeBytes": 419,
-      "sha256": "d47e99c3ce9bd94b30854c552cee87237f8d8b8f6b8efb4c0d55894365f11889"
+      "sizeBytes": 421,
+      "sha256": "1e2102db15ebcd6adc964dc1e6aa543b75404e546575e8e3c60f26cdacbb6298"
     }
   ],
   "missingCount": 0

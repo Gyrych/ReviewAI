@@ -72,7 +72,7 @@
 - `GET /system-prompt?lang=zh|en` — 获取 system prompt（供前端展示/下载）
 - `POST /orchestrate/review` — 统一编排入口（multipart），参数：`apiUrl`、`model`、`directReview`、`language`、`history`、`enableSearch` 等；直评模式会自动加载对应 system prompt 并走 `DirectReviewUseCase`。
 
-说明：当 `enableSearch=true` 且检索摘要生成成功时，后端除了在 `timeline` 中附带 `search.summary.saved`（含 artifact 引用与 `summarySnippet`），还会在 `timeline` 写入 `search.llm.request/response`（附 `bodySnippet` 与完整 artifact）。响应对象上也会直接返回 `searchSummaries: string[]`（与注入的 `extraSystems` 同源），以便前端兜底展示“检索摘要”。
+说明：当 `enableSearch=true` 时，默认走“单次请求（single-shot）检索+摘要”流程：后端向具备联网能力的模型发起一次对话，模型在一次推理中完成“检索→去重→整合摘要→输出 citations”。时间线写入 `search.single_shot.request/response` 与 `search.trace.summary.saved`。响应对象同时包含 `searchSummaries`（整合摘要）与 `citations`（模型返回的引用列表）。
 
 - `POST /modes/structured/recognize` — 结构化识别（multipart）
 - `POST /modes/structured/review` — 结构化多模型评审（json）
@@ -224,3 +224,8 @@
 
 - 2025-10-28: 前端变更：新增 `frontend/src/utils/apiClient.ts`，更新 `frontend/src/components/ResultView.tsx` 以渲染 `citations`，并添加样式 `frontend/src/styles/result-card.css`。目的：在前端展示解析出的引用并支持对 `/search-summary` 的请求。已同步更新 `specs/005-single-shot-search-summary/tasks.md` 对应 T017–T019 为已完成。
  - 2025-10-28: 退役计划：为移除旧多轮实现添加 `specs/005-single-shot-search-summary/removal_plan.md`（描述发现、备份、迁移、验证与回滚流程），并在根 README（中/英）中加入退役说明与回滚链接，确保使用者了解单轮默认行为与移除流程。
+
+- 2025-10-28: 单次请求（single-shot）检索+摘要落地：
+  - 新增 `OpenRouterSearch.singleShot()`（一次调用完成检索与整合摘要，返回 `{ summary, citations[] }`）。
+  - 重构 `interface/http/routes/orchestrate.ts` 的搜索分支为 single-shot，并写入 `search.single_shot.request/response` 日志与 `search_single_shot` 工件；在响应中附带 `citations`。
+  - 目的：将“搜索轮与摘要轮”合并为一次模型请求，降低时延与成本，统一日志与工件便于核对。

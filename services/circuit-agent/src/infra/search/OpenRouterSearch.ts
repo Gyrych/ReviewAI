@@ -85,6 +85,62 @@ export class OpenRouterSearch implements SearchProvider {
     }
   }
 
+  // 中文注释：单次请求完成“搜索+多源整合摘要”，返回结构化 JSON（{ summary, citations[] }）
+  async singleShot(params: { query: string; topN: number; lang: 'zh'|'en'; summaryLength?: number }): Promise<{ summary: string; citations: Array<{ title: string; url: string }> }> {
+    const query = String(params?.query || '').trim()
+    const topN = Math.max(1, Number(params?.topN || 5))
+    const lang = (params?.lang === 'en') ? 'en' : 'zh'
+    const lengthHint = String(params?.summaryLength || '').trim()
+    try {
+      // 选择具备联网/浏览能力并善于结构化输出的模型
+      const modelName = this.model || 'perplexity/sonar'
+      const engine = String(process.env.OPENROUTER_WEB_ENGINE || 'exa')
+      const plugins = [{ id: 'web', engine, max_results: topN }]
+      // 系统提示：要求一次性完成“检索→筛选→合并→输出 JSON”
+      const lengthPart = lengthHint ? `，长度偏好：${lengthHint}` : ''
+      const system = (
+        lang === 'zh'
+          ? `你是联网检索与多源整合助手。请在一次推理中完成：
+1) 使用联网插件检索与主题高度相关的来源（不超过 ${topN} 条）；
+2) 过滤重复与低质量来源；
+3) 汇总为精炼中文摘要${lengthPart}；
+4) 以 JSON 返回：{"summary":"...","citations":[{"title":"...","url":"..."}]}`
+          : `You are a web-enabled research assistant. In a single pass: search (<= ${topN}), dedupe, merge and return a concise summary${lengthPart}. Output JSON: {"summary":"...","citations":[{"title":"...","url":"..."}]}`
+      )
+      const userMsg = query
+      // 追踪：单次请求
+      try { await this.trace?.({ phase: 'search', target: 'single_shot', direction: 'request', meta: { model: modelName, engine, topN, lang }, body: { system, messages: [{ role: 'user', content: userMsg }], plugins } }) } catch {}
+      const resp = await this.provider.chat({ apiUrl: '', model: modelName, system, messages: [{ role: 'user', content: userMsg }], plugins, headers: this.headers, extraBody: { temperature: 0.2 } })
+      const txt = (resp && resp.text) ? resp.text.trim() : ''
+      try { await this.trace?.({ phase: 'search', target: 'single_shot', direction: 'response', meta: { model: modelName }, body: { raw: resp?.raw || '', text: txt.slice(0, 4000) } }) } catch {}
+
+      // 解析 JSON 输出
+      let summary = ''
+      let citations: Array<{ title: string; url: string }> = []
+      try {
+        const j = JSON.parse(txt)
+        if (j && typeof j === 'object') {
+          summary = String(j.summary || '')
+          if (Array.isArray(j.citations)) {
+            citations = j.citations
+              .map((c: any) => ({ title: String(c?.title || '').trim() || String(c?.url || '').trim(), url: String(c?.url || '').trim() }))
+              .filter((it: { title: string; url: string }) => Boolean(it.url))
+          }
+        }
+      } catch {}
+      // 回退解析：抽取 URL 列表，摘要为原文或首段
+      if (!summary) summary = txt.split(/\n\n+/)[0] || txt
+      if (citations.length === 0) {
+        const urls = (txt.match(/https?:\/\/[^\s"'<>\)\]]+/gi) || []).slice(0, topN)
+        citations = urls.map(u => ({ title: u, url: u }))
+      }
+      return { summary, citations }
+    } catch (e) {
+      logger.warn('web.single_shot.error', { message: (e as Error)?.message })
+      return { summary: '', citations: [] }
+    }
+  }
+
   // 中文注释：对 URL 进行在线抓取并在上游汇总为指定语言与词数上限的纯文本摘要
   async summarizeUrl(url: string, wordLimit: number, lang: 'zh'|'en'): Promise<string> {
     try {
